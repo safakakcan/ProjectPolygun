@@ -1,4 +1,5 @@
 using ProjectPolygun.Examples;
+using ProjectPolygun.Gameplay.Player;
 using UnityEngine;
 
 namespace ProjectPolygun.Infrastructure
@@ -13,6 +14,8 @@ namespace ProjectPolygun.Infrastructure
         private bool setupOnStart = true;
 
         [SerializeField] private bool addExampleComponent = true;
+        [SerializeField] private bool addPlayerSystemExample = true;
+        [SerializeField] private bool createPlayerManager = true;
 
         private void Start()
         {
@@ -30,8 +33,23 @@ namespace ProjectPolygun.Infrastructure
             // Ensure GameBootstrapper exists
             EnsureGameBootstrapper();
 
+            // Create PlayerManager if requested
+            if (createPlayerManager)
+            {
+                EnsurePlayerManager();
+            }
+
             // Add example component if requested
-            if (addExampleComponent) AddExampleComponent();
+            if (addExampleComponent)
+            {
+                AddExampleComponent();
+            }
+
+            // Add player system example if requested
+            if (addPlayerSystemExample)
+            {
+                AddPlayerSystemExample();
+            }
 
             Debug.Log("=== Scene setup complete! ===");
         }
@@ -54,6 +72,24 @@ namespace ProjectPolygun.Infrastructure
             }
         }
 
+        private void EnsurePlayerManager()
+        {
+            // Check if PlayerManager already exists
+            var existingManager = FindObjectOfType<PlayerManager>();
+
+            if (existingManager == null)
+            {
+                // Create new PlayerManager
+                var managerGO = new GameObject("PlayerManager");
+                managerGO.AddComponent<PlayerManager>();
+                Debug.Log("Created PlayerManager");
+            }
+            else
+            {
+                Debug.Log("PlayerManager already exists");
+            }
+        }
+
         private void AddExampleComponent()
         {
             // Check if example already exists
@@ -71,6 +107,26 @@ namespace ProjectPolygun.Infrastructure
             else
             {
                 Debug.Log("ArchitectureExample already exists");
+            }
+        }
+
+        private void AddPlayerSystemExample()
+        {
+            // Check if player system example already exists
+            var existingPlayerExample = FindObjectOfType<PlayerSystemExample>();
+
+            if (existingPlayerExample == null)
+            {
+                // Add to this GameObject
+                if (GetComponent<PlayerSystemExample>() == null)
+                {
+                    gameObject.AddComponent<PlayerSystemExample>();
+                    Debug.Log("Added PlayerSystemExample component");
+                }
+            }
+            else
+            {
+                Debug.Log("PlayerSystemExample already exists");
             }
         }
 
@@ -99,6 +155,11 @@ namespace ProjectPolygun.Infrastructure
             CreateSpawnPoint("SpawnPoint_3", new Vector3(-20, 1, 20));
             CreateSpawnPoint("SpawnPoint_4", new Vector3(20, 1, 20));
 
+            // Create some obstacles for interesting gameplay
+            CreateObstacle("Obstacle_1", new Vector3(0, 1, 0), new Vector3(2, 2, 2));
+            CreateObstacle("Obstacle_2", new Vector3(10, 1, 10), new Vector3(1, 2, 4));
+            CreateObstacle("Obstacle_3", new Vector3(-10, 1, -10), new Vector3(4, 2, 1));
+
             Debug.Log("Test environment created!");
         }
 
@@ -108,6 +169,13 @@ namespace ProjectPolygun.Infrastructure
             wall.name = name;
             wall.transform.position = position;
             wall.transform.localScale = scale;
+            
+            // Make walls gray
+            var renderer = wall.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = Color.gray;
+            }
         }
 
         private void CreateSpawnPoint(string name, Vector3 position)
@@ -124,6 +192,43 @@ namespace ProjectPolygun.Infrastructure
             // Make it green
             var renderer = indicator.GetComponent<Renderer>();
             if (renderer != null) renderer.material.color = Color.green;
+        }
+
+        private void CreateObstacle(string name, Vector3 position, Vector3 scale)
+        {
+            var obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            obstacle.name = name;
+            obstacle.transform.position = position;
+            obstacle.transform.localScale = scale;
+            
+            // Make obstacles brown
+            var renderer = obstacle.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = new Color(0.6f, 0.3f, 0.1f); // Brown
+            }
+        }
+
+        /// <summary>
+        ///     Quick setup for FPS testing
+        /// </summary>
+        [ContextMenu("Quick FPS Setup")]
+        public void QuickFPSSetup()
+        {
+            SetupScene();
+            CreateTestEnvironment();
+            
+            // Find PlayerManager and spawn a local player
+            var playerManager = FindObjectOfType<PlayerManager>();
+            if (playerManager != null)
+            {
+                playerManager.SpawnLocalPlayerTest();
+                Debug.Log("Spawned local player for FPS testing!");
+            }
+            else
+            {
+                Debug.LogWarning("PlayerManager not found - cannot spawn player");
+            }
         }
     }
 }
