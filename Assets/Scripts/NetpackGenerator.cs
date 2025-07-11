@@ -87,7 +87,7 @@ namespace Netpack
                 {
                     WriteArraySize(statements, fieldName);
 
-                    var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeBinaryOperatorExpression(new CodeSnippetExpression("sizeof(char)"), CodeBinaryOperatorType.Multiply, new CodeSnippetExpression($"{fieldName}.Length")));
+                    var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeMethodInvokeExpression(new CodeSnippetExpression("Encoding.UTF8"), "GetByteCount", new CodeVariableReferenceExpression(fieldName)));
                     var targetSpan = new CodeMethodInvokeExpression(new CodeMethodReferenceExpression(new CodeVariableReferenceExpression("Data"), "Slice"), new CodeVariableReferenceExpression("Index"), new CodeVariableReferenceExpression("ByteCount"));
                     statements.Add(byteCountVarExpression);
                     statements.Add(new CodeExpressionStatement(new CodeMethodInvokeExpression(new CodeSnippetExpression("Encoding.UTF8"), "GetBytes", new CodeVariableReferenceExpression(fieldName), targetSpan)));
@@ -124,7 +124,7 @@ namespace Netpack
                     {
                         WriteArraySize(iterationStatements, $"{fieldName}[{iterationIndexName}]");
 
-                        var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeBinaryOperatorExpression(new CodeSnippetExpression("sizeof(char)"), CodeBinaryOperatorType.Multiply, new CodeSnippetExpression($"{fieldName}[{iterationIndexName}].Length")));
+                        var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeMethodInvokeExpression(new CodeSnippetExpression("Encoding.UTF8"), "GetByteCount", new CodeVariableReferenceExpression($"{fieldName}[{iterationIndexName}]")));
                         var targetSpan = new CodeMethodInvokeExpression(new CodeMethodReferenceExpression(new CodeVariableReferenceExpression("Data"), "Slice"), new CodeVariableReferenceExpression("Index"), new CodeVariableReferenceExpression("ByteCount"));
                         iterationStatements.Add(byteCountVarExpression);
                         iterationStatements.Add(new CodeExpressionStatement(new CodeMethodInvokeExpression(new CodeSnippetExpression("Encoding.UTF8"), "GetBytes", new CodeSnippetExpression($"{fieldName}[{iterationIndexName}]"), targetSpan)));
@@ -173,7 +173,7 @@ namespace Netpack
                 {
                     ReadArraySize(statements, fieldName);
 
-                    var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeBinaryOperatorExpression(new CodeSnippetExpression("sizeof(char)"), CodeBinaryOperatorType.Multiply, new CodeVariableReferenceExpression("ArraySize")));
+                    var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeVariableReferenceExpression("ArraySize"));
                     var targetSpan = new CodeMethodInvokeExpression(new CodeMethodReferenceExpression(new CodeVariableReferenceExpression("Data"), "Slice"), new CodeVariableReferenceExpression("Index"), new CodeVariableReferenceExpression("ByteCount"));
                     statements.Add(byteCountVarExpression);
                     statements.Add(new CodeAssignStatement(new CodeVariableReferenceExpression(fieldName), new CodeMethodInvokeExpression(new CodeSnippetExpression("Encoding.UTF8"), "GetString", targetSpan)));
@@ -211,7 +211,7 @@ namespace Netpack
                     {
                         ReadArraySize(iterationStatements, fieldName);
 
-                        var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeBinaryOperatorExpression(new CodeSnippetExpression("sizeof(char)"), CodeBinaryOperatorType.Multiply, new CodeVariableReferenceExpression("ArraySize")));
+                        var byteCountVarExpression = new CodeAssignStatement(new CodeVariableReferenceExpression("ByteCount"), new CodeVariableReferenceExpression("ArraySize"));
                         var targetSpan = new CodeMethodInvokeExpression(new CodeMethodReferenceExpression(new CodeVariableReferenceExpression("Data"), "Slice"), new CodeVariableReferenceExpression("Index"), new CodeVariableReferenceExpression("ByteCount"));
                         iterationStatements.Add(byteCountVarExpression);
                         iterationStatements.Add(new CodeAssignStatement(new CodeSnippetExpression($"{fieldName}[{iterationIndexName}]"), new CodeMethodInvokeExpression(new CodeSnippetExpression("Encoding.UTF8"), "GetString", targetSpan)));
