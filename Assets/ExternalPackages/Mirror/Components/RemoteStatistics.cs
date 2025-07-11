@@ -10,6 +10,7 @@
 //
 // for safety reasons, let's keep this read-only.
 // at least until there's safe authentication.
+
 using System;
 using System.IO;
 using UnityEngine;
@@ -17,20 +18,20 @@ using UnityEngine;
 namespace Mirror
 {
     // server -> client
-    struct Stats
+    internal struct Stats
     {
         // general
-        public int    connections;
+        public int connections;
         public double uptime;
-        public int    configuredTickRate;
-        public int    actualTickRate;
+        public int configuredTickRate;
+        public int actualTickRate;
 
         // traffic
         public long sentBytesPerSecond;
         public long receiveBytesPerSecond;
 
         // cpu
-        public float  serverTickInterval;
+        public float serverTickInterval;
         public double fullUpdateAvg;
         public double serverEarlyAvg;
         public double serverLateAvg;
@@ -48,7 +49,7 @@ namespace Mirror
             long sentBytesPerSecond,
             long receiveBytesPerSecond,
             // cpu
-            float  serverTickInterval,
+            float serverTickInterval,
             double fullUpdateAvg,
             double serverEarlyAvg,
             double serverLateAvg,
@@ -57,10 +58,10 @@ namespace Mirror
         )
         {
             // general
-            this.connections        = connections;
-            this.uptime             = uptime;
+            this.connections = connections;
+            this.uptime = uptime;
             this.configuredTickRate = configuredTickRate;
-            this.actualTickRate     = actualTickRate;
+            this.actualTickRate = actualTickRate;
 
             // traffic
             this.sentBytesPerSecond = sentBytesPerSecond;
@@ -79,43 +80,64 @@ namespace Mirror
     // [RequireComponent(typeof(NetworkStatistics))] <- needs to be on Network GO, not on NI
     public class RemoteStatistics : NetworkBehaviour
     {
-        // components ("fake statics" for similar API)
-        protected NetworkStatistics NetworkStatistics;
-
         // broadcast to client.
         // stats are quite huge, let's only send every few seconds via TargetRpc.
         // instead of sending multiple times per second via NB.OnSerialize.
         [Tooltip("Send stats every 'interval' seconds to client.")]
         public float sendInterval = 1;
-        double           lastSendTime;
 
-        [Header("GUI")]
-        public bool showGui;
-        public KeyCode hotKey     = KeyCode.BackQuote;
-        Rect           windowRect = new Rect(0, 0, 400, 400);
+        [Header("GUI")] public bool showGui;
+
+        public KeyCode hotKey = KeyCode.BackQuote;
 
         // password can't be stored in code or in Unity project.
         // it would be available in clients otherwise.
         // this is not perfectly secure. that's why RemoteStatistics is read-only.
-        [Header("Authentication")]
-        public string passwordFile = "remote_statistics.txt";
-        protected bool         serverAuthenticated;   // client needs to authenticate
-        protected bool         clientAuthenticated;   // show GUI until authenticated
-        protected string       serverPassword = null; // null means not found, auth impossible
-        protected string       clientPassword = "";   // for GUI
+        [Header("Authentication")] public string passwordFile = "remote_statistics.txt";
+
+        protected bool clientAuthenticated; // show GUI until authenticated
+        protected string clientPassword = ""; // for GUI
+
+        private double lastSendTime;
+
+        // components ("fake statics" for similar API)
+        protected NetworkStatistics NetworkStatistics;
+        protected bool serverAuthenticated; // client needs to authenticate
+        protected string serverPassword; // null means not found, auth impossible
 
         // statistics synced to client
-        Stats stats;
+        private Stats stats;
+        private Rect windowRect = new(0, 0, 400, 400);
 
-        void LoadPassword()
+        private void Update()
+        {
+            if (isServer) UpdateServer();
+            if (isLocalPlayer) UpdateClient();
+        }
+
+        private void OnGUI()
+        {
+            if (!isLocalPlayer) return;
+            if (!showGui) return;
+
+            windowRect = GUILayout.Window(0, windowRect, OnWindow, "Remote Statistics");
+            windowRect = Utils.KeepInScreen(windowRect);
+        }
+
+        protected override void OnValidate()
+        {
+            base.OnValidate();
+            syncMode = SyncMode.Owner;
+        }
+
+        private void LoadPassword()
         {
             // TODO only load once, not for all players?
             // let's avoid static state for now.
 
             // load the password
-            string path = Path.GetFullPath(passwordFile);
+            var path = Path.GetFullPath(passwordFile);
             if (File.Exists(path))
-            {
                 // don't spam the server logs for every player's loaded file
                 // Debug.Log($"RemoteStatistics: loading password file: {path}");
                 try
@@ -126,17 +148,8 @@ namespace Mirror
                 {
                     Debug.LogWarning($"RemoteStatistics: failed to read password file: {exception}");
                 }
-            }
             else
-            {
                 Debug.LogWarning($"RemoteStatistics: password file has not been created. Authentication will be impossible. Please save the password in: {path}");
-            }
-        }
-
-        protected override void OnValidate()
-        {
-            base.OnValidate();
-            syncMode = SyncMode.Owner;
         }
 
         // make sure to call base function when overwriting!
@@ -153,12 +166,12 @@ namespace Mirror
         public override void OnStartLocalPlayer()
         {
             // center the window initially
-            windowRect.x = Screen.width  / 2 - windowRect.width  / 2;
+            windowRect.x = Screen.width / 2 - windowRect.width / 2;
             windowRect.y = Screen.height / 2 - windowRect.height / 2;
         }
 
         [TargetRpc]
-        void TargetRpcSync(Stats v)
+        private void TargetRpcSync(Stats v)
         {
             // store stats and flag as authenticated
             clientAuthenticated = true;
@@ -178,7 +191,7 @@ namespace Mirror
             }
         }
 
-        void UpdateServer()
+        private void UpdateServer()
         {
             // only sync if client has authenticated on the server
             if (!serverAuthenticated) return;
@@ -211,29 +224,14 @@ namespace Mirror
             }
         }
 
-        void UpdateClient()
+        private void UpdateClient()
         {
             if (Input.GetKeyDown(hotKey))
                 showGui = !showGui;
         }
 
-        void Update()
-        {
-            if (isServer)      UpdateServer();
-            if (isLocalPlayer) UpdateClient();
-        }
-
-        void OnGUI()
-        {
-            if (!isLocalPlayer) return;
-            if (!showGui) return;
-
-            windowRect = GUILayout.Window(0, windowRect, OnWindow, "Remote Statistics");
-            windowRect = Utils.KeepInScreen(windowRect);
-        }
-
         // Text: value
-        void GUILayout_TextAndValue(string text, string value)
+        private void GUILayout_TextAndValue(string text, string value)
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label(text);
@@ -243,7 +241,7 @@ namespace Mirror
         }
 
         // fake a progress bar via horizontal scroll bar with ratio as width
-        void GUILayout_ProgressBar(double ratio, int width)
+        private void GUILayout_ProgressBar(double ratio, int width)
         {
             // clamp ratio, otherwise >1 would make it extremely large
             ratio = Mathd.Clamp01(ratio);
@@ -253,7 +251,7 @@ namespace Mirror
         // need to specify progress bar & caption width,
         // otherwise differently sized captions would always misalign the
         // progress bars.
-        void GUILayout_TextAndProgressBar(string text, double ratio, int progressbarWidth, string caption, int captionWidth, Color captionColor)
+        private void GUILayout_TextAndProgressBar(string text, double ratio, int progressbarWidth, string caption, int captionWidth, Color captionColor)
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label(text);
@@ -268,7 +266,7 @@ namespace Mirror
             GUILayout.EndHorizontal();
         }
 
-        void GUI_Authenticate()
+        private void GUI_Authenticate()
         {
             GUILayout.BeginVertical("Box"); // start general
             GUILayout.Label("<b>Authentication</b>");
@@ -280,7 +278,7 @@ namespace Mirror
             // }
             // else
             // {
-                GUILayout.Label("<i>Connection is not encrypted. Use with care!</i>");
+            GUILayout.Label("<i>Connection is not encrypted. Use with care!</i>");
             // }
 
             // input
@@ -288,16 +286,13 @@ namespace Mirror
 
             // button
             GUI.enabled = !string.IsNullOrWhiteSpace(clientPassword);
-            if (GUILayout.Button("Authenticate"))
-            {
-                CmdAuthenticate(clientPassword);
-            }
+            if (GUILayout.Button("Authenticate")) CmdAuthenticate(clientPassword);
             GUI.enabled = true;
 
             GUILayout.EndVertical(); // end general
         }
 
-        void GUI_General(
+        private void GUI_General(
             int connections,
             double uptime,
             int configuredTickRate,
@@ -322,20 +317,20 @@ namespace Mirror
             GUILayout.EndVertical(); // end general
         }
 
-        void GUI_Traffic(
+        private void GUI_Traffic(
             long serverSentBytesPerSecond,
             long serverReceivedBytesPerSecond)
         {
             GUILayout.BeginVertical("Box");
             GUILayout.Label("<b>Network</b>");
 
-            GUILayout_TextAndValue("Outgoing:", $"<b>{Utils.PrettyBytes(serverSentBytesPerSecond)    }/s</b>");
+            GUILayout_TextAndValue("Outgoing:", $"<b>{Utils.PrettyBytes(serverSentBytesPerSecond)}/s</b>");
             GUILayout_TextAndValue("Incoming:", $"<b>{Utils.PrettyBytes(serverReceivedBytesPerSecond)}/s</b>");
 
             GUILayout.EndVertical();
         }
 
-        void GUI_Cpu(
+        private void GUI_Cpu(
             float serverTickInterval,
             double fullUpdateAvg,
             double serverEarlyAvg,
@@ -352,7 +347,7 @@ namespace Mirror
             // unity update
             // happens every 'tickInterval'. progress bar shows it in relation.
             // <= 90% load is green, otherwise red
-            double fullRatio = fullUpdateAvg / serverTickInterval;
+            var fullRatio = fullUpdateAvg / serverTickInterval;
             GUILayout_TextAndProgressBar(
                 "World Update Avg:",
                 fullRatio,
@@ -363,7 +358,7 @@ namespace Mirror
             // server update
             // happens every 'tickInterval'. progress bar shows it in relation.
             // <= 90% load is green, otherwise red
-            double serverRatio = (serverEarlyAvg + serverLateAvg) / serverTickInterval;
+            var serverRatio = (serverEarlyAvg + serverLateAvg) / serverTickInterval;
             GUILayout_TextAndProgressBar(
                 "Server Update Avg:",
                 serverRatio,
@@ -387,7 +382,7 @@ namespace Mirror
             GUILayout.EndVertical();
         }
 
-        void GUI_Notice()
+        private void GUI_Notice()
         {
             // for security reasons, let's keep this read-only for now.
 
@@ -402,7 +397,7 @@ namespace Mirror
             // GUILayout.EndVertical();
         }
 
-        void OnWindow(int windowID)
+        private void OnWindow(int windowID)
         {
             if (!clientAuthenticated)
             {

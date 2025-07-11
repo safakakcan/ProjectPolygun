@@ -1,30 +1,28 @@
 ﻿using UnityEngine;
-using Mirror;
 
 namespace Mirror.Examples.Hex3D
 {
     [AddComponentMenu("")]
     public class Hex3DPlayer : NetworkBehaviour
     {
-        [Range(1, 20)]
-        public float speed = 10;
+        [Range(1, 20)] public float speed = 10;
 
-        void Update()
+        private void Update()
         {
             if (!isLocalPlayer) return;
 
-            float h = Input.GetAxis("Horizontal");
-            float v = Input.GetAxis("Vertical");
+            var h = Input.GetAxis("Horizontal");
+            var v = Input.GetAxis("Vertical");
 
             // if left shift is held, apply v to y instead of z
             if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
             {
-                Vector3 dir = new Vector3(h, v, 0);
+                var dir = new Vector3(h, v, 0);
                 transform.position += dir.normalized * (Time.deltaTime * speed);
             }
             else
             {
-                Vector3 dir = new Vector3(h, 0, v);
+                var dir = new Vector3(h, 0, v);
                 transform.position += dir.normalized * (Time.deltaTime * speed);
             }
 
@@ -34,7 +32,7 @@ namespace Mirror.Examples.Hex3D
                 transform.Rotate(Vector3.up, 90 * Time.deltaTime);
         }
 
-        void OnGUI()
+        private void OnGUI()
         {
             if (isLocalPlayer)
             {

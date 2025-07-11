@@ -20,13 +20,18 @@ namespace Mirror.Examples.LagCompensationDemo
             Gizmos.DrawWireCube(position, size);
         }
 
-        public static Capture2D Interpolate(Capture2D from, Capture2D to, double t) =>
-            new Capture2D(
+        public static Capture2D Interpolate(Capture2D from, Capture2D to, double t)
+        {
+            return new Capture2D(
                 0, // interpolated snapshot is applied directly. don't need timestamps.
                 Vector2.LerpUnclamped(from.position, to.position, (float)t),
                 Vector2.LerpUnclamped(from.size, to.size, (float)t)
             );
+        }
 
-        public override string ToString() => $"(time={timestamp} pos={position} size={size})";
+        public override string ToString()
+        {
+            return $"(time={timestamp} pos={position} size={size})";
+        }
     }
 }

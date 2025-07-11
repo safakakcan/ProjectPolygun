@@ -1,5 +1,4 @@
 using UnityEngine;
-using Mirror;
 
 namespace Mirror.Examples.TopDownShooter
 {
@@ -9,12 +8,13 @@ namespace Mirror.Examples.TopDownShooter
 
         // Have as many enemy variations as you want, remember to set them in NetworkManagers Registered Spawnable Prefabs array.
         public GameObject[] enemyPrefabs;
+
         // For our square map with no obstacles, we'l just set a range, for your own game, you may have set spawn points
         public Vector2 enemySpawnRangeX;
         public Vector2 enemySpawnRangeZ;
 
         [SyncVar(hook = nameof(OnEnemyCounterChanged))]
-        public int enemyCounter = 0;
+        public int enemyCounter;
 
         public override void OnStartServer()
         {
@@ -42,7 +42,7 @@ namespace Mirror.Examples.TopDownShooter
             else
             {
                 // Select random enemy prefab if we have more than one
-                GameObject enemy = Instantiate(enemyPrefabs[Random.Range(0, enemyPrefabs.Length)]);
+                var enemy = Instantiate(enemyPrefabs[Random.Range(0, enemyPrefabs.Length)]);
                 // Set random spawn position depending on our ranges set via inspector
                 enemy.transform.position = new Vector3(Random.Range(enemySpawnRangeX.x, enemySpawnRangeX.y), 0, Random.Range(enemySpawnRangeZ.x, enemySpawnRangeZ.y));
                 // Network spawn enemy to current and new players
@@ -55,12 +55,11 @@ namespace Mirror.Examples.TopDownShooter
             }
         }
 
-        void OnEnemyCounterChanged(int _Old, int _New)
+        private void OnEnemyCounterChanged(int _Old, int _New)
         {
 #if !UNITY_SERVER
             canvasTopDown.UpdateEnemyUI(enemyCounter);
 #endif
         }
-        
     }
 }

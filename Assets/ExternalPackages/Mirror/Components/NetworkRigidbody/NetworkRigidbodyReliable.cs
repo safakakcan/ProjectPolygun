@@ -6,25 +6,9 @@ namespace Mirror
     [AddComponentMenu("Network/Network Rigidbody (Reliable)")]
     public class NetworkRigidbodyReliable : NetworkTransformReliable
     {
-        bool clientAuthority => syncDirection == SyncDirection.ClientToServer;
-
-        Rigidbody rb;
-        bool wasKinematic;
-
-        protected override void OnValidate()
-        {
-            // Skip if Editor is in Play mode
-            if (Application.isPlaying) return;
-
-            base.OnValidate();
-
-            // we can't overwrite .target to be a Rigidbody.
-            // but we can ensure that .target has a Rigidbody, and use it.
-            if (target.GetComponent<Rigidbody>() == null)
-            {
-                Debug.LogWarning($"{name}'s NetworkRigidbody.target {target.name} is missing a Rigidbody", this);
-            }
-        }
+        private Rigidbody rb;
+        private bool wasKinematic;
+        private bool clientAuthority => syncDirection == SyncDirection.ClientToServer;
 
         // cach Rigidbody and original isKinematic setting
         protected override void Awake()
@@ -37,23 +21,16 @@ namespace Mirror
                 Debug.LogError($"{name}'s NetworkRigidbody.target {target.name} is missing a Rigidbody", this);
                 return;
             }
+
             wasKinematic = rb.isKinematic;
             base.Awake();
         }
-
-        // reset forced isKinematic flag to original.
-        // otherwise the overwritten value would remain between sessions forever.
-        // for example, a game may run as client, set rigidbody.iskinematic=true,
-        // then run as server, where .iskinematic isn't touched and remains at
-        // the overwritten=true, even though the user set it to false originally.
-        public override void OnStopServer() => rb.isKinematic = wasKinematic;
-        public override void OnStopClient() => rb.isKinematic = wasKinematic;
 
         // overwriting Construct() and Apply() to set Rigidbody.MovePosition
         // would give more jittery movement.
 
         // FixedUpdate for physics
-        void FixedUpdate()
+        private void FixedUpdate()
         {
             // who ever has authority moves the Rigidbody with physics.
             // everyone else simply sets it to kinematic.
@@ -65,7 +42,7 @@ namespace Mirror
                 // in host mode, we own it it if:
                 // clientAuthority is disabled (hence server / we own it)
                 // clientAuthority is enabled and we have authority over this object.
-                bool owned = !clientAuthority || IsClientWithAuthority;
+                var owned = !clientAuthority || IsClientWithAuthority;
 
                 // only set to kinematic if we don't own it
                 // otherwise don't touch isKinematic.
@@ -77,7 +54,7 @@ namespace Mirror
             {
                 // on the client, we own it only if clientAuthority is enabled,
                 // and we have authority over this object.
-                bool owned = IsClientWithAuthority;
+                var owned = IsClientWithAuthority;
 
                 // only set to kinematic if we don't own it
                 // otherwise don't touch isKinematic.
@@ -88,13 +65,40 @@ namespace Mirror
             else if (isServer)
             {
                 // on the server, we always own it if clientAuthority is disabled.
-                bool owned = !clientAuthority;
+                var owned = !clientAuthority;
 
                 // only set to kinematic if we don't own it
                 // otherwise don't touch isKinematic.
                 // the authority owner might use it either way.
                 if (!owned) rb.isKinematic = true;
             }
+        }
+
+        protected override void OnValidate()
+        {
+            // Skip if Editor is in Play mode
+            if (Application.isPlaying) return;
+
+            base.OnValidate();
+
+            // we can't overwrite .target to be a Rigidbody.
+            // but we can ensure that .target has a Rigidbody, and use it.
+            if (target.GetComponent<Rigidbody>() == null) Debug.LogWarning($"{name}'s NetworkRigidbody.target {target.name} is missing a Rigidbody", this);
+        }
+
+        // reset forced isKinematic flag to original.
+        // otherwise the overwritten value would remain between sessions forever.
+        // for example, a game may run as client, set rigidbody.iskinematic=true,
+        // then run as server, where .iskinematic isn't touched and remains at
+        // the overwritten=true, even though the user set it to false originally.
+        public override void OnStopServer()
+        {
+            rb.isKinematic = wasKinematic;
+        }
+
+        public override void OnStopClient()
+        {
+            rb.isKinematic = wasKinematic;
         }
 
         protected override void OnTeleport(Vector3 destination)

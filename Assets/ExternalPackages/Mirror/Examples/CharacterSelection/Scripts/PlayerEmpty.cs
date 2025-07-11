@@ -1,5 +1,4 @@
 using UnityEngine;
-using Mirror;
 
 namespace Mirror.Examples.CharacterSelection
 {
@@ -11,7 +10,7 @@ namespace Mirror.Examples.CharacterSelection
         {
             // enable UI located in the scene, after empty player spawns in.
 #if UNITY_2022_2_OR_NEWER
-            sceneReferencer = GameObject.FindAnyObjectByType<SceneReferencer>();
+            sceneReferencer = FindAnyObjectByType<SceneReferencer>();
 #else
             // Deprecated in Unity 2023.1
             sceneReferencer = GameObject.FindObjectOfType<SceneReferencer>();

@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 
 namespace kcp2k
 {
-    public static partial class Utils
+    public static class Utils
     {
         // Clamp so we don't have to depend on UnityEngine
         public static int Clamp(int value, int min, int max)

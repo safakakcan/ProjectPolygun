@@ -6,27 +6,29 @@ namespace StinkySteak.SimulationTimer
     {
         public static SimulationTimer None => default;
 
-        private float _targetTime;
-
-        public float TargetTime => _targetTime;
+        public float TargetTime { get; private set; }
 
         public static SimulationTimer CreateFromSeconds(float duration)
         {
-            return new SimulationTimer()
+            return new SimulationTimer
             {
-                _targetTime = duration + Time.time
+                TargetTime = duration + Time.time
             };
         }
 
-        public bool IsRunning => _targetTime > 0;
+        public bool IsRunning => TargetTime > 0;
 
         public bool IsExpired()
-            => Time.time >= _targetTime && IsRunning;
+        {
+            return Time.time >= TargetTime && IsRunning;
+        }
 
         public bool IsExpiredOrNotRunning()
-            => Time.time >= _targetTime;
+        {
+            return Time.time >= TargetTime;
+        }
 
         public float RemainingSeconds
-            => Mathf.Max(_targetTime - Time.time, 0);
+            => Mathf.Max(TargetTime - Time.time, 0);
     }
 }

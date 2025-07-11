@@ -12,6 +12,7 @@
 // ArraySegment<T> in Mirror.Tests.Dll.
 //
 // we need a custom resolver for ILPostProcessor.
+
 #if UNITY_2020_3_OR_NEWER
 using System;
 using System.Collections.Concurrent;
@@ -23,26 +24,24 @@ using Unity.CompilationPipeline.Common.ILPostProcessing;
 
 namespace Mirror.Weaver
 {
-    class ILPostProcessorAssemblyResolver : IAssemblyResolver
+    internal class ILPostProcessorAssemblyResolver : IAssemblyResolver
     {
-        readonly string[] assemblyReferences;
-
         // originally we used Dictionary + lock.
         // Resolve() is called thousands of times for large projects.
         // ILPostProcessor is multithreaded, so best to use ConcurrentDictionary without the lock here.
-        readonly ConcurrentDictionary<string, AssemblyDefinition> assemblyCache =
-            new ConcurrentDictionary<string, AssemblyDefinition>();
+        private readonly ConcurrentDictionary<string, AssemblyDefinition> assemblyCache = new();
+
+        private readonly string[] assemblyReferences;
+
+        private readonly ICompiledAssembly compiledAssembly;
 
         // Resolve() calls FindFile() every time.
         // thousands of times for String => mscorlib alone in large projects.
         // cache the results! ILPostProcessor is multithreaded, so use a ConcurrentDictionary here.
-        readonly ConcurrentDictionary<string, string> fileNameCache =
-            new ConcurrentDictionary<string, string>();
+        private readonly ConcurrentDictionary<string, string> fileNameCache = new();
 
-        readonly ICompiledAssembly compiledAssembly;
-        AssemblyDefinition selfAssembly;
-
-        readonly Logger Log;
+        private readonly Logger Log;
+        private AssemblyDefinition selfAssembly;
 
         public ILPostProcessorAssemblyResolver(ICompiledAssembly compiledAssembly, Logger Log)
         {
@@ -57,13 +56,10 @@ namespace Mirror.Weaver
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool disposing)
+        public AssemblyDefinition Resolve(AssemblyNameReference name)
         {
-            // Cleanup
+            return Resolve(name, new ReaderParameters(ReadingMode.Deferred));
         }
-
-        public AssemblyDefinition Resolve(AssemblyNameReference name) =>
-            Resolve(name, new ReaderParameters(ReadingMode.Deferred));
 
         // here is an example on when this is called:
         //   Player : NetworkBehaviour has a [SyncVar] of type String.
@@ -86,7 +82,7 @@ namespace Mirror.Weaver
             // reduces a single String=>mscorlib resolve from 0.771ms to 0.015ms.
             // => 50x improvement in TypeReference.Resolve() speed!
             // => 22x improvement in Weaver speed!
-            if (!fileNameCache.TryGetValue(name.Name, out string fileName))
+            if (!fileNameCache.TryGetValue(name.Name, out var fileName))
             {
                 fileName = FindFile(name.Name);
                 fileNameCache.TryAdd(name.Name, fileName);
@@ -101,46 +97,46 @@ namespace Mirror.Weaver
 
                 // the fix for #2503 started showing this warning for Bee.BeeDriver on mac,
                 // which is for compilation. we can ignore that one.
-                if (!name.Name.StartsWith("Bee.BeeDriver"))
-                {
-                    Log.Warning($"ILPostProcessorAssemblyResolver.Resolve: Failed to find file for {name}");
-                }
+                if (!name.Name.StartsWith("Bee.BeeDriver")) Log.Warning($"ILPostProcessorAssemblyResolver.Resolve: Failed to find file for {name}");
                 return null;
             }
 
             // try to get cached assembly by filename + writetime
-            DateTime lastWriteTime = File.GetLastWriteTime(fileName);
-            string cacheKey = fileName + lastWriteTime;
-            if (assemblyCache.TryGetValue(cacheKey, out AssemblyDefinition result))
+            var lastWriteTime = File.GetLastWriteTime(fileName);
+            var cacheKey = fileName + lastWriteTime;
+            if (assemblyCache.TryGetValue(cacheKey, out var result))
                 return result;
 
             // otherwise resolve and cache a new assembly
             parameters.AssemblyResolver = this;
-            MemoryStream ms = MemoryStreamFor(fileName);
+            var ms = MemoryStreamFor(fileName);
 
-            string pdb = fileName + ".pdb";
+            var pdb = fileName + ".pdb";
             if (File.Exists(pdb))
                 parameters.SymbolStream = MemoryStreamFor(pdb);
 
-            AssemblyDefinition assemblyDefinition = AssemblyDefinition.ReadAssembly(ms, parameters);
+            var assemblyDefinition = AssemblyDefinition.ReadAssembly(ms, parameters);
             assemblyCache.TryAdd(cacheKey, assemblyDefinition);
             return assemblyDefinition;
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            // Cleanup
+        }
+
         // find assemblyname in assembly's references
-        string FindFile(string name)
+        private string FindFile(string name)
         {
             // perhaps the type comes from a .dll or .exe
             // check both in one call without Linq instead of iterating twice like originally
-            foreach (string r in assemblyReferences)
-            {
+            foreach (var r in assemblyReferences)
                 if (Path.GetFileNameWithoutExtension(r) == name)
                     return r;
-            }
 
             // this is called thousands(!) of times.
             // constructing strings only once saves ~0.1ms per call for mscorlib.
-            string dllName = name + ".dll";
+            var dllName = name + ".dll";
 
             // Unfortunately the current ICompiledAssembly API only provides direct references.
             // It is very much possible that a postprocessor ends up investigating a type in a directly
@@ -149,9 +145,9 @@ namespace Mirror.Weaver
             // in the ILPostProcessing API. As a workaround, we rely on the fact here that the indirect references
             // are always located next to direct references, so we search in all directories of direct references we
             // got passed, and if we find the file in there, we resolve to it.
-            foreach (string parentDir in assemblyReferences.Select(Path.GetDirectoryName).Distinct())
+            foreach (var parentDir in assemblyReferences.Select(Path.GetDirectoryName).Distinct())
             {
-                string candidate = Path.Combine(parentDir, dllName);
+                var candidate = Path.Combine(parentDir, dllName);
                 if (File.Exists(candidate))
                     return candidate;
             }
@@ -162,15 +158,15 @@ namespace Mirror.Weaver
         // open file as MemoryStream.
         // ILPostProcessor is multithreaded.
         // retry a few times in case another thread is still accessing the file.
-        static MemoryStream MemoryStreamFor(string fileName)
+        private static MemoryStream MemoryStreamFor(string fileName)
         {
             return Retry(10, TimeSpan.FromSeconds(1), () =>
             {
                 byte[] byteArray;
-                using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 {
                     byteArray = new byte[fs.Length];
-                    int readLength = fs.Read(byteArray, 0, (int)fs.Length);
+                    var readLength = fs.Read(byteArray, 0, (int)fs.Length);
                     if (readLength != fs.Length)
                         throw new InvalidOperationException("File read length is not full length of file.");
                 }
@@ -179,7 +175,7 @@ namespace Mirror.Weaver
             });
         }
 
-        static MemoryStream Retry(int retryCount, TimeSpan waitTime, Func<MemoryStream> func)
+        private static MemoryStream Retry(int retryCount, TimeSpan waitTime, Func<MemoryStream> func)
         {
             try
             {

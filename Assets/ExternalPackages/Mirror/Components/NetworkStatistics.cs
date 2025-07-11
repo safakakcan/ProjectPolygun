@@ -4,33 +4,30 @@ using UnityEngine;
 namespace Mirror
 {
     /// <summary>
-    /// Shows Network messages and bytes sent and received per second.
+    ///     Shows Network messages and bytes sent and received per second.
     /// </summary>
     /// <remarks>
-    /// <para>Add this component to the same object as Network Manager.</para>
+    ///     <para>Add this component to the same object as Network Manager.</para>
     /// </remarks>
     [AddComponentMenu("Network/Network Statistics")]
     [DisallowMultipleComponent]
     [HelpURL("https://mirror-networking.gitbook.io/docs/components/network-statistics")]
     public class NetworkStatistics : MonoBehaviour
     {
-        // update interval
-        double intervalStartTime;
-
         // ---------------------------------------------------------------------
 
         // CLIENT (public fields for other components to grab statistics)
         // long bytes to support >2GB
-        [HideInInspector] public int  clientIntervalReceivedPackets;
+        [HideInInspector] public int clientIntervalReceivedPackets;
         [HideInInspector] public long clientIntervalReceivedBytes;
-        [HideInInspector] public int  clientIntervalSentPackets;
+        [HideInInspector] public int clientIntervalSentPackets;
         [HideInInspector] public long clientIntervalSentBytes;
 
         // results from last interval
         // long bytes to support >2GB
-        [HideInInspector] public int  clientReceivedPacketsPerSecond;
+        [HideInInspector] public int clientReceivedPacketsPerSecond;
         [HideInInspector] public long clientReceivedBytesPerSecond;
-        [HideInInspector] public int  clientSentPacketsPerSecond;
+        [HideInInspector] public int clientSentPacketsPerSecond;
         [HideInInspector] public long clientSentBytesPerSecond;
 
         // ---------------------------------------------------------------------
@@ -38,24 +35,28 @@ namespace Mirror
         // SERVER (public fields for other components to grab statistics)
         // capture interval
         // long bytes to support >2GB
-        [HideInInspector] public int  serverIntervalReceivedPackets;
+        [HideInInspector] public int serverIntervalReceivedPackets;
         [HideInInspector] public long serverIntervalReceivedBytes;
-        [HideInInspector] public int  serverIntervalSentPackets;
+        [HideInInspector] public int serverIntervalSentPackets;
         [HideInInspector] public long serverIntervalSentBytes;
 
         // results from last interval
         // long bytes to support >2GB
-        [HideInInspector] public int  serverReceivedPacketsPerSecond;
+        [HideInInspector] public int serverReceivedPacketsPerSecond;
         [HideInInspector] public long serverReceivedBytesPerSecond;
-        [HideInInspector] public int  serverSentPacketsPerSecond;
+        [HideInInspector] public int serverSentPacketsPerSecond;
+
         [HideInInspector] public long serverSentBytesPerSecond;
+
+        // update interval
+        private double intervalStartTime;
 
         // NetworkManager sets Transport.active in Awake().
         // so let's hook into it in Start().
-        void Start()
+        private void Start()
         {
             // find available transport
-            Transport transport = Transport.active;
+            var transport = Transport.active;
             if (transport != null)
             {
                 transport.OnClientDataReceived += OnClientReceive;
@@ -63,47 +64,13 @@ namespace Mirror
                 transport.OnServerDataReceived += OnServerReceive;
                 transport.OnServerDataSent += OnServerSend;
             }
-            else Debug.LogError($"NetworkStatistics: no available or active Transport found on this platform: {Application.platform}");
-        }
-
-        void OnDestroy()
-        {
-            // remove transport hooks
-            Transport transport = Transport.active;
-            if (transport != null)
+            else
             {
-                transport.OnClientDataReceived -= OnClientReceive;
-                transport.OnClientDataSent -= OnClientSend;
-                transport.OnServerDataReceived -= OnServerReceive;
-                transport.OnServerDataSent -= OnServerSend;
+                Debug.LogError($"NetworkStatistics: no available or active Transport found on this platform: {Application.platform}");
             }
         }
 
-        void OnClientReceive(ArraySegment<byte> data, int channelId)
-        {
-            ++clientIntervalReceivedPackets;
-            clientIntervalReceivedBytes += data.Count;
-        }
-
-        void OnClientSend(ArraySegment<byte> data, int channelId)
-        {
-            ++clientIntervalSentPackets;
-            clientIntervalSentBytes += data.Count;
-        }
-
-        void OnServerReceive(int connectionId, ArraySegment<byte> data, int channelId)
-        {
-            ++serverIntervalReceivedPackets;
-            serverIntervalReceivedBytes += data.Count;
-        }
-
-        void OnServerSend(int connectionId, ArraySegment<byte> data, int channelId)
-        {
-            ++serverIntervalSentPackets;
-            serverIntervalSentBytes += data.Count;
-        }
-
-        void Update()
+        private void Update()
         {
             // calculate results every second
             if (NetworkTime.localTime >= intervalStartTime + 1)
@@ -115,33 +82,20 @@ namespace Mirror
             }
         }
 
-        void UpdateClient()
+        private void OnDestroy()
         {
-            clientReceivedPacketsPerSecond = clientIntervalReceivedPackets;
-            clientReceivedBytesPerSecond = clientIntervalReceivedBytes;
-            clientSentPacketsPerSecond = clientIntervalSentPackets;
-            clientSentBytesPerSecond = clientIntervalSentBytes;
-
-            clientIntervalReceivedPackets = 0;
-            clientIntervalReceivedBytes = 0;
-            clientIntervalSentPackets = 0;
-            clientIntervalSentBytes = 0;
+            // remove transport hooks
+            var transport = Transport.active;
+            if (transport != null)
+            {
+                transport.OnClientDataReceived -= OnClientReceive;
+                transport.OnClientDataSent -= OnClientSend;
+                transport.OnServerDataReceived -= OnServerReceive;
+                transport.OnServerDataSent -= OnServerSend;
+            }
         }
 
-        void UpdateServer()
-        {
-            serverReceivedPacketsPerSecond = serverIntervalReceivedPackets;
-            serverReceivedBytesPerSecond = serverIntervalReceivedBytes;
-            serverSentPacketsPerSecond = serverIntervalSentPackets;
-            serverSentBytesPerSecond = serverIntervalSentBytes;
-
-            serverIntervalReceivedPackets = 0;
-            serverIntervalReceivedBytes = 0;
-            serverIntervalSentPackets = 0;
-            serverIntervalSentBytes = 0;
-        }
-
-        void OnGUI()
+        private void OnGUI()
         {
             // only show if either server or client active
             if (NetworkClient.active || NetworkServer.active)
@@ -159,7 +113,57 @@ namespace Mirror
             }
         }
 
-        void OnClientGUI()
+        private void OnClientReceive(ArraySegment<byte> data, int channelId)
+        {
+            ++clientIntervalReceivedPackets;
+            clientIntervalReceivedBytes += data.Count;
+        }
+
+        private void OnClientSend(ArraySegment<byte> data, int channelId)
+        {
+            ++clientIntervalSentPackets;
+            clientIntervalSentBytes += data.Count;
+        }
+
+        private void OnServerReceive(int connectionId, ArraySegment<byte> data, int channelId)
+        {
+            ++serverIntervalReceivedPackets;
+            serverIntervalReceivedBytes += data.Count;
+        }
+
+        private void OnServerSend(int connectionId, ArraySegment<byte> data, int channelId)
+        {
+            ++serverIntervalSentPackets;
+            serverIntervalSentBytes += data.Count;
+        }
+
+        private void UpdateClient()
+        {
+            clientReceivedPacketsPerSecond = clientIntervalReceivedPackets;
+            clientReceivedBytesPerSecond = clientIntervalReceivedBytes;
+            clientSentPacketsPerSecond = clientIntervalSentPackets;
+            clientSentBytesPerSecond = clientIntervalSentBytes;
+
+            clientIntervalReceivedPackets = 0;
+            clientIntervalReceivedBytes = 0;
+            clientIntervalSentPackets = 0;
+            clientIntervalSentBytes = 0;
+        }
+
+        private void UpdateServer()
+        {
+            serverReceivedPacketsPerSecond = serverIntervalReceivedPackets;
+            serverReceivedBytesPerSecond = serverIntervalReceivedBytes;
+            serverSentPacketsPerSecond = serverIntervalSentPackets;
+            serverSentBytesPerSecond = serverIntervalSentBytes;
+
+            serverIntervalReceivedPackets = 0;
+            serverIntervalReceivedBytes = 0;
+            serverIntervalSentPackets = 0;
+            serverIntervalSentBytes = 0;
+        }
+
+        private void OnClientGUI()
         {
             // background
             GUILayout.BeginVertical("Box");
@@ -175,7 +179,7 @@ namespace Mirror
             GUILayout.EndVertical();
         }
 
-        void OnServerGUI()
+        private void OnServerGUI()
         {
             // background
             GUILayout.BeginVertical("Box");

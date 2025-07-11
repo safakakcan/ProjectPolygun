@@ -8,6 +8,26 @@ namespace Mirror.Examples.Common.Controllers.Tank
     [DisallowMultipleComponent]
     public class TankControllerUI : ControllerUIBase
     {
+        [SerializeField] private MoveTexts moveTexts;
+        [SerializeField] private OptionsTexts optionsTexts;
+        [SerializeField] private OtherTexts otherKeys;
+
+        public void Refresh(TankControllerBase.MoveKeys moveKeys, TankControllerBase.OptionsKeys optionsKeys)
+        {
+            // Movement Keys
+            moveTexts.keyTextTurnLeft.text = GetKeyText(moveKeys.TurnLeft);
+            moveTexts.keyTextForward.text = GetKeyText(moveKeys.Forward);
+            moveTexts.keyTextTurnRight.text = GetKeyText(moveKeys.TurnRight);
+            moveTexts.keyTextBack.text = GetKeyText(moveKeys.Back);
+
+            //// Other Keys
+            //moveTexts.keyTextShoot.text = GetKeyText(otherKeys.Shoot);
+
+            // Options Keys
+            optionsTexts.keyTextAutoRun.text = GetKeyText(optionsKeys.AutoRun);
+            optionsTexts.keyTextToggleUI.text = GetKeyText(optionsKeys.ToggleUI);
+        }
+
         [Serializable]
         public struct MoveTexts
         {
@@ -29,26 +49,6 @@ namespace Mirror.Examples.Common.Controllers.Tank
             public Text keyTextMouseLock;
             public Text keyTextAutoRun;
             public Text keyTextToggleUI;
-        }
-
-        [SerializeField] MoveTexts moveTexts;
-        [SerializeField] OtherTexts otherKeys;
-        [SerializeField] OptionsTexts optionsTexts;
-
-        public void Refresh(TankControllerBase.MoveKeys moveKeys, TankControllerBase.OptionsKeys optionsKeys)
-        {
-            // Movement Keys
-            moveTexts.keyTextTurnLeft.text = GetKeyText(moveKeys.TurnLeft);
-            moveTexts.keyTextForward.text = GetKeyText(moveKeys.Forward);
-            moveTexts.keyTextTurnRight.text = GetKeyText(moveKeys.TurnRight);
-            moveTexts.keyTextBack.text = GetKeyText(moveKeys.Back);
-
-            //// Other Keys
-            //moveTexts.keyTextShoot.text = GetKeyText(otherKeys.Shoot);
-
-            // Options Keys
-            optionsTexts.keyTextAutoRun.text = GetKeyText(optionsKeys.AutoRun);
-            optionsTexts.keyTextToggleUI.text = GetKeyText(optionsKeys.ToggleUI);
         }
     }
 }

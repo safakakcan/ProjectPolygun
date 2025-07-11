@@ -20,7 +20,7 @@ namespace Mirror.Examples.TankTheftAuto
                 if (conn.identity.TryGetComponent(out TankAuthority tankAuthority))
                 {
                     tankAuthority.isControlled = false;
-                    NetworkServer.RemovePlayerForConnection(conn, RemovePlayerOptions.KeepActive);
+                    NetworkServer.RemovePlayerForConnection(conn);
                 }
             }
 

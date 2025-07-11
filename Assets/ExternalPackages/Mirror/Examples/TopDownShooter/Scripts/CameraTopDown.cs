@@ -9,11 +9,11 @@ namespace Mirror.Examples.TopDownShooter
         public float followSpeed = 5f;
 
 #if !UNITY_SERVER
-        void LateUpdate()
+        private void LateUpdate()
         {
             if (playerTransform != null)
             {
-                Vector3 targetPosition = playerTransform.position + offset;
+                var targetPosition = playerTransform.position + offset;
                 transform.position = Vector3.Lerp(transform.position, targetPosition, followSpeed * Time.deltaTime);
             }
         }

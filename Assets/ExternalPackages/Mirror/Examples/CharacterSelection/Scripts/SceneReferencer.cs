@@ -7,11 +7,11 @@ namespace Mirror.Examples.CharacterSelection
     {
         // Make sure to attach these Buttons in the Inspector
         public Button buttonCharacterSelection;
-
-        private CharacterData characterData;
         public GameObject characterSelectionObject;
         public GameObject sceneObjects;
         public GameObject cameraObject;
+
+        private CharacterData characterData;
 
         private void Start()
         {
@@ -32,7 +32,7 @@ namespace Mirror.Examples.CharacterSelection
             cameraObject.SetActive(false);
             sceneObjects.SetActive(false);
             characterSelectionObject.SetActive(true);
-            this.GetComponent<Canvas>().enabled = false;
+            GetComponent<Canvas>().enabled = false;
         }
 
         public void CloseCharacterSelection()
@@ -41,7 +41,7 @@ namespace Mirror.Examples.CharacterSelection
             cameraObject.SetActive(true);
             characterSelectionObject.SetActive(false);
             sceneObjects.SetActive(true);
-            this.GetComponent<Canvas>().enabled = true;
+            GetComponent<Canvas>().enabled = true;
         }
     }
 }

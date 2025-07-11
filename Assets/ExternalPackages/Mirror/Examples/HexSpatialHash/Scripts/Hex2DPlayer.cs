@@ -5,13 +5,12 @@ namespace Mirror.Examples.Hex2D
     [AddComponentMenu("")]
     public class Hex2DPlayer : NetworkBehaviour
     {
-        [Range(1, 20)]
-        public float speed = 15f;
+        [Range(1, 20)] public float speed = 15f;
 
-        [Header("Diagnostics")]
-        [ReadOnly, SerializeField] HexSpatialHash2DInterestManagement.CheckMethod checkMethod;
+        [Header("Diagnostics")] [ReadOnly] [SerializeField]
+        private HexSpatialHash2DInterestManagement.CheckMethod checkMethod;
 
-        void Awake()
+        private void Awake()
         {
 #if UNITY_2022_2_OR_NEWER
             checkMethod = FindAnyObjectByType<HexSpatialHash2DInterestManagement>().checkMethod;
@@ -20,12 +19,12 @@ namespace Mirror.Examples.Hex2D
 #endif
         }
 
-        void Update()
+        private void Update()
         {
             if (!isLocalPlayer) return;
 
-            float h = Input.GetAxis("Horizontal");
-            float v = Input.GetAxis("Vertical");
+            var h = Input.GetAxis("Horizontal");
+            var v = Input.GetAxis("Vertical");
             Vector3 dir;
 
             if (checkMethod == HexSpatialHash2DInterestManagement.CheckMethod.XY_FOR_2D)
@@ -36,7 +35,7 @@ namespace Mirror.Examples.Hex2D
             transform.position += dir.normalized * (Time.deltaTime * speed);
         }
 
-        void OnGUI()
+        private void OnGUI()
         {
             if (isLocalPlayer)
             {

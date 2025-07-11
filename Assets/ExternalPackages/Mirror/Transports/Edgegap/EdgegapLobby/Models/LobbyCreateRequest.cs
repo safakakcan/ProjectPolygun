@@ -1,4 +1,5 @@
 using System;
+
 namespace Edgegap
 {
     // https://docs.edgegap.com/docs/lobby/functions#creating-a-new-lobby
@@ -10,6 +11,7 @@ namespace Edgegap
         {
             public string id;
         }
+
         [Serializable]
         public struct Annotation
         {
@@ -17,6 +19,7 @@ namespace Edgegap
             public string key;
             public string value;
         }
+
         public Annotation[] annotations; // todo
         public int capacity;
         public bool is_joinable;

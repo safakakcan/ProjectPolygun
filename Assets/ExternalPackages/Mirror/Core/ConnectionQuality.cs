@@ -1,5 +1,6 @@
 // standalone, Unity-independent connection-quality algorithm & enum.
 // don't need to use this directly, it's built into Mirror's NetworkClient.
+
 using UnityEngine;
 
 namespace Mirror
@@ -7,16 +8,16 @@ namespace Mirror
     public enum ConnectionQuality : byte
     {
         ESTIMATING, // still estimating
-        POOR,       // unplayable
-        FAIR,       // very noticeable latency, not very enjoyable anymore
-        GOOD,       // very playable for everyone but high level competitors
-        EXCELLENT   // ideal experience for high level competitors
+        POOR, // unplayable
+        FAIR, // very noticeable latency, not very enjoyable anymore
+        GOOD, // very playable for everyone but high level competitors
+        EXCELLENT // ideal experience for high level competitors
     }
 
     public enum ConnectionQualityMethod : byte
     {
-        Simple,     // simple estimation based on rtt and jitter
-        Pragmatic   // based on snapshot interpolation adjustment
+        Simple, // simple estimation based on rtt and jitter
+        Pragmatic // based on snapshot interpolation adjustment
     }
 
     // provide different heuristics for users to choose from.
@@ -33,7 +34,7 @@ namespace Mirror
                 case ConnectionQuality.FAIR: return new Color(1.0f, 0.647f, 0.0f);
                 case ConnectionQuality.GOOD: return Color.yellow;
                 case ConnectionQuality.EXCELLENT: return Color.green;
-                default: return Color.gray;  // ESTIMATING
+                default: return Color.gray; // ESTIMATING
             }
         }
 
@@ -59,7 +60,7 @@ namespace Mirror
             // estimating in multiples is a great way to be game independent.
             // for example, a fast paced shooter and a slow paced RTS will both
             // have poor connection if the multiplier is >10.
-            double multiplier = currentBufferTime / targetBufferTime;
+            var multiplier = currentBufferTime / targetBufferTime;
 
             // empirically measured with Tanks demo + LatencySimulation.
             // it's not obvious to estimate on paper.

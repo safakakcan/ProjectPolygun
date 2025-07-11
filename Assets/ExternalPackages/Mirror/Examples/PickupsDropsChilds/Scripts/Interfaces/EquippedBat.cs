@@ -7,13 +7,17 @@ namespace Mirror.Examples.PickupsDropsChilds
         // Note: This example doesn't include animations or sounds for simplicity.
         // These are just here for illustration purposes...the implementation
         // methods could do something interesting like play a sound or animation.
-        [Header("Components")]
-        public Animator animator;
+        [Header("Components")] public Animator animator;
+
         public AudioSource audioSource;
 
-        [Header("Equipped Item")]
-        [SerializeField]
-        EquippedItemConfig _equippedItemConfig;
+        [Header("Equipped Item")] [SerializeField]
+        private EquippedItemConfig _equippedItemConfig;
+
+        private void Reset()
+        {
+            equippedItemConfig = new EquippedItemConfig { usages = 5, maxUsages = 5 };
+        }
 
         public EquippedItemConfig equippedItemConfig
         {
@@ -23,11 +27,6 @@ namespace Mirror.Examples.PickupsDropsChilds
                 Debug.Log($"{transform.root.name} EquippedItemConfig set from {_equippedItemConfig} to {value}", gameObject);
                 _equippedItemConfig = value;
             }
-        }
-
-        void Reset()
-        {
-            equippedItemConfig = new EquippedItemConfig { usages = 5, maxUsages = 5 };
         }
 
         // Play appropriate animation or sound

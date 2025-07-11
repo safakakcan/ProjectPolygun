@@ -1,6 +1,7 @@
 // snapshot for snapshot interpolation
 // https://gafferongames.com/post/snapshot_interpolation/
 // position, rotation, scale for compatibility for now.
+
 using UnityEngine;
 
 namespace Mirror
@@ -62,7 +63,9 @@ namespace Mirror
             );
         }
 
-        public override string ToString() =>
-            $"TransformSnapshot(remoteTime={remoteTime:F2}, localTime={localTime:F2}, pos={position}, rot={rotation}, scale={scale})";
+        public override string ToString()
+        {
+            return $"TransformSnapshot(remoteTime={remoteTime:F2}, localTime={localTime:F2}, pos={position}, rot={rotation}, scale={scale})";
+        }
     }
 }

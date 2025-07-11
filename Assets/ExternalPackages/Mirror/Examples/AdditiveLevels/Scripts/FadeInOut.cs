@@ -6,21 +6,18 @@ namespace Mirror.Examples.AdditiveLevels
 {
     public class FadeInOut : MonoBehaviour
     {
-        [Header("Components")]
-        [SerializeField] Image panelImage;
+        [Header("Components")] [SerializeField]
+        private Image panelImage;
 
-        [Header("Settings")]
-        [SerializeField, Range(1, 10)]
-        [Tooltip("Time in seconds to fade in")]
-        byte fadeInTime = 2;
+        [Header("Settings")] [SerializeField] [Range(1, 10)] [Tooltip("Time in seconds to fade in")]
+        private byte fadeInTime = 2;
 
-        [SerializeField, Range(1, 10)]
-        [Tooltip("Time in seconds to fade out")]
-        byte fadeOutTime = 2;
+        [SerializeField] [Range(1, 10)] [Tooltip("Time in seconds to fade out")]
+        private byte fadeOutTime = 2;
 
-        bool isFading;
+        private bool isFading;
 
-        void OnValidate()
+        private void OnValidate()
         {
             if (panelImage == null)
                 panelImage = GetComponentInChildren<Image>();
@@ -29,7 +26,10 @@ namespace Mirror.Examples.AdditiveLevels
             fadeOutTime = (byte)Mathf.Max(fadeOutTime, 1);
         }
 
-        public float GetFadeInTime() => fadeInTime + Time.fixedDeltaTime;
+        public float GetFadeInTime()
+        {
+            return fadeInTime + Time.fixedDeltaTime;
+        }
 
         public IEnumerator FadeIn()
         {
@@ -37,7 +37,10 @@ namespace Mirror.Examples.AdditiveLevels
             yield return FadeImage(0f, 1f, fadeInTime);
         }
 
-        public float GetFadeOutTime() => fadeOutTime + Time.fixedDeltaTime;
+        public float GetFadeOutTime()
+        {
+            return fadeOutTime + Time.fixedDeltaTime;
+        }
 
         public IEnumerator FadeOut()
         {
@@ -52,18 +55,18 @@ namespace Mirror.Examples.AdditiveLevels
             if (isFading) yield break;
 
             // Short circuit if the alpha is already at endAlpha
-            Color color = panelImage.color;
+            var color = panelImage.color;
             if (Mathf.Approximately(color.a, endAlpha)) yield break;
 
             isFading = true;
 
-            float elapsedTime = 0f;
-            float fixedDeltaTime = Time.fixedDeltaTime;
+            var elapsedTime = 0f;
+            var fixedDeltaTime = Time.fixedDeltaTime;
 
             while (elapsedTime < duration)
             {
                 elapsedTime += fixedDeltaTime;
-                float alpha = Mathf.Lerp(startAlpha, endAlpha, elapsedTime / duration);
+                var alpha = Mathf.Lerp(startAlpha, endAlpha, elapsedTime / duration);
                 panelImage.color = new Color(color.r, color.g, color.b, alpha);
                 yield return new WaitForFixedUpdate();
             }

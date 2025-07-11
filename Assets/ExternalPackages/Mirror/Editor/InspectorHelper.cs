@@ -15,40 +15,31 @@ namespace Mirror
             const BindingFlags privateFields = BindingFlags.NonPublic | BindingFlags.Instance;
 
             // get public fields (includes fields from base type)
-            FieldInfo[] allPublicFields = type.GetFields(publicFields);
-            foreach (FieldInfo field in allPublicFields)
-            {
-                yield return field;
-            }
+            var allPublicFields = type.GetFields(publicFields);
+            foreach (var field in allPublicFields) yield return field;
 
             // get private fields in current type, then move to base type
             while (type != null)
             {
-                FieldInfo[] allPrivateFields = type.GetFields(privateFields);
-                foreach (FieldInfo field in allPrivateFields)
-                {
-                    yield return field;
-                }
+                var allPrivateFields = type.GetFields(privateFields);
+                foreach (var field in allPrivateFields) yield return field;
 
                 type = type.BaseType;
 
                 // stop early
-                if (type == deepestBaseType)
-                {
-                    break;
-                }
+                if (type == deepestBaseType) break;
             }
         }
 
         public static bool IsSyncVar(this FieldInfo field)
         {
-            object[] fieldMarkers = field.GetCustomAttributes(typeof(SyncVarAttribute), true);
+            var fieldMarkers = field.GetCustomAttributes(typeof(SyncVarAttribute), true);
             return fieldMarkers.Length > 0;
         }
 
         public static bool IsSerializeField(this FieldInfo field)
         {
-            object[] fieldMarkers = field.GetCustomAttributes(typeof(SerializeField), true);
+            var fieldMarkers = field.GetCustomAttributes(typeof(SerializeField), true);
             return fieldMarkers.Length > 0;
         }
 
@@ -64,7 +55,7 @@ namespace Mirror
 
         public static bool HasShowInInspector(this FieldInfo field)
         {
-            object[] fieldMarkers = field.GetCustomAttributes(typeof(ShowInInspectorAttribute), true);
+            var fieldMarkers = field.GetCustomAttributes(typeof(ShowInInspectorAttribute), true);
             return fieldMarkers.Length > 0;
         }
 

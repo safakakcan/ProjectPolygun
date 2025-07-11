@@ -6,6 +6,7 @@
 // note that ILPostProcessor errors already block entering playmode.
 // however, issues could still stop the weaving from running at all.
 // WeaverFuse can check if it actually ran.
+
 namespace Mirror
 {
     public static class WeaverFuse

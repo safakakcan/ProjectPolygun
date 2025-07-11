@@ -6,10 +6,10 @@ namespace Mirror.Examples.PredictionBenchmark
     {
         public float force = 10;
         public float interval = 3;
-        PredictedRigidbody prediction;
-        Rigidbody rb => prediction.predictedRigidbody;
+        private PredictedRigidbody prediction;
+        private Rigidbody rb => prediction.predictedRigidbody;
 
-        void Awake()
+        private void Awake()
         {
             prediction = GetComponent<PredictedRigidbody>();
         }
@@ -20,18 +20,18 @@ namespace Mirror.Examples.PredictionBenchmark
         public override void OnStartClient()
         {
             // start at a random time, but repeat at a fixed time
-            float randomStart = Random.Range(0, interval);
+            var randomStart = Random.Range(0, interval);
             InvokeRepeating(nameof(ApplyForce), randomStart, interval);
         }
 
 
         [ClientCallback]
-        void ApplyForce()
+        private void ApplyForce()
         {
             // calculate force in random direction but always upwards
-            Vector2 direction2D = Random.insideUnitCircle;
-            Vector3 direction3D = new Vector3(direction2D.x, 1.0f, direction2D.y);
-            Vector3 impulse = direction3D * force;
+            var direction2D = Random.insideUnitCircle;
+            var direction3D = new Vector3(direction2D.x, 1.0f, direction2D.y);
+            var impulse = direction3D * force;
 
             // grab the current Rigidbody from PredictedRigidbody.
             // sometimes this is on a ghost object, so always grab it live:
@@ -44,7 +44,7 @@ namespace Mirror.Examples.PredictionBenchmark
         }
 
         [Command(requiresAuthority = false)] // everyone can call this
-        void CmdApplyForce(Vector3 impulse)
+        private void CmdApplyForce(Vector3 impulse)
         {
             rb.AddForce(impulse, ForceMode.Impulse);
         }

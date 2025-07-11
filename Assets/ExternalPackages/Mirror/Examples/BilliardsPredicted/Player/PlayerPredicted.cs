@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mirror.Examples.BilliardsPredicted
@@ -21,9 +19,9 @@ namespace Mirror.Examples.BilliardsPredicted
     public class PlayerPredicted : NetworkBehaviour
     {
         // white ball component
-        WhiteBallPredicted whiteBall;
+        private WhiteBallPredicted whiteBall;
 
-        void Awake()
+        private void Awake()
         {
             // find the white ball once
 #if UNITY_2022_2_OR_NEWER
@@ -36,7 +34,7 @@ namespace Mirror.Examples.BilliardsPredicted
 
         // apply force to white ball.
         // common function to ensure we apply it the same way on server & client!
-        void ApplyForceToWhite(Vector3 force)
+        private void ApplyForceToWhite(Vector3 force)
         {
             // https://docs.unity3d.com/2021.3/Documentation/ScriptReference/Rigidbody.AddForce.html
             // this is buffered until the next FixedUpdate.
@@ -44,7 +42,7 @@ namespace Mirror.Examples.BilliardsPredicted
             // get the white ball's Rigidbody.
             // prediction sometimes moves this out of the object for a while,
             // so we need to grab it this way:
-            Rigidbody rb = whiteBall.GetComponent<PredictedRigidbody>().predictedRigidbody;
+            var rb = whiteBall.GetComponent<PredictedRigidbody>().predictedRigidbody;
 
             // AddForce has different force modes, see this excellent diagram:
             // https://www.reddit.com/r/Unity3D/comments/psukm1/know_the_difference_between_forcemodes_a_little/
@@ -72,11 +70,14 @@ namespace Mirror.Examples.BilliardsPredicted
         // this should include a certain tolerance so players aren't hard corrected
         // for their local movement all the time.
         // TODO this should be on some kind of base class for reuse, but perhaps independent of parameters?
-        bool IsValidMove(Vector3 force) => true;
+        private bool IsValidMove(Vector3 force)
+        {
+            return true;
+        }
 
         // TODO send over unreliable with ack, notify, etc. later
         [Command]
-        void CmdApplyForce(Vector3 force)
+        private void CmdApplyForce(Vector3 force)
         {
             if (!IsValidMove(force))
             {

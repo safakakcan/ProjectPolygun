@@ -6,18 +6,18 @@ namespace Mirror.Examples.Common.Controllers.Player
     [RequireComponent(typeof(NetworkTransformReliable))]
     public class PlayerControllerRBReliable : PlayerControllerRBBase
     {
+        public override void Reset()
+        {
+            base.Reset();
+            GetComponent<NetworkTransformReliable>().useFixedUpdate = true;
+        }
+
         protected override void OnValidate()
         {
             if (Application.isPlaying) return;
             base.OnValidate();
 
             Reset();
-        }
-
-        public override void Reset()
-        {
-            base.Reset();
-            GetComponent<NetworkTransformReliable>().useFixedUpdate = true;
         }
     }
 }

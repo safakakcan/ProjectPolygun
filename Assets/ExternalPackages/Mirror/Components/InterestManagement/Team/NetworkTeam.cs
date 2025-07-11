@@ -1,4 +1,5 @@
 ﻿// simple component that holds team information
+
 using System;
 using UnityEngine;
 
@@ -9,9 +10,11 @@ namespace Mirror
     [HelpURL("https://mirror-networking.gitbook.io/docs/guides/interest-management")]
     public class NetworkTeam : NetworkBehaviour
     {
-        [SerializeField]
-        [Tooltip("Set teamId on Server at runtime to the same value on all networked objects that belong to a given team")]
-        string _teamId;
+        [SerializeField] [Tooltip("Set teamId on Server at runtime to the same value on all networked objects that belong to a given team")]
+        private string _teamId;
+
+        [Tooltip("When enabled this object is visible to all clients. Typically this would be true for player objects")]
+        public bool forceShown;
 
         public string teamId
         {
@@ -24,7 +27,7 @@ namespace Mirror
                 if (_teamId == value)
                     return;
 
-                string oldTeam = _teamId;
+                var oldTeam = _teamId;
                 _teamId = value;
 
                 //Only inform the AOI if this netIdentity has been spawned(isServer) and only if using a TeamInterestManagement
@@ -32,8 +35,5 @@ namespace Mirror
                     teamInterestManagement.OnTeamChanged(this, oldTeam);
             }
         }
-
-        [Tooltip("When enabled this object is visible to all clients. Typically this would be true for player objects")]
-        public bool forceShown;
     }
 }

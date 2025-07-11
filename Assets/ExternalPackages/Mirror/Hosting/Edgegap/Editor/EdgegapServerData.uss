@@ -8,16 +8,16 @@
     -unity-text-align: middle-left;
 }
 
-    .row__port-table > * {
-        width: 0px;
-        flex-grow: 1;
-        align-self: center;
-        margin: 0px;
-        padding: 0px;
-    }
+.row__port-table > * {
+    width: 0px;
+    flex-grow: 1;
+    align-self: center;
+    margin: 0px;
+    padding: 0px;
+}
 
 .focusable:hover {
-    background-color: rgba(0,0,0,0.2);
+    background-color: rgba(0, 0, 0, 0.2);
     border-radius: 3px;
 }
 

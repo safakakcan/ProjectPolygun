@@ -1,5 +1,6 @@
 // API consistent with Microsoft's ObjectPool<T>.
 // thread safe.
+
 using System.Runtime.CompilerServices;
 
 namespace Mirror
@@ -16,8 +17,8 @@ namespace Mirror
         // position before reusing.
         // this is also more consistent with NetworkReaderPool where we need to
         // assign the internal buffer before reusing.
-        static readonly ConcurrentPool<ConcurrentNetworkWriterPooled> pool =
-            new ConcurrentPool<ConcurrentNetworkWriterPooled>(
+        private static readonly ConcurrentPool<ConcurrentNetworkWriterPooled> pool =
+            new(
                 // new object function
                 () => new ConcurrentNetworkWriterPooled(),
                 // initial capacity to avoid allocations in the first few frames
@@ -31,7 +32,7 @@ namespace Mirror
         public static ConcurrentNetworkWriterPooled Get()
         {
             // grab from pool & reset position
-            ConcurrentNetworkWriterPooled writer = pool.Get();
+            var writer = pool.Get();
             writer.Position = 0;
             return writer;
         }

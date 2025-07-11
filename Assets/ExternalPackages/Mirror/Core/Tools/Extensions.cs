@@ -3,14 +3,15 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 
 namespace Mirror
 {
     public static class Extensions
     {
-        public static string ToHexString(this ArraySegment<byte> segment) =>
-            BitConverter.ToString(segment.Array, segment.Offset, segment.Count);
+        public static string ToHexString(this ArraySegment<byte> segment)
+        {
+            return BitConverter.ToString(segment.Array, segment.Offset, segment.Count);
+        }
 
         // string.GetHashCode is not guaranteed to be the same on all
         // machines, but we need one that is the same on all machines.
@@ -22,12 +23,12 @@ namespace Mirror
         {
             unchecked
             {
-                uint hash = 0x811c9dc5;
+                var hash = 0x811c9dc5;
                 uint prime = 0x1000193;
 
-                for (int i = 0; i < text.Length; ++i)
+                for (var i = 0; i < text.Length; ++i)
                 {
-                    byte value = (byte)text[i];
+                    var value = (byte)text[i];
                     hash = hash ^ value;
                     hash *= prime;
                 }
@@ -42,7 +43,7 @@ namespace Mirror
         public static ushort GetStableHashCode16(this string text)
         {
             // deterministic hash
-            int hash = GetStableHashCode(text);
+            var hash = GetStableHashCode(text);
 
             // Gets the 32bit fnv1a hash
             // To get it down to 16bit but still reduce hash collisions we cant just cast it to ushort
@@ -93,11 +94,8 @@ namespace Mirror
         {
             // while count > 0 risks deadlock if other thread write at the same time.
             // our safest solution is a best-effort approach to clear 'Count' once.
-            int count = source.Count; // get it only once
-            for (int i = 0; i < count; ++i)
-            {
-                source.TryDequeue(out _);
-            }
+            var count = source.Count; // get it only once
+            for (var i = 0; i < count; ++i) source.TryDequeue(out _);
         }
 #endif
 
@@ -138,8 +136,8 @@ namespace Mirror
             // "::ffff:127.0.0.1" -> "127.0.0.1"
             return
                 endPoint.Address.IsIPv4MappedToIPv6
-                ? endPoint.Address.MapToIPv4().ToString()
-                : endPoint.Address.ToString();
+                    ? endPoint.Address.MapToIPv4().ToString()
+                    : endPoint.Address.ToString();
         }
     }
 }

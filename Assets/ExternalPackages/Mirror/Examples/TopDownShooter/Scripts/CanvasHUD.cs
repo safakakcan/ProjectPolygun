@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using Mirror;
 
 namespace Mirror.Examples.TopDownShooter
 {
@@ -70,13 +69,9 @@ namespace Mirror.Examples.TopDownShooter
         private void RefreshHUD()
         {
             if (!NetworkServer.active && !NetworkClient.isConnected)
-            {
                 StartButtons();
-            }
             else
-            {
                 StatusLabelsAndStopButtons();
-            }
         }
 
         private void StartButtons()
@@ -99,20 +94,12 @@ namespace Mirror.Examples.TopDownShooter
 
             // Host
             if (NetworkServer.active && NetworkClient.active)
-            {
                 statusText.text = $"<b>Host</b>: running via {Transport.active}";
-            }
             // Server only
             else if (NetworkServer.active)
-            {
                 statusText.text = $"<b>Server</b>: running via {Transport.active}";
-            }
             // Client only
-            else if (NetworkClient.isConnected)
-            {
-                statusText.text = $"<b>Client</b>: connected to {NetworkManager.singleton.networkAddress} via {Transport.active}";
-            }
-
+            else if (NetworkClient.isConnected) statusText.text = $"<b>Client</b>: connected to {NetworkManager.singleton.networkAddress} via {Transport.active}";
         }
 
         private void ShowConnectingStatus()
@@ -145,18 +132,11 @@ namespace Mirror.Examples.TopDownShooter
         private void OnClickMainStopButton()
         {
             canvasTopDown.PlaySoundButtonUI();
-            if (NetworkClient.active && NetworkServer.active)
-            {
-                NetworkManager.singleton.StopHost();
-            }
+            if (NetworkClient.active && NetworkServer.active) NetworkManager.singleton.StopHost();
             if (NetworkClient.active)
-            {
                 NetworkManager.singleton.StopClient();
-            }
             else
-            {
                 NetworkManager.singleton.StopServer();
-            }
         }
 
         private void OnNetworkAddressChange()
@@ -177,19 +157,14 @@ namespace Mirror.Examples.TopDownShooter
             // for IPV6:PORT it would be misleading since IPV6 contains ":":
             // 2001:0db8:0000:0000:0000:ff00:0042:8329
             if (Transport.active is PortTransport portTransport)
-            {
                 // use TryParse in case someone tries to enter non-numeric characters
-                if (ushort.TryParse(_port, out ushort port))
+                if (ushort.TryParse(_port, out var port))
                     portTransport.Port = port;
-            }
         }
 
         private void GetPort()
         {
-            if (Transport.active is PortTransport portTransport)
-            {
-                inputPort.text = portTransport.Port.ToString();
-            }
+            if (Transport.active is PortTransport portTransport) inputPort.text = portTransport.Port.ToString();
         }
 
         private void Update()

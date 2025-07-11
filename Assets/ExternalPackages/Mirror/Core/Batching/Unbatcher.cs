@@ -5,6 +5,7 @@
 // includes timestamp for tick batching.
 // -> allows NetworkTransform etc. to use timestamp without including it in
 //    every single message
+
 using System;
 using System.Collections.Generic;
 
@@ -14,20 +15,20 @@ namespace Mirror
     {
         // supporting adding multiple batches before GetNextMessage is called.
         // just in case.
-        readonly Queue<NetworkWriterPooled> batches = new Queue<NetworkWriterPooled>();
-
-        public int BatchesCount => batches.Count;
+        private readonly Queue<NetworkWriterPooled> batches = new();
 
         // NetworkReader is only created once,
         // then pointed to the first batch.
-        readonly NetworkReader reader = new NetworkReader(new byte[0]);
+        private readonly NetworkReader reader = new(new byte[0]);
 
         // timestamp that was written into the batch remotely.
         // for the batch that our reader is currently pointed at.
-        double readerRemoteTimeStamp;
+        private double readerRemoteTimeStamp;
+
+        public int BatchesCount => batches.Count;
 
         // helper function to start reading a batch.
-        void StartReadingBatch(NetworkWriterPooled batch)
+        private void StartReadingBatch(NetworkWriterPooled batch)
         {
             // point reader to it
             reader.SetBuffer(batch.ToArraySegment());
@@ -55,7 +56,7 @@ namespace Mirror
             // -> WriteBytes instead of WriteSegment because the latter
             //    would add a size header. we want to write directly.
             // -> will be returned to pool when sending!
-            NetworkWriterPooled writer = NetworkWriterPool.Get();
+            var writer = NetworkWriterPool.Get();
             writer.WriteBytes(batch.Array, batch.Offset, batch.Count);
 
             // first batch? then point reader there
@@ -90,7 +91,7 @@ namespace Mirror
             if (reader.Remaining == 0)
             {
                 // retire the batch
-                NetworkWriterPooled writer = batches.Dequeue();
+                var writer = batches.Dequeue();
                 NetworkWriterPool.Return(writer);
 
                 // do we have another batch?
@@ -98,11 +99,14 @@ namespace Mirror
                 {
                     // point reader to the next batch.
                     // we'll return the reader below.
-                    NetworkWriterPooled next = batches.Peek();
+                    var next = batches.Peek();
                     StartReadingBatch(next);
                 }
                 // otherwise there's nothing more to read
-                else return false;
+                else
+                {
+                    return false;
+                }
             }
 
             // use the current batch's remote timestamp
@@ -115,7 +119,7 @@ namespace Mirror
 
             // read the size prefix as varint
             // see Batcher.AddMessage comments for explanation.
-            int size = (int)Compression.DecompressVarUInt(reader);
+            var size = (int)Compression.DecompressVarUInt(reader);
 
             // validate size prefix, in case attackers send malicious data
             if (reader.Remaining < size)

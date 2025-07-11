@@ -1,8 +1,6 @@
-using System.Collections.Generic;
-using UnityEngine;
-using Mirror.Examples.Common.Controllers.Tank;
 using Mirror.Examples.Common;
-using System.Collections;
+using Mirror.Examples.Common.Controllers.Tank;
+using UnityEngine;
 
 namespace Mirror.Examples.TankTheftAuto
 {
@@ -10,28 +8,15 @@ namespace Mirror.Examples.TankTheftAuto
     [DisallowMultipleComponent]
     public class TankAuthority : NetworkBehaviour
     {
-        [Header("Components")]
-        public GameObject triggerUI;
+        [Header("Components")] public GameObject triggerUI;
+
         public TankTurretBase tankTurret;
         public GameObject tankTrigger;
 
         [SyncVar(hook = nameof(OnIsControlledChanged))]
         public bool isControlled;
 
-        void OnIsControlledChanged(bool _, bool newValue)
-        {
-            tankTrigger.SetActive(!newValue);
-        }
-
-        protected override void OnValidate()
-        {
-            if (Application.isPlaying) return;
-
-            base.OnValidate();
-            Reset();
-        }
-
-        void Reset()
+        private void Reset()
         {
             if (triggerUI == null)
                 triggerUI = transform.Find("TriggerUI").gameObject;
@@ -46,7 +31,7 @@ namespace Mirror.Examples.TankTheftAuto
         }
 
         [ClientCallback]
-        void Update()
+        private void Update()
         {
             if (triggerUI.activeSelf && Input.GetKeyDown(KeyCode.C))
                 CmdTakeControl();
@@ -55,7 +40,7 @@ namespace Mirror.Examples.TankTheftAuto
                 CmdReleaseControl();
         }
 
-        void OnTriggerEnter(Collider other)
+        private void OnTriggerEnter(Collider other)
         {
             if (!isClient || !other.gameObject.CompareTag("Player")) return;
 
@@ -64,7 +49,7 @@ namespace Mirror.Examples.TankTheftAuto
                     triggerUI.SetActive(true);
         }
 
-        void OnTriggerExit(Collider other)
+        private void OnTriggerExit(Collider other)
         {
             if (!isClient || !other.gameObject.CompareTag("Player")) return;
 
@@ -73,8 +58,21 @@ namespace Mirror.Examples.TankTheftAuto
                     triggerUI.SetActive(false);
         }
 
+        protected override void OnValidate()
+        {
+            if (Application.isPlaying) return;
+
+            base.OnValidate();
+            Reset();
+        }
+
+        private void OnIsControlledChanged(bool _, bool newValue)
+        {
+            tankTrigger.SetActive(!newValue);
+        }
+
         [Command(requiresAuthority = false)]
-        void CmdTakeControl(NetworkConnectionToClient conn = null)
+        private void CmdTakeControl(NetworkConnectionToClient conn = null)
         {
             // someone else is already controlling this tank
             if (connectionToClient != null)
@@ -96,14 +94,14 @@ namespace Mirror.Examples.TankTheftAuto
         }
 
         [Command]
-        void CmdReleaseControl()
+        private void CmdReleaseControl()
         {
             // get the regular player object
             if (connectionToClient.authenticationData is GameObject player)
             {
                 // Set pos and rot to match the tank, plus 3m offset to the right plus 1m up
                 // because character controller pivot is at the center, not at the bottom.
-                Vector3 pos = transform.position + transform.right * 3 + Vector3.up;
+                var pos = transform.position + transform.right * 3 + Vector3.up;
                 player.transform.SetPositionAndRotation(pos, transform.rotation);
 
                 // set the player object back to the player

@@ -4,10 +4,10 @@ using UnityEngine;
 namespace Mirror.Authenticators
 {
     /// <summary>
-    /// An authenticator that identifies the user by their device.
-    /// <para>A GUID is used as a fallback when the platform doesn't support SystemInfo.deviceUniqueIdentifier.</para>
-    /// <para>Note: deviceUniqueIdentifier can be spoofed, so security is not guaranteed.</para>
-    /// <para>See https://docs.unity3d.com/ScriptReference/SystemInfo-deviceUniqueIdentifier.html for details.</para>
+    ///     An authenticator that identifies the user by their device.
+    ///     <para>A GUID is used as a fallback when the platform doesn't support SystemInfo.deviceUniqueIdentifier.</para>
+    ///     <para>Note: deviceUniqueIdentifier can be spoofed, so security is not guaranteed.</para>
+    ///     <para>See https://docs.unity3d.com/ScriptReference/SystemInfo-deviceUniqueIdentifier.html for details.</para>
     /// </summary>
     [AddComponentMenu("Network/ Authenticators/Device Authenticator")]
     [HelpURL("https://mirror-networking.gitbook.io/docs/components/network-authenticators/device-authenticator")]
@@ -20,15 +20,17 @@ namespace Mirror.Authenticators
             public string clientDeviceID;
         }
 
-        public struct AuthResponseMessage : NetworkMessage { }
+        public struct AuthResponseMessage : NetworkMessage
+        {
+        }
 
         #endregion
 
         #region Server
 
         /// <summary>
-        /// Called on server from StartServer to initialize the Authenticator
-        /// <para>Server message handlers should be registered in this method.</para>
+        ///     Called on server from StartServer to initialize the Authenticator
+        ///     <para>Server message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStartServer()
         {
@@ -37,8 +39,8 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on server from StopServer to reset the Authenticator
-        /// <para>Server message handlers should be registered in this method.</para>
+        ///     Called on server from StopServer to reset the Authenticator
+        ///     <para>Server message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStopServer()
         {
@@ -47,7 +49,7 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on server from OnServerConnectInternal when a client needs to authenticate
+        ///     Called on server from OnServerConnectInternal when a client needs to authenticate
         /// </summary>
         /// <param name="conn">Connection to client.</param>
         public override void OnServerAuthenticate(NetworkConnectionToClient conn)
@@ -55,7 +57,7 @@ namespace Mirror.Authenticators
             // do nothing, wait for client to send his id
         }
 
-        void OnAuthRequestMessage(NetworkConnectionToClient conn, AuthRequestMessage msg)
+        private void OnAuthRequestMessage(NetworkConnectionToClient conn, AuthRequestMessage msg)
         {
             Debug.Log($"connection {conn.connectionId} authenticated with id {msg.clientDeviceID}");
 
@@ -74,8 +76,8 @@ namespace Mirror.Authenticators
         #region Client
 
         /// <summary>
-        /// Called on client from StartClient to initialize the Authenticator
-        /// <para>Client message handlers should be registered in this method.</para>
+        ///     Called on client from StartClient to initialize the Authenticator
+        ///     <para>Client message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStartClient()
         {
@@ -84,8 +86,8 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on client from StopClient to reset the Authenticator
-        /// <para>Client message handlers should be unregistered in this method.</para>
+        ///     Called on client from StopClient to reset the Authenticator
+        ///     <para>Client message handlers should be unregistered in this method.</para>
         /// </summary>
         public override void OnStopClient()
         {
@@ -94,11 +96,11 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on client from OnClientConnectInternal when a client needs to authenticate
+        ///     Called on client from OnClientConnectInternal when a client needs to authenticate
         /// </summary>
         public override void OnClientAuthenticate()
         {
-            string deviceUniqueIdentifier = SystemInfo.deviceUniqueIdentifier;
+            var deviceUniqueIdentifier = SystemInfo.deviceUniqueIdentifier;
 
             // Not all platforms support this, so we use a GUID instead
             if (deviceUniqueIdentifier == SystemInfo.unsupportedIdentifier)
@@ -111,11 +113,11 @@ namespace Mirror.Authenticators
             }
 
             // send the deviceUniqueIdentifier to the server
-            NetworkClient.Send(new AuthRequestMessage { clientDeviceID = deviceUniqueIdentifier } );
+            NetworkClient.Send(new AuthRequestMessage { clientDeviceID = deviceUniqueIdentifier });
         }
 
         /// <summary>
-        /// Called on client when the server's AuthResponseMessage arrives
+        ///     Called on client when the server's AuthResponseMessage arrives
         /// </summary>
         /// <param name="msg">The message payload</param>
         public void OnAuthResponseMessage(AuthResponseMessage msg)

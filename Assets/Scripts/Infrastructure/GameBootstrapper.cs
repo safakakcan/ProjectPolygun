@@ -1,20 +1,21 @@
-using UnityEngine;
 using ProjectPolygun.Core.Interfaces;
 using ProjectPolygun.Core.Systems;
+using UnityEngine;
 
 namespace ProjectPolygun.Infrastructure
 {
     /// <summary>
-    /// Main bootstrapper that initializes all core systems and dependency injection
+    ///     Main bootstrapper that initializes all core systems and dependency injection
     /// </summary>
     public class GameBootstrapper : MonoBehaviour
     {
-        [Header("Core Systems")]
-        [SerializeField] private bool initializeOnAwake = true;
-        
         private static GameBootstrapper _instance;
-        private ServiceContainer _serviceContainer;
+
+        [Header("Core Systems")] [SerializeField]
+        private bool initializeOnAwake = true;
+
         private EventBus _eventBus;
+        private ServiceContainer _serviceContainer;
 
         public static GameBootstrapper Instance
         {
@@ -30,6 +31,7 @@ namespace ProjectPolygun.Infrastructure
                         DontDestroyOnLoad(go);
                     }
                 }
+
                 return _instance;
             }
         }
@@ -41,11 +43,8 @@ namespace ProjectPolygun.Infrastructure
             {
                 _instance = this;
                 DontDestroyOnLoad(gameObject);
-                
-                if (initializeOnAwake)
-                {
-                    Initialize();
-                }
+
+                if (initializeOnAwake) Initialize();
             }
             else if (_instance != this)
             {
@@ -53,8 +52,13 @@ namespace ProjectPolygun.Infrastructure
             }
         }
 
+        private void OnDestroy()
+        {
+            if (_instance == this) _instance = null;
+        }
+
         /// <summary>
-        /// Initialize all core systems
+        ///     Initialize all core systems
         /// </summary>
         public void Initialize()
         {
@@ -62,10 +66,10 @@ namespace ProjectPolygun.Infrastructure
 
             // Initialize Service Container
             InitializeServiceContainer();
-            
+
             // Initialize Event Bus
             InitializeEventBus();
-            
+
             // Register core services
             RegisterCoreServices();
 
@@ -74,25 +78,19 @@ namespace ProjectPolygun.Infrastructure
 
         private void InitializeServiceContainer()
         {
-            if (_serviceContainer == null)
-            {
-                _serviceContainer = gameObject.AddComponent<ServiceContainer>();
-            }
+            if (_serviceContainer == null) _serviceContainer = gameObject.AddComponent<ServiceContainer>();
         }
 
         private void InitializeEventBus()
         {
-            if (_eventBus == null)
-            {
-                _eventBus = gameObject.AddComponent<EventBus>();
-            }
+            if (_eventBus == null) _eventBus = gameObject.AddComponent<EventBus>();
         }
 
         private void RegisterCoreServices()
         {
             // Register service container with itself for easy access
             _serviceContainer.RegisterInstance<IServiceContainer>(_serviceContainer);
-            
+
             // Register event bus
             _serviceContainer.RegisterInstance<IEventBus>(_eventBus);
 
@@ -100,7 +98,7 @@ namespace ProjectPolygun.Infrastructure
         }
 
         /// <summary>
-        /// Get the service container instance
+        ///     Get the service container instance
         /// </summary>
         public static IServiceContainer GetServiceContainer()
         {
@@ -108,19 +106,11 @@ namespace ProjectPolygun.Infrastructure
         }
 
         /// <summary>
-        /// Get the event bus instance
+        ///     Get the event bus instance
         /// </summary>
         public static IEventBus GetEventBus()
         {
             return Instance._eventBus;
         }
-
-        private void OnDestroy()
-        {
-            if (_instance == this)
-            {
-                _instance = null;
-            }
-        }
     }
-} 
+}

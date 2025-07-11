@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace Mirror.Examples.BilliardsPredicted
@@ -11,41 +10,27 @@ namespace Mirror.Examples.BilliardsPredicted
         public float forceMultiplier = 2;
         public float maxForce = 40;
 
+        private bool draggingStartedOverObject;
+
         // remember start position to reset to after entering a pocket
         internal Vector3 startPosition;
 
-        bool draggingStartedOverObject;
-
-        // cast mouse position on screen to world position
-        bool MouseToWorld(out Vector3 position)
-        {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            Plane plane = new Plane(Vector3.up, transform.position);
-            if (plane.Raycast(ray, out float distance))
-            {
-                position = ray.GetPoint(distance);
-                return true;
-            }
-            position = default;
-            return false;
-        }
-
-        void Awake()
+        private void Awake()
         {
             startPosition = transform.position;
         }
 
         [ClientCallback]
-        void Update()
+        private void Update()
         {
             // mouse down on the white ball?
             if (Input.GetMouseButtonDown(0))
             {
-                if (MouseToWorld(out Vector3 position))
+                if (MouseToWorld(out var position))
                 {
                     // allow dragging if mouse is 'close enough'.
                     // balls are moving so we don't need to be exactly on it.
-                    float distance = Vector3.Distance(position, transform.position);
+                    var distance = Vector3.Distance(position, transform.position);
                     if (distance <= dragTolerance)
                     {
                         // enable drag indicator
@@ -61,7 +46,7 @@ namespace Mirror.Examples.BilliardsPredicted
             else if (Input.GetMouseButton(0))
             {
                 // cast mouse position to world
-                if (draggingStartedOverObject && MouseToWorld(out Vector3 current))
+                if (draggingStartedOverObject && MouseToWorld(out var current))
                 {
                     // drag indicator
                     dragIndicator.SetPosition(0, transform.position);
@@ -72,19 +57,19 @@ namespace Mirror.Examples.BilliardsPredicted
             else if (Input.GetMouseButtonUp(0))
             {
                 // cast mouse position to world
-                if (draggingStartedOverObject && MouseToWorld(out Vector3 current))
+                if (draggingStartedOverObject && MouseToWorld(out var current))
                 {
                     // calculate delta from ball to mouse
                     // ball may have moved since we started dragging,
                     // so always use current ball position here.
-                    Vector3 from = transform.position;
+                    var from = transform.position;
 
                     // debug drawing: only works if Gizmos are enabled!
                     Debug.DrawLine(from, current, Color.white, 2);
 
                     // calculate pending force delta
-                    Vector3 delta = from - current;
-                    Vector3 force = delta * forceMultiplier;
+                    var delta = from - current;
+                    var force = delta * forceMultiplier;
 
                     // there should be a maximum allowed force
                     force = Vector3.ClampMagnitude(force, maxForce);
@@ -172,15 +157,30 @@ namespace Mirror.Examples.BilliardsPredicted
         */
 
         [ClientCallback]
-        void OnGUI()
+        private void OnGUI()
         {
             // have a button to reply exactly the same force in every hit for easier testing.
             if (GUI.Button(new Rect(10, 150, 200, 20), "Hit!"))
             {
                 // hit with a slight angle so the red balls spread out in all directions
-                Vector3 force = Vector3.ClampMagnitude(new Vector3(10, 0, 600), maxForce);
+                var force = Vector3.ClampMagnitude(new Vector3(10, 0, 600), maxForce);
                 NetworkClient.localPlayer.GetComponent<PlayerPredicted>().OnDraggedBall(force);
             }
+        }
+
+        // cast mouse position on screen to world position
+        private bool MouseToWorld(out Vector3 position)
+        {
+            var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            var plane = new Plane(Vector3.up, transform.position);
+            if (plane.Raycast(ray, out var distance))
+            {
+                position = ray.GetPoint(distance);
+                return true;
+            }
+
+            position = default;
+            return false;
         }
     }
 }

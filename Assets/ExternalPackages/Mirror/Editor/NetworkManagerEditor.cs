@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -11,9 +10,9 @@ namespace Mirror
     [CanEditMultipleObjects]
     public class NetworkManagerEditor : Editor
     {
-        SerializedProperty spawnListProperty;
-        ReorderableList spawnList;
         protected NetworkManager networkManager;
+        private ReorderableList spawnList;
+        private SerializedProperty spawnListProperty;
 
         protected void Init()
         {
@@ -41,43 +40,32 @@ namespace Mirror
             DrawDefaultInspector();
             EditorGUI.BeginChangeCheck();
             spawnList.DoLayoutList();
-            if (EditorGUI.EndChangeCheck())
-            {
-                serializedObject.ApplyModifiedProperties();
-            }
+            if (EditorGUI.EndChangeCheck()) serializedObject.ApplyModifiedProperties();
 
-            if (GUILayout.Button("Populate Spawnable Prefabs"))
-            {
-                ScanForNetworkIdentities();
-            }
+            if (GUILayout.Button("Populate Spawnable Prefabs")) ScanForNetworkIdentities();
 
             // clicking the Populate button in a large project can add hundreds of entries.
             // have a clear button in case that wasn't intended.
             GUI.enabled = networkManager.spawnPrefabs.Count > 0;
-            if (GUILayout.Button("Clear Spawnable Prefabs"))
-            {
-                ClearNetworkIdentities();
-            }
+            if (GUILayout.Button("Clear Spawnable Prefabs")) ClearNetworkIdentities();
             GUI.enabled = true;
         }
 
-        void ScanForNetworkIdentities()
+        private void ScanForNetworkIdentities()
         {
-            List<GameObject> identities = new List<GameObject>();
-            bool cancelled = false;
+            var identities = new List<GameObject>();
+            var cancelled = false;
             try
             {
-                string[] paths = EditorHelper.IterateOverProject("t:prefab").ToArray();
-                int count = 0;
-                foreach (string path in paths)
+                var paths = EditorHelper.IterateOverProject("t:prefab").ToArray();
+                var count = 0;
+                foreach (var path in paths)
                 {
                     // ignore test & example prefabs.
                     // users sometimes keep the folders in their projects.
                     if (path.Contains("Mirror/Tests/") ||
                         path.Contains("Mirror/Examples/"))
-                    {
                         continue;
-                    }
 
                     if (EditorUtility.DisplayCancelableProgressBar("Searching for NetworkIdentities..",
                             $"Scanned {count}/{paths.Length} prefabs. Found {identities.Count} new ones",
@@ -89,22 +77,14 @@ namespace Mirror
 
                     count++;
 
-                    NetworkIdentity ni = AssetDatabase.LoadAssetAtPath<NetworkIdentity>(path);
-                    if (!ni)
-                    {
-                        continue;
-                    }
+                    var ni = AssetDatabase.LoadAssetAtPath<NetworkIdentity>(path);
+                    if (!ni) continue;
 
-                    if (!networkManager.spawnPrefabs.Contains(ni.gameObject))
-                    {
-                        identities.Add(ni.gameObject);
-                    }
-
+                    if (!networkManager.spawnPrefabs.Contains(ni.gameObject)) identities.Add(ni.gameObject);
                 }
             }
             finally
             {
-
                 EditorUtility.ClearProgressBar();
                 if (!cancelled)
                 {
@@ -121,12 +101,13 @@ namespace Mirror
                     // SetDirty is required to save the individual entries properly.
                     EditorUtility.SetDirty(target);
                 }
+
                 // Loading assets might use a lot of memory, so try to unload them after
                 Resources.UnloadUnusedAssets();
             }
         }
 
-        void ClearNetworkIdentities()
+        private void ClearNetworkIdentities()
         {
             // RecordObject is needed for "*" to show up in Scene.
             // however, this only saves List.Count without the entries.
@@ -139,15 +120,15 @@ namespace Mirror
             EditorUtility.SetDirty(target);
         }
 
-        static void DrawHeader(Rect headerRect)
+        private static void DrawHeader(Rect headerRect)
         {
             GUI.Label(headerRect, "Registered Spawnable Prefabs:");
         }
 
         internal void DrawChild(Rect r, int index, bool isActive, bool isFocused)
         {
-            SerializedProperty prefab = spawnListProperty.GetArrayElementAtIndex(index);
-            GameObject go = (GameObject)prefab.objectReferenceValue;
+            var prefab = spawnListProperty.GetArrayElementAtIndex(index);
+            var go = (GameObject)prefab.objectReferenceValue;
 
             GUIContent label;
             if (go == null)
@@ -156,11 +137,11 @@ namespace Mirror
             }
             else
             {
-                NetworkIdentity identity = go.GetComponent<NetworkIdentity>();
+                var identity = go.GetComponent<NetworkIdentity>();
                 label = new GUIContent(go.name, identity != null ? $"AssetId: [{identity.assetId}]" : "No Network Identity");
             }
 
-            GameObject newGameObject = (GameObject)EditorGUI.ObjectField(r, label, go, typeof(GameObject), false);
+            var newGameObject = (GameObject)EditorGUI.ObjectField(r, label, go, typeof(GameObject), false);
 
             if (newGameObject != go)
             {
@@ -169,6 +150,7 @@ namespace Mirror
                     Debug.LogError($"Prefab {newGameObject} cannot be added as spawnable as it doesn't have a NetworkIdentity.");
                     return;
                 }
+
                 prefab.objectReferenceValue = newGameObject;
             }
         }
@@ -183,7 +165,7 @@ namespace Mirror
             spawnListProperty.arraySize += 1;
             list.index = spawnListProperty.arraySize - 1;
 
-            SerializedProperty obj = spawnListProperty.GetArrayElementAtIndex(spawnListProperty.arraySize - 1);
+            var obj = spawnListProperty.GetArrayElementAtIndex(spawnListProperty.arraySize - 1);
             obj.objectReferenceValue = null;
 
             spawnList.index = spawnList.count - 1;
@@ -194,10 +176,7 @@ namespace Mirror
         internal void RemoveButton(ReorderableList list)
         {
             spawnListProperty.DeleteArrayElementAtIndex(spawnList.index);
-            if (list.index >= spawnListProperty.arraySize)
-            {
-                list.index = spawnListProperty.arraySize - 1;
-            }
+            if (list.index >= spawnListProperty.arraySize) list.index = spawnListProperty.arraySize - 1;
         }
     }
 }

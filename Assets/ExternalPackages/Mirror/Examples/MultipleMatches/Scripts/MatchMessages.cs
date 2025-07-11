@@ -3,7 +3,7 @@
 namespace Mirror.Examples.MultipleMatch
 {
     /// <summary>
-    /// Match message to be sent to the server
+    ///     Match message to be sent to the server
     /// </summary>
     public struct ServerMatchMessage : NetworkMessage
     {
@@ -12,7 +12,7 @@ namespace Mirror.Examples.MultipleMatch
     }
 
     /// <summary>
-    /// Match message to be sent to the client
+    ///     Match message to be sent to the client
     /// </summary>
     public struct ClientMatchMessage : NetworkMessage
     {
@@ -23,7 +23,7 @@ namespace Mirror.Examples.MultipleMatch
     }
 
     /// <summary>
-    /// Information about a match
+    ///     Information about a match
     /// </summary>
     [Serializable]
     public struct MatchInfo
@@ -34,7 +34,7 @@ namespace Mirror.Examples.MultipleMatch
     }
 
     /// <summary>
-    /// Information about a player
+    ///     Information about a player
     /// </summary>
     [Serializable]
     public struct PlayerInfo
@@ -53,7 +53,7 @@ namespace Mirror.Examples.MultipleMatch
     }
 
     /// <summary>
-    /// Match operation to execute on the server
+    ///     Match operation to execute on the server
     /// </summary>
     public enum ServerMatchOperation : byte
     {
@@ -67,7 +67,7 @@ namespace Mirror.Examples.MultipleMatch
     }
 
     /// <summary>
-    /// Match operation to execute on the client
+    ///     Match operation to execute on the client
     /// </summary>
     public enum ClientMatchOperation : byte
     {

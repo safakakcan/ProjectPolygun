@@ -1,24 +1,44 @@
+using System;
 using UnityEngine;
 
 namespace Mirror
 {
     internal class HexGrid3D
     {
-        // Radius of each hexagonal cell (half the width)
-        internal float cellRadius;
+        // Precomputed array of neighbor offsets as Cell3D structs (center + 6 per layer x 3 layers)
+        private static readonly Cell3D[] neighborCellsBase =
+        {
+            // Center
+            new(0, 0, 0),
+            // Upper layer (1) and its 6 neighbors
+            new(0, 0, 1),
+            new(1, -1, 1), new(1, 0, 1), new(0, 1, 1),
+            new(-1, 1, 1), new(-1, 0, 1), new(0, -1, 1),
+            // Same layer (0) - 6 neighbors
+            new(1, -1, 0), new(1, 0, 0), new(0, 1, 0),
+            new(-1, 1, 0), new(-1, 0, 0), new(0, -1, 0),
+            // Lower layer (-1) and its 6 neighbors
+            new(0, 0, -1),
+            new(1, -1, -1), new(1, 0, -1), new(0, 1, -1),
+            new(-1, 1, -1), new(-1, 0, -1), new(0, -1, -1)
+        };
+
+        private readonly float oneDiv3; // 1 / 3, used in coordinate conversions
+
+        // Offset applied to align the grid with the world origin
+        private readonly Vector3 originOffset;
+        private readonly float sqrt3; // sqrt(3), used in world coordinate calculations
+        private readonly float sqrt3Div2; // sqrt(3) / 2, used in world coordinate calculations
+
+        // Precomputed constants for hexagon math to improve performance
+        private readonly float sqrt3Div3; // sqrt(3) / 3, used in coordinate conversions
+        private readonly float twoDiv3; // 2 / 3, used in coordinate conversions
 
         // Height of each cell along the Y-axis
         internal float cellHeight;
 
-        // Offset applied to align the grid with the world origin
-        Vector3 originOffset;
-
-        // Precomputed constants for hexagon math to improve performance
-        readonly float sqrt3Div3; // sqrt(3) / 3, used in coordinate conversions
-        readonly float oneDiv3;   // 1 / 3, used in coordinate conversions
-        readonly float twoDiv3;   // 2 / 3, used in coordinate conversions
-        readonly float sqrt3;     // sqrt(3), used in world coordinate calculations
-        readonly float sqrt3Div2; // sqrt(3) / 2, used in world coordinate calculations
+        // Radius of each hexagonal cell (half the width)
+        internal float cellRadius;
 
         internal HexGrid3D(ushort visRange, ushort height)
         {
@@ -40,33 +60,15 @@ namespace Mirror
             sqrt3Div2 = Mathf.Sqrt(3) / 2f;
         }
 
-        // Precomputed array of neighbor offsets as Cell3D structs (center + 6 per layer x 3 layers)
-        static readonly Cell3D[] neighborCellsBase = new Cell3D[]
-        {
-        // Center
-        new Cell3D(0, 0, 0),
-        // Upper layer (1) and its 6 neighbors
-        new Cell3D(0, 0, 1),
-        new Cell3D(1, -1, 1), new Cell3D(1, 0, 1), new Cell3D(0, 1, 1),
-        new Cell3D(-1, 1, 1), new Cell3D(-1, 0, 1), new Cell3D(0, -1, 1),
-        // Same layer (0) - 6 neighbors
-        new Cell3D(1, -1, 0), new Cell3D(1, 0, 0), new Cell3D(0, 1, 0),
-        new Cell3D(-1, 1, 0), new Cell3D(-1, 0, 0), new Cell3D(0, -1, 0),
-        // Lower layer (-1) and its 6 neighbors
-        new Cell3D(0, 0, -1),
-        new Cell3D(1, -1, -1), new Cell3D(1, 0, -1), new Cell3D(0, 1, -1),
-        new Cell3D(-1, 1, -1), new Cell3D(-1, 0, -1), new Cell3D(0, -1, -1)
-        };
-
         // Converts a grid cell (q, r, layer) to a world position (x, y, z)
         internal Vector3 CellToWorld(Cell3D cell)
         {
             // Calculate X and Z using hexagonal coordinate formulas
-            float x = cellRadius * (sqrt3 * cell.q + sqrt3Div2 * cell.r);
-            float z = cellRadius * (1.5f * cell.r);
+            var x = cellRadius * (sqrt3 * cell.q + sqrt3Div2 * cell.r);
+            var z = cellRadius * (1.5f * cell.r);
 
             // Calculate Y based on layer and cell height
-            float y = cell.layer * cellHeight + cellHeight / 2;
+            var y = cell.layer * cellHeight + cellHeight / 2;
 
             // Subtract the origin offset to align with world space and return the position
             return new Vector3(x, y, z) - originOffset;
@@ -79,29 +81,29 @@ namespace Mirror
             position += originOffset;
 
             // Calculate the vertical layer based on Y position
-            int layer = Mathf.FloorToInt(position.y / cellHeight);
+            var layer = Mathf.FloorToInt(position.y / cellHeight);
 
             // Convert world X, Z to axial q, r coordinates using inverse hexagonal formulas
-            float q = (sqrt3Div3 * position.x - oneDiv3 * position.z) / cellRadius;
-            float r = (twoDiv3 * position.z) / cellRadius;
+            var q = (sqrt3Div3 * position.x - oneDiv3 * position.z) / cellRadius;
+            var r = twoDiv3 * position.z / cellRadius;
 
             // Round to the nearest valid cell and return
             return RoundToCell(q, r, layer);
         }
 
         // Rounds floating-point axial coordinates (q, r) to the nearest integer cell coordinates
-        Cell3D RoundToCell(float q, float r, int layer)
+        private Cell3D RoundToCell(float q, float r, int layer)
         {
             // Calculate the third hexagonal coordinate (s) for consistency
-            float s = -q - r;
-            int qInt = Mathf.RoundToInt(q); // Round q to nearest integer
-            int rInt = Mathf.RoundToInt(r); // Round r to nearest integer
-            int sInt = Mathf.RoundToInt(s); // Round s to nearest integer
+            var s = -q - r;
+            var qInt = Mathf.RoundToInt(q); // Round q to nearest integer
+            var rInt = Mathf.RoundToInt(r); // Round r to nearest integer
+            var sInt = Mathf.RoundToInt(s); // Round s to nearest integer
 
             // Calculate differences to determine which coordinate needs adjustment
-            float qDiff = Mathf.Abs(q - qInt);
-            float rDiff = Mathf.Abs(r - rInt);
-            float sDiff = Mathf.Abs(s - sInt);
+            var qDiff = Mathf.Abs(q - qInt);
+            var rDiff = Mathf.Abs(r - rInt);
+            var sDiff = Mathf.Abs(s - sInt);
 
             // Adjust q or r based on which has the largest rounding error (ensures q + r + s = 0)
             if (qDiff > rDiff && qDiff > sDiff)
@@ -117,17 +119,15 @@ namespace Mirror
         {
             // Ensure the array has the correct size
             if (neighbors.Length != 21)
-                throw new System.ArgumentException("Neighbor array must have exactly 21 elements");
+                throw new ArgumentException("Neighbor array must have exactly 21 elements");
 
             // Populate the array by adjusting precomputed offsets with the center cell's coordinates
-            for (int i = 0; i < neighborCellsBase.Length; i++)
-            {
+            for (var i = 0; i < neighborCellsBase.Length; i++)
                 neighbors[i] = new Cell3D(
                     center.q + neighborCellsBase[i].q,
                     center.r + neighborCellsBase[i].r,
                     center.layer + neighborCellsBase[i].layer
                 );
-            }
         }
 
 #if UNITY_EDITOR
@@ -139,13 +139,13 @@ namespace Mirror
             const int segments = 6;
 
             // Array to store the 6 corner points
-            Vector3[] corners = new Vector3[segments];
+            var corners = new Vector3[segments];
 
             // Calculate the corner positions of the hexagon in the XZ plane
-            for (int i = 0; i < segments; i++)
+            for (var i = 0; i < segments; i++)
             {
                 // Angle for each corner, offset by 90 degrees
-                float angle = 2 * Mathf.PI / segments * i + Mathf.PI / 2;
+                var angle = 2 * Mathf.PI / segments * i + Mathf.PI / 2;
 
                 // Calculate the corner position based on the angle and radius
                 corners[i] = center + new Vector3(radius * Mathf.Cos(angle), 0, radius * Mathf.Sin(angle));
@@ -156,39 +156,39 @@ namespace Mirror
             switch (relativeLayer)
             {
                 case 1:
-                    gizmoColor = Color.green;   // Upper layer (positive Y)
+                    gizmoColor = Color.green; // Upper layer (positive Y)
                     break;
                 case 0:
-                    gizmoColor = Color.cyan;    // Same layer as the reference point
+                    gizmoColor = Color.cyan; // Same layer as the reference point
                     break;
                 case -1:
-                    gizmoColor = Color.yellow;  // Lower layer (negative Y)
+                    gizmoColor = Color.yellow; // Lower layer (negative Y)
                     break;
                 default:
-                    gizmoColor = Color.red;     // Fallback for unexpected layers
+                    gizmoColor = Color.red; // Fallback for unexpected layers
                     break;
             }
 
             // Store the current Gizmos color to restore later
-            Color previousColor = Gizmos.color;
+            var previousColor = Gizmos.color;
 
             // Apply the chosen color
             Gizmos.color = gizmoColor;
 
             // Draw each side of the hexagon as a 3D quad (wall)
-            for (int i = 0; i < segments; i++)
+            for (var i = 0; i < segments; i++)
             {
                 // Current corner
-                Vector3 cornerA = corners[i];
+                var cornerA = corners[i];
 
                 // Next corner (wraps around at 6)
-                Vector3 cornerB = corners[(i + 1) % segments];
+                var cornerB = corners[(i + 1) % segments];
 
                 // Calculate top and bottom corners to form a vertical quad
-                Vector3 cornerATop = cornerA + Vector3.up * (height / 2);
-                Vector3 cornerBTop = cornerB + Vector3.up * (height / 2);
-                Vector3 cornerABottom = cornerA - Vector3.up * (height / 2);
-                Vector3 cornerBBottom = cornerB - Vector3.up * (height / 2);
+                var cornerATop = cornerA + Vector3.up * (height / 2);
+                var cornerBTop = cornerB + Vector3.up * (height / 2);
+                var cornerABottom = cornerA - Vector3.up * (height / 2);
+                var cornerBBottom = cornerB - Vector3.up * (height / 2);
 
                 // Draw the four lines of the quad to visualize the wall
                 Gizmos.DrawLine(cornerATop, cornerBTop);
@@ -207,8 +207,8 @@ namespace Mirror
     // Custom struct for neighbor offsets (reduced memory usage)
     internal struct HexOffset
     {
-        internal int qOffset;   // Offset in the q (axial) coordinate
-        internal int rOffset;   // Offset in the r (axial) coordinate
+        internal int qOffset; // Offset in the q (axial) coordinate
+        internal int rOffset; // Offset in the r (axial) coordinate
 
         internal HexOffset(int q, int r)
         {
@@ -220,9 +220,9 @@ namespace Mirror
     // Struct representing a single cell in the 3D hexagonal grid
     internal struct Cell3D
     {
-        internal readonly int q;        // Axial q coordinate (horizontal axis)
-        internal readonly int r;        // Axial r coordinate (diagonal axis)
-        internal readonly int layer;    // Vertical layer index (Y-axis stacking)
+        internal readonly int q; // Axial q coordinate (horizontal axis)
+        internal readonly int r; // Axial r coordinate (diagonal axis)
+        internal readonly int layer; // Vertical layer index (Y-axis stacking)
 
         internal Cell3D(int q, int r, int layer)
         {
@@ -231,13 +231,18 @@ namespace Mirror
             this.layer = layer;
         }
 
-        public override bool Equals(object obj) =>
-            obj is Cell3D other
-            && q == other.q
-            && r == other.r
-            && layer == other.layer;
+        public override bool Equals(object obj)
+        {
+            return obj is Cell3D other
+                   && q == other.q
+                   && r == other.r
+                   && layer == other.layer;
+        }
 
         // Generate a unique hash code for the cell
-        public override int GetHashCode() => (q << 16) ^ (r << 8) ^ layer;
+        public override int GetHashCode()
+        {
+            return (q << 16) ^ (r << 8) ^ layer;
+        }
     }
 }

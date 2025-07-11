@@ -5,20 +5,8 @@ namespace kcp2k
     // KCP Segment Definition
     internal class Segment
     {
-        internal uint conv;     // conversation
-        internal uint cmd;      // command, e.g. Kcp.CMD_ACK etc.
-        // fragment (sent as 1 byte).
-        // 0 if unfragmented, otherwise fragment numbers in reverse: N,..,32,1,0
-        // this way the first received segment tells us how many fragments there are.
-        internal uint frg;
-        internal uint wnd;      // window size that the receive can currently receive
-        internal uint ts;       // timestamp
-        internal uint sn;       // sequence number
-        internal uint una;
-        internal uint resendts; // resend timestamp
-        internal int  rto;
-        internal uint fastack;
-        internal uint xmit;     // retransmit count
+        internal uint cmd; // command, e.g. Kcp.CMD_ACK etc.
+        internal uint conv; // conversation
 
         // we need an auto scaling byte[] with a WriteBytes function.
         // MemoryStream does that perfectly, no need to reinvent the wheel.
@@ -29,7 +17,21 @@ namespace kcp2k
         // the buffer is always Kcp.buffer. Kcp ctor creates the buffer of size:
         // (mtu + OVERHEAD) * 3 bytes.
         // in other words, Encode only ever writes up to the above amount of bytes.
-        internal MemoryStream data = new MemoryStream(Kcp.MTU_DEF);
+        internal MemoryStream data = new(Kcp.MTU_DEF);
+
+        internal uint fastack;
+
+        // fragment (sent as 1 byte).
+        // 0 if unfragmented, otherwise fragment numbers in reverse: N,..,32,1,0
+        // this way the first received segment tells us how many fragments there are.
+        internal uint frg;
+        internal uint resendts; // resend timestamp
+        internal int rto;
+        internal uint sn; // sequence number
+        internal uint ts; // timestamp
+        internal uint una;
+        internal uint wnd; // window size that the receive can currently receive
+        internal uint xmit; // retransmit count
 
         // ikcp_encode_seg
         // encode a segment into buffer.
@@ -38,7 +40,7 @@ namespace kcp2k
         // in other words, Encode only ever writes up to the above amount of bytes.
         internal int Encode(byte[] ptr, int offset)
         {
-            int previousPosition = offset;
+            var previousPosition = offset;
 
             offset += Utils.Encode32U(ptr, offset, conv);
             offset += Utils.Encode8u(ptr, offset, (byte)cmd);
@@ -52,7 +54,7 @@ namespace kcp2k
             offset += Utils.Encode32U(ptr, offset, una);
             offset += Utils.Encode32U(ptr, offset, (uint)data.Position);
 
-            int written = offset - previousPosition;
+            var written = offset - previousPosition;
             return written;
         }
 
@@ -63,13 +65,13 @@ namespace kcp2k
             cmd = 0;
             frg = 0;
             wnd = 0;
-            ts  = 0;
-            sn  = 0;
+            ts = 0;
+            sn = 0;
             una = 0;
             rto = 0;
             xmit = 0;
             resendts = 0;
-            fastack  = 0;
+            fastack = 0;
 
             // keep buffer for next pool usage, but reset length (= bytes written)
             data.SetLength(0);

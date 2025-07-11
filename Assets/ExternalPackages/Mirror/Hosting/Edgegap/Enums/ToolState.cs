@@ -8,7 +8,7 @@ namespace Edgegap
         Building,
         Pushing,
         ProcessingDeployment,
-        DeploymentRunning,
+        DeploymentRunning
     }
 
     public static class PluginStateExtensions

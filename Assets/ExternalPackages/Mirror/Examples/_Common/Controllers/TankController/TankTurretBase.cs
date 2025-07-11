@@ -1,4 +1,5 @@
 using System;
+using UnityEditor;
 using UnityEngine;
 
 namespace Mirror.Examples.Common.Controllers.Tank
@@ -8,7 +9,199 @@ namespace Mirror.Examples.Common.Controllers.Tank
     [DisallowMultipleComponent]
     public class TankTurretBase : NetworkBehaviour
     {
-        const float BASE_DPI = 96f;
+        [Flags]
+        public enum ControlOptions : byte
+        {
+            None,
+            MouseLock = 1 << 0,
+            AutoLevel = 1 << 1,
+            ShowUI = 1 << 2
+        }
+
+        private const float BASE_DPI = 96f;
+
+        [Header("Prefabs")] public GameObject turretUIPrefab;
+
+        public GameObject projectilePrefab;
+
+        [Header("Components")] public Animator animator;
+
+        public Transform turret;
+        public Transform barrel;
+        public Transform projectileMount;
+        public CapsuleCollider barrelCollider;
+
+        [Header("Seated Player")] public GameObject playerObject;
+
+        [SyncVar(hook = nameof(OnPlayerColorChanged))]
+        public Color32 playerColor = Color.black;
+
+        [Header("Configuration")] [SerializeField]
+        public MoveKeys moveKeys = new()
+        {
+            PitchUp = KeyCode.UpArrow,
+            PitchDown = KeyCode.DownArrow,
+            TurnLeft = KeyCode.LeftArrow,
+            TurnRight = KeyCode.RightArrow
+        };
+
+        [SerializeField] public OtherKeys otherKeys = new()
+        {
+            Shoot = KeyCode.Space
+        };
+
+        [SerializeField] public OptionsKeys optionsKeys = new()
+        {
+            MouseLock = KeyCode.M,
+            AutoLevel = KeyCode.L,
+            ToggleUI = KeyCode.U
+        };
+
+        [Space(5)] public ControlOptions controlOptions = ControlOptions.AutoLevel | ControlOptions.ShowUI;
+
+        [Header("Shooting")] [Tooltip("Cooldown time in seconds")] [Range(0, 10)]
+        public byte cooldownTime = 1;
+
+        [Header("Turret")] [Range(0, 300f)] [Tooltip("Max Rotation in degrees per second")]
+        public float maxTurretSpeed = 250f;
+
+        [Range(0, 30f)] [Tooltip("Rotation acceleration in degrees per second squared")]
+        public float turretAcceleration = 10f;
+
+        [Header("Barrel")] [Range(0, 180f)] [Tooltip("Max Pitch in degrees per second")]
+        public float maxPitchSpeed = 30f;
+
+        [Range(0, 40f)] [Tooltip("Max Pitch in degrees")]
+        public float maxPitchUpAngle = 25f;
+
+        [Range(0, 20f)] [Tooltip("Max Pitch in degrees")]
+        public float maxPitchDownAngle;
+
+        [Range(0, 10f)] [Tooltip("Pitch acceleration in degrees per second squared")]
+        public float pitchAcceleration = 3f;
+
+        [Header("Diagnostics")] public RuntimeData runtimeData;
+
+        // Unity clones the material when GetComponent<Renderer>().material is called
+        // Cache it here and destroy it in OnDestroy to prevent a memory leak
+        private Material cachedMaterial;
+
+        private void Update()
+        {
+            var deltaTime = Time.deltaTime;
+
+            HandleOptions();
+            HandlePitch(deltaTime);
+
+            if (controlOptions.HasFlag(ControlOptions.MouseLock))
+                HandleMouseTurret(deltaTime);
+            else
+                HandleTurning(deltaTime);
+
+            HandleShooting();
+        }
+
+        private void OnPlayerColorChanged(Color32 _, Color32 newColor)
+        {
+            if (cachedMaterial == null)
+                cachedMaterial = playerObject.GetComponent<Renderer>().material;
+
+            cachedMaterial.color = newColor;
+            playerObject.SetActive(newColor != Color.black);
+        }
+
+        private void SetCursor(bool locked)
+        {
+            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !locked;
+        }
+
+        private void HandleOptions()
+        {
+            if (optionsKeys.MouseLock != KeyCode.None && Input.GetKeyUp(optionsKeys.MouseLock))
+            {
+                controlOptions ^= ControlOptions.MouseLock;
+                SetCursor(controlOptions.HasFlag(ControlOptions.MouseLock));
+            }
+
+            if (optionsKeys.AutoLevel != KeyCode.None && Input.GetKeyUp(optionsKeys.AutoLevel))
+                controlOptions ^= ControlOptions.AutoLevel;
+
+            if (optionsKeys.ToggleUI != KeyCode.None && Input.GetKeyUp(optionsKeys.ToggleUI))
+            {
+                controlOptions ^= ControlOptions.ShowUI;
+
+                if (runtimeData.turretUI != null)
+                    runtimeData.turretUI.SetActive(controlOptions.HasFlag(ControlOptions.ShowUI));
+            }
+        }
+
+        private void HandleTurning(float deltaTime)
+        {
+            var targetTurnSpeed = 0f;
+
+            // TurnLeft and TurnRight cancel each other out, reducing targetTurnSpeed to zero.
+            if (moveKeys.TurnLeft != KeyCode.None && Input.GetKey(moveKeys.TurnLeft))
+                targetTurnSpeed -= maxTurretSpeed;
+            if (moveKeys.TurnRight != KeyCode.None && Input.GetKey(moveKeys.TurnRight))
+                targetTurnSpeed += maxTurretSpeed;
+
+            runtimeData.turretSpeed = Mathf.MoveTowards(runtimeData.turretSpeed, targetTurnSpeed, turretAcceleration * maxTurretSpeed * deltaTime);
+            turret.Rotate(0f, runtimeData.turretSpeed * deltaTime, 0f);
+        }
+
+        private void HandleMouseTurret(float deltaTime)
+        {
+            // Accumulate mouse input over time
+            runtimeData.mouseInputX += Input.GetAxisRaw("Mouse X") * runtimeData.mouseSensitivity;
+
+            // Clamp the accumulator to simulate key press behavior
+            runtimeData.mouseInputX = Mathf.Clamp(runtimeData.mouseInputX, -1f, 1f);
+
+            // Calculate target turn speed
+            var targetTurnSpeed = runtimeData.mouseInputX * maxTurretSpeed;
+
+            // Use the same acceleration logic as HandleTurning
+            runtimeData.turretSpeed = Mathf.MoveTowards(runtimeData.turretSpeed, targetTurnSpeed, runtimeData.mouseSensitivity * maxTurretSpeed * deltaTime);
+
+            // Apply rotation
+            turret.Rotate(0f, runtimeData.turretSpeed * deltaTime, 0f);
+
+            runtimeData.mouseInputX = Mathf.MoveTowards(runtimeData.mouseInputX, 0f, runtimeData.mouseSensitivity * deltaTime);
+        }
+
+        private void HandlePitch(float deltaTime)
+        {
+            var targetPitchSpeed = 0f;
+            var inputDetected = false;
+
+            // Up and Down arrows for pitch
+            if (moveKeys.PitchUp != KeyCode.None && Input.GetKey(moveKeys.PitchUp))
+            {
+                targetPitchSpeed -= maxPitchSpeed;
+                inputDetected = true;
+            }
+
+            if (moveKeys.PitchDown != KeyCode.None && Input.GetKey(moveKeys.PitchDown))
+            {
+                targetPitchSpeed += maxPitchSpeed;
+                inputDetected = true;
+            }
+
+            runtimeData.pitchSpeed = Mathf.MoveTowards(runtimeData.pitchSpeed, targetPitchSpeed, pitchAcceleration * maxPitchSpeed * deltaTime);
+
+            // Apply pitch rotation
+            runtimeData.pitchAngle += runtimeData.pitchSpeed * deltaTime;
+            runtimeData.pitchAngle = Mathf.Clamp(runtimeData.pitchAngle, -maxPitchUpAngle, maxPitchDownAngle);
+
+            // Return to -90 when no input
+            if (!inputDetected && controlOptions.HasFlag(ControlOptions.AutoLevel))
+                runtimeData.pitchAngle = Mathf.MoveTowards(runtimeData.pitchAngle, 0f, maxPitchSpeed * deltaTime);
+
+            // Apply rotation to barrel -- rotation is (-90, 0, 180) in the prefab
+            // so that's what we have to work towards.
+            barrel.localRotation = Quaternion.Euler(-90f + runtimeData.pitchAngle, 0f, 180f);
+        }
 
         [Serializable]
         public struct OptionsKeys
@@ -33,101 +226,27 @@ namespace Mirror.Examples.Common.Controllers.Tank
             public KeyCode Shoot;
         }
 
-        [Flags]
-        public enum ControlOptions : byte
-        {
-            None,
-            MouseLock = 1 << 0,
-            AutoLevel = 1 << 1,
-            ShowUI = 1 << 2
-        }
-
-        // Unity clones the material when GetComponent<Renderer>().material is called
-        // Cache it here and destroy it in OnDestroy to prevent a memory leak
-        Material cachedMaterial;
-
-        [Header("Prefabs")]
-        public GameObject turretUIPrefab;
-        public GameObject projectilePrefab;
-
-        [Header("Components")]
-        public Animator animator;
-        public Transform turret;
-        public Transform barrel;
-        public Transform projectileMount;
-        public CapsuleCollider barrelCollider;
-
-        [Header("Seated Player")]
-        public GameObject playerObject;
-
-        [SyncVar(hook = nameof(OnPlayerColorChanged))]
-        public Color32 playerColor = Color.black;
-
-        [Header("Configuration")]
-        [SerializeField]
-        public MoveKeys moveKeys = new MoveKeys
-        {
-            PitchUp = KeyCode.UpArrow,
-            PitchDown = KeyCode.DownArrow,
-            TurnLeft = KeyCode.LeftArrow,
-            TurnRight = KeyCode.RightArrow
-        };
-
-        [SerializeField]
-        public OtherKeys otherKeys = new OtherKeys
-        {
-            Shoot = KeyCode.Space
-        };
-
-        [SerializeField]
-        public OptionsKeys optionsKeys = new OptionsKeys
-        {
-            MouseLock = KeyCode.M,
-            AutoLevel = KeyCode.L,
-            ToggleUI = KeyCode.U
-        };
-
-        [Space(5)]
-        public ControlOptions controlOptions = ControlOptions.AutoLevel | ControlOptions.ShowUI;
-
-        [Header("Shooting")]
-        [Tooltip("Cooldown time in seconds")]
-        [Range(0, 10)]
-        public byte cooldownTime = 1;
-
-        [Header("Turret")]
-        [Range(0, 300f)]
-        [Tooltip("Max Rotation in degrees per second")]
-        public float maxTurretSpeed = 250f;
-        [Range(0, 30f)]
-        [Tooltip("Rotation acceleration in degrees per second squared")]
-        public float turretAcceleration = 10f;
-
-        [Header("Barrel")]
-        [Range(0, 180f)]
-        [Tooltip("Max Pitch in degrees per second")]
-        public float maxPitchSpeed = 30f;
-        [Range(0, 40f)]
-        [Tooltip("Max Pitch in degrees")]
-        public float maxPitchUpAngle = 25f;
-        [Range(0, 20f)]
-        [Tooltip("Max Pitch in degrees")]
-        public float maxPitchDownAngle = 0f;
-        [Range(0, 10f)]
-        [Tooltip("Pitch acceleration in degrees per second squared")]
-        public float pitchAcceleration = 3f;
-
         // Runtime data in a struct so it can be folded up in inspector
         [Serializable]
         public struct RuntimeData
         {
-            [ReadOnly, SerializeField, Range(-300f, 300f)] float _turretSpeed;
-            [ReadOnly, SerializeField, Range(-180f, 180f)] float _pitchAngle;
-            [ReadOnly, SerializeField, Range(-180f, 180f)] float _pitchSpeed;
-            [ReadOnly, SerializeField, Range(-1f, 1f)] float _mouseInputX;
-            [ReadOnly, SerializeField, Range(0, 30f)] float _mouseSensitivity;
-            [ReadOnly, SerializeField] double _lastShotTime;
-            [ReadOnly, SerializeField] GameObject _turretUI;
+            [ReadOnly] [SerializeField] [Range(-300f, 300f)]
+            private float _turretSpeed;
+
+            [ReadOnly] [SerializeField] [Range(-180f, 180f)]
+            private float _pitchAngle;
+
+            [ReadOnly] [SerializeField] [Range(-180f, 180f)]
+            private float _pitchSpeed;
+
+            [ReadOnly] [SerializeField] [Range(-1f, 1f)]
+            private float _mouseInputX;
+
+            [ReadOnly] [SerializeField] [Range(0, 30f)]
+            private float _mouseSensitivity;
+
+            [ReadOnly] [SerializeField] private double _lastShotTime;
+            [ReadOnly] [SerializeField] private GameObject _turretUI;
 
             #region Properties
 
@@ -175,9 +294,6 @@ namespace Mirror.Examples.Common.Controllers.Tank
 
             #endregion
         }
-
-        [Header("Diagnostics")]
-        public RuntimeData runtimeData;
 
         #region Network Setup
 
@@ -244,18 +360,18 @@ namespace Mirror.Examples.Common.Controllers.Tank
             // This is not recommended for production code...use Resources.Load or AssetBundles instead.
             if (turretUIPrefab == null)
             {
-                string path = UnityEditor.AssetDatabase.GUIDToAssetPath("4d16730f7a8ba0a419530d1156d25080");
-                turretUIPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                var path = AssetDatabase.GUIDToAssetPath("4d16730f7a8ba0a419530d1156d25080");
+                turretUIPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             }
 
             if (projectilePrefab == null)
             {
-                string path = UnityEditor.AssetDatabase.GUIDToAssetPath("aec853915cd4f4477ba1532b5fe05488");
-                projectilePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                var path = AssetDatabase.GUIDToAssetPath("aec853915cd4f4477ba1532b5fe05488");
+                projectilePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             }
 #endif
 
-            this.enabled = false;
+            enabled = false;
         }
 
         public override void OnStartLocalPlayer()
@@ -282,143 +398,26 @@ namespace Mirror.Examples.Common.Controllers.Tank
         public override void OnStartAuthority()
         {
             // Calculate DPI-aware sensitivity
-            float dpiScale = (Screen.dpi > 0) ? (Screen.dpi / BASE_DPI) : 1f;
+            var dpiScale = Screen.dpi > 0 ? Screen.dpi / BASE_DPI : 1f;
             runtimeData.mouseSensitivity = turretAcceleration * dpiScale;
 
             SetCursor(controlOptions.HasFlag(ControlOptions.MouseLock));
-            this.enabled = true;
+            enabled = true;
         }
 
         public override void OnStopAuthority()
         {
             SetCursor(false);
-            this.enabled = false;
+            enabled = false;
         }
 
         #endregion
 
-        void Update()
-        {
-            float deltaTime = Time.deltaTime;
-
-            HandleOptions();
-            HandlePitch(deltaTime);
-
-            if (controlOptions.HasFlag(ControlOptions.MouseLock))
-                HandleMouseTurret(deltaTime);
-            else
-                HandleTurning(deltaTime);
-
-            HandleShooting();
-        }
-
-        void OnPlayerColorChanged(Color32 _, Color32 newColor)
-        {
-            if (cachedMaterial == null)
-                cachedMaterial = playerObject.GetComponent<Renderer>().material;
-
-            cachedMaterial.color = newColor;
-            playerObject.SetActive(newColor != Color.black);
-        }
-
-        void SetCursor(bool locked)
-        {
-            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
-            Cursor.visible = !locked;
-        }
-
-        void HandleOptions()
-        {
-            if (optionsKeys.MouseLock != KeyCode.None && Input.GetKeyUp(optionsKeys.MouseLock))
-            {
-                controlOptions ^= ControlOptions.MouseLock;
-                SetCursor(controlOptions.HasFlag(ControlOptions.MouseLock));
-            }
-
-            if (optionsKeys.AutoLevel != KeyCode.None && Input.GetKeyUp(optionsKeys.AutoLevel))
-                controlOptions ^= ControlOptions.AutoLevel;
-
-            if (optionsKeys.ToggleUI != KeyCode.None && Input.GetKeyUp(optionsKeys.ToggleUI))
-            {
-                controlOptions ^= ControlOptions.ShowUI;
-
-                if (runtimeData.turretUI != null)
-                    runtimeData.turretUI.SetActive(controlOptions.HasFlag(ControlOptions.ShowUI));
-            }
-        }
-
-        void HandleTurning(float deltaTime)
-        {
-            float targetTurnSpeed = 0f;
-
-            // TurnLeft and TurnRight cancel each other out, reducing targetTurnSpeed to zero.
-            if (moveKeys.TurnLeft != KeyCode.None && Input.GetKey(moveKeys.TurnLeft))
-                targetTurnSpeed -= maxTurretSpeed;
-            if (moveKeys.TurnRight != KeyCode.None && Input.GetKey(moveKeys.TurnRight))
-                targetTurnSpeed += maxTurretSpeed;
-
-            runtimeData.turretSpeed = Mathf.MoveTowards(runtimeData.turretSpeed, targetTurnSpeed, turretAcceleration * maxTurretSpeed * deltaTime);
-            turret.Rotate(0f, runtimeData.turretSpeed * deltaTime, 0f);
-        }
-
-        void HandleMouseTurret(float deltaTime)
-        {
-            // Accumulate mouse input over time
-            runtimeData.mouseInputX += Input.GetAxisRaw("Mouse X") * runtimeData.mouseSensitivity;
-
-            // Clamp the accumulator to simulate key press behavior
-            runtimeData.mouseInputX = Mathf.Clamp(runtimeData.mouseInputX, -1f, 1f);
-
-            // Calculate target turn speed
-            float targetTurnSpeed = runtimeData.mouseInputX * maxTurretSpeed;
-
-            // Use the same acceleration logic as HandleTurning
-            runtimeData.turretSpeed = Mathf.MoveTowards(runtimeData.turretSpeed, targetTurnSpeed, runtimeData.mouseSensitivity * maxTurretSpeed * deltaTime);
-
-            // Apply rotation
-            turret.Rotate(0f, runtimeData.turretSpeed * deltaTime, 0f);
-
-            runtimeData.mouseInputX = Mathf.MoveTowards(runtimeData.mouseInputX, 0f, runtimeData.mouseSensitivity * deltaTime);
-        }
-
-        void HandlePitch(float deltaTime)
-        {
-            float targetPitchSpeed = 0f;
-            bool inputDetected = false;
-
-            // Up and Down arrows for pitch
-            if (moveKeys.PitchUp != KeyCode.None && Input.GetKey(moveKeys.PitchUp))
-            {
-                targetPitchSpeed -= maxPitchSpeed;
-                inputDetected = true;
-            }
-
-            if (moveKeys.PitchDown != KeyCode.None && Input.GetKey(moveKeys.PitchDown))
-            {
-                targetPitchSpeed += maxPitchSpeed;
-                inputDetected = true;
-            }
-
-            runtimeData.pitchSpeed = Mathf.MoveTowards(runtimeData.pitchSpeed, targetPitchSpeed, pitchAcceleration * maxPitchSpeed * deltaTime);
-
-            // Apply pitch rotation
-            runtimeData.pitchAngle += runtimeData.pitchSpeed * deltaTime;
-            runtimeData.pitchAngle = Mathf.Clamp(runtimeData.pitchAngle, -maxPitchUpAngle, maxPitchDownAngle);
-
-            // Return to -90 when no input
-            if (!inputDetected && controlOptions.HasFlag(ControlOptions.AutoLevel))
-                runtimeData.pitchAngle = Mathf.MoveTowards(runtimeData.pitchAngle, 0f, maxPitchSpeed * deltaTime);
-
-            // Apply rotation to barrel -- rotation is (-90, 0, 180) in the prefab
-            // so that's what we have to work towards.
-            barrel.localRotation = Quaternion.Euler(-90f + runtimeData.pitchAngle, 0f, 180f);
-        }
-
         #region Shooting
 
-        bool CanShoot => NetworkTime.time >= runtimeData.lastShotTime + cooldownTime;
+        private bool CanShoot => NetworkTime.time >= runtimeData.lastShotTime + cooldownTime;
 
-        void HandleShooting()
+        private void HandleShooting()
         {
             if (CanShoot && otherKeys.Shoot != KeyCode.None && Input.GetKeyUp(otherKeys.Shoot))
             {
@@ -428,7 +427,7 @@ namespace Mirror.Examples.Common.Controllers.Tank
         }
 
         [Command]
-        void CmdShoot()
+        private void CmdShoot()
         {
             if (!CanShoot) return;
 
@@ -438,13 +437,13 @@ namespace Mirror.Examples.Common.Controllers.Tank
         }
 
         [ClientRpc(includeOwner = false)]
-        void RpcShoot()
+        private void RpcShoot()
         {
             //Debug.Log("RpcShoot");
             if (!isServer) DoShoot();
         }
 
-        void DoShoot()
+        private void DoShoot()
         {
             //Debug.Log($"DoShoot isServerOnly:{isServerOnly} | isServer:{isServer} | isClientOnly:{isClientOnly}");
 
@@ -454,7 +453,7 @@ namespace Mirror.Examples.Common.Controllers.Tank
             //     - ProjectileMount
 
             // Locally instantiate the projectile at the end of the barrel
-            GameObject go = Instantiate(projectilePrefab, projectileMount.position, projectileMount.rotation);
+            var go = Instantiate(projectilePrefab, projectileMount.position, projectileMount.rotation);
 
             // Ignore collision between the projectile and the barrel collider
             Physics.IgnoreCollision(go.GetComponent<Collider>(), barrelCollider);

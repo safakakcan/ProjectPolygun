@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace StinkySteak.NetcodeBenchmark
@@ -6,21 +7,6 @@ namespace StinkySteak.NetcodeBenchmark
     public class BehaviourConfig : ScriptableObject
     {
         [SerializeField] private MoveBehaviour _moveBehaviour;
-
-        [System.Serializable]
-        public struct MoveBehaviour
-        {
-            public SinMoveYWrapper SinYMove;
-            public SinRandomMoveWrapper SinAllAxisMove;
-            public WanderMoveWrapper WanderMove;
-
-            public void CreateDefault()
-            {
-                SinYMove = SinMoveYWrapper.CreateDefault();
-                SinAllAxisMove = SinRandomMoveWrapper.CreateDefault();
-                WanderMove = WanderMoveWrapper.CreateDefault();
-            }
-        }
 
         private void Reset()
         {
@@ -40,6 +26,21 @@ namespace StinkySteak.NetcodeBenchmark
         public void ApplyConfig(ref WanderMoveWrapper wrapper)
         {
             wrapper = _moveBehaviour.WanderMove;
+        }
+
+        [Serializable]
+        public struct MoveBehaviour
+        {
+            public SinMoveYWrapper SinYMove;
+            public SinRandomMoveWrapper SinAllAxisMove;
+            public WanderMoveWrapper WanderMove;
+
+            public void CreateDefault()
+            {
+                SinYMove = SinMoveYWrapper.CreateDefault();
+                SinAllAxisMove = SinRandomMoveWrapper.CreateDefault();
+                WanderMove = WanderMoveWrapper.CreateDefault();
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 # ProjectPolygun - FPS Game Architecture
 
-A well-architected Unity FPS game built with SOLID principles, composition over inheritance, and optimized for 16-player networked gameplay using Mirror.
+A well-architected Unity FPS game built with SOLID principles, composition over inheritance, and optimized for 16-player
+networked gameplay using Mirror.
 
 ## 🏗️ Architecture Overview
 
@@ -15,6 +16,7 @@ This project follows a **layered architecture** with clear separation of concern
 ## 🔧 Core Systems
 
 ### 1. Event Bus System
+
 Provides decoupled communication between systems using the publisher-subscriber pattern.
 
 ```csharp
@@ -30,6 +32,7 @@ ServiceLocator.EventBus.Unsubscribe<PlayerDeathEvent>(OnPlayerDeath);
 ```
 
 ### 2. Dependency Injection
+
 Simple IoC container for loose coupling between systems.
 
 ```csharp
@@ -42,6 +45,7 @@ var weaponSystem = ServiceLocator.Resolve<IWeaponSystem>();
 ```
 
 ### 3. Object Pooling
+
 Generic pooling system for performance optimization.
 
 ```csharp
@@ -57,23 +61,28 @@ bulletPool.Prewarm(50); // Pre-create 50 bullets
 ## 🎮 Game Architecture
 
 ### Player System
+
 - **IPlayerController**: Core player interface
 - **IHealthSystem**: Health and damage management
 - **Composition**: Players are composed of multiple systems rather than inheritance
 
 ### Weapon System
+
 - **IWeapon**: Base weapon interface
 - **Polymorphism**: Different weapon types (hitscan, projectile) implement same interface
 - **Strategy Pattern**: Weapon behavior can be swapped at runtime
 
 ### Event-Driven Design
+
 All major game events are handled through the event bus:
+
 - `PlayerDeathEvent`, `PlayerDamagedEvent`, `WeaponFiredEvent`
 - `GameStateChangedEvent`, `PlayerJoinedEvent`, `PlayerLeftEvent`
 
 ## 🚀 Getting Started
 
 ### 1. Initialize Core Systems
+
 The `GameBootstrapper` automatically initializes all core systems:
 
 ```csharp
@@ -85,6 +94,7 @@ GameBootstrapper.Instance.Initialize();
 ```
 
 ### 2. Use Service Locator
+
 Access services throughout your code:
 
 ```csharp
@@ -98,6 +108,7 @@ var playerManager = ServiceLocator.Resolve<IPlayerManager>();
 ### 3. Follow SOLID Principles
 
 #### Single Responsibility
+
 ```csharp
 // ✅ Good - Each class has one responsibility
 public class WeaponController : IWeaponController
@@ -109,6 +120,7 @@ public class Player : NetworkBehaviour // handles movement, health, weapons, inp
 ```
 
 #### Open/Closed Principle
+
 ```csharp
 // ✅ Good - Open for extension via interfaces
 public interface IWeapon
@@ -121,6 +133,7 @@ public class Shotgun : IWeapon { /* implementation */ }
 ```
 
 #### Dependency Inversion
+
 ```csharp
 // ✅ Good - Depend on abstractions
 public class PlayerController
@@ -161,6 +174,7 @@ Assets/Scripts/
 ## 🔄 Development Workflow
 
 ### 1. Define Interface First
+
 ```csharp
 public interface INewFeature
 {
@@ -169,6 +183,7 @@ public interface INewFeature
 ```
 
 ### 2. Implement Interface
+
 ```csharp
 public class NewFeature : MonoBehaviour, INewFeature
 {
@@ -180,11 +195,13 @@ public class NewFeature : MonoBehaviour, INewFeature
 ```
 
 ### 3. Register Service
+
 ```csharp
 ServiceLocator.Container.Register<INewFeature, NewFeature>();
 ```
 
 ### 4. Use Events for Communication
+
 ```csharp
 public class NewFeatureEvent : GameEventBase
 {
@@ -207,6 +224,7 @@ ServiceLocator.EventBus.Publish(new NewFeatureEvent());
 ## 🧪 Testing
 
 Run the `ArchitectureExample` script to see the systems in action:
+
 1. Add `ArchitectureExample` component to any GameObject
 2. Play the scene
 3. Check console for event system demonstration
@@ -214,7 +232,7 @@ Run the `ArchitectureExample` script to see the systems in action:
 ## 📈 Performance Targets
 
 - **60 FPS** on mid-range hardware
-- **<100ms** server response time  
+- **<100ms** server response time
 - **<50MB** memory usage for 16 players
 - **<1MB/min** network traffic per player
 
@@ -229,6 +247,7 @@ Run the `ArchitectureExample` script to see the systems in action:
 ## 🤝 Team Development
 
 With a 3-person team:
+
 - **Person 1**: Core systems & networking
 - **Person 2**: Gameplay mechanics (movement, weapons, health)
 - **Person 3**: UI, polish & integration

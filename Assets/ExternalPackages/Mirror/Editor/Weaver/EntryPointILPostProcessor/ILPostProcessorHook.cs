@@ -1,17 +1,20 @@
 // hook via ILPostProcessor from Unity 2020.3+
 // (2020.1 has errors https://github.com/vis2k/Mirror/issues/2912)
+
 #if UNITY_2020_3_OR_NEWER
 // Unity.CompilationPipeline reference is only resolved if assembly name is
 // Unity.*.CodeGen:
 // https://forum.unity.com/threads/how-does-unity-do-codegen-and-why-cant-i-do-it-myself.853867/#post-5646937
 using System.IO;
 using System.Linq;
-// to use Mono.CecilX here, we need to 'override references' in the
-// Unity.Mirror.CodeGen assembly definition file in the Editor, and add CecilX.
-// otherwise we get a reflection exception with 'file not found: CecilX'.
 using Mono.CecilX;
 using Mono.CecilX.Cil;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
+
+// to use Mono.CecilX here, we need to 'override references' in the
+// Unity.Mirror.CodeGen assembly definition file in the Editor, and add CecilX.
+// otherwise we get a reflection exception with 'file not found: CecilX'.
+
 // IMPORTANT: 'using UnityEngine' does not work in here.
 // Unity gives "(0,0): error System.Security.SecurityException: ECall methods must be packaged into a system module."
 //using UnityEngine;
@@ -21,7 +24,7 @@ namespace Mirror.Weaver
     public class ILPostProcessorHook : ILPostProcessor
     {
         // from CompilationFinishedHook
-        const string MirrorRuntimeAssemblyName = "Mirror";
+        private const string MirrorRuntimeAssemblyName = "Mirror";
 
         // ILPostProcessor is invoked by Unity.
         // we can not tell it to ignore certain assemblies before processing.
@@ -30,15 +33,20 @@ namespace Mirror.Weaver
         public const string IgnoreDefine = "ILPP_IGNORE";
 
         // we can't use Debug.Log in ILPP, so we need a custom logger
-        ILPostProcessorLogger Log = new ILPostProcessorLogger();
+        private readonly ILPostProcessorLogger Log = new();
 
         // ???
-        public override ILPostProcessor GetInstance() => this;
+        public override ILPostProcessor GetInstance()
+        {
+            return this;
+        }
 
         // check if assembly has the 'ignore' define
-        static bool HasDefine(ICompiledAssembly assembly, string define) =>
-            assembly.Defines != null &&
-            assembly.Defines.Contains(define);
+        private static bool HasDefine(ICompiledAssembly assembly, string define)
+        {
+            return assembly.Defines != null &&
+                   assembly.Defines.Contains(define);
+        }
 
         // process Mirror, or anything that references Mirror
         public override bool WillProcess(ICompiledAssembly compiledAssembly)
@@ -51,9 +59,9 @@ namespace Mirror.Weaver
             // log them to see:
             //     foreach (string reference in compiledAssembly.References)
             //         LogDiagnostics($"{compiledAssembly.Name} references {reference}");
-            bool relevant = compiledAssembly.Name == MirrorRuntimeAssemblyName ||
-                            compiledAssembly.References.Any(filePath => Path.GetFileNameWithoutExtension(filePath) == MirrorRuntimeAssemblyName);
-            bool ignore = HasDefine(compiledAssembly, IgnoreDefine);
+            var relevant = compiledAssembly.Name == MirrorRuntimeAssemblyName ||
+                           compiledAssembly.References.Any(filePath => Path.GetFileNameWithoutExtension(filePath) == MirrorRuntimeAssemblyName);
+            var ignore = HasDefine(compiledAssembly, IgnoreDefine);
             return relevant && !ignore;
         }
 
@@ -62,16 +70,17 @@ namespace Mirror.Weaver
             //Log.Warning($"Processing {compiledAssembly.Name}");
 
             // load the InMemoryAssembly peData into a MemoryStream
-            byte[] peData = compiledAssembly.InMemoryAssembly.PeData;
+            var peData = compiledAssembly.InMemoryAssembly.PeData;
             //LogDiagnostics($"  peData.Length={peData.Length} bytes");
-            using (MemoryStream stream = new MemoryStream(peData))
-            using (ILPostProcessorAssemblyResolver asmResolver = new ILPostProcessorAssemblyResolver(compiledAssembly, Log))
+            using (var stream = new MemoryStream(peData))
+            using (var asmResolver = new ILPostProcessorAssemblyResolver(compiledAssembly, Log))
             {
                 // we need to load symbols. otherwise we get:
                 // "(0,0): error Mono.CecilX.Cil.SymbolsNotFoundException: No symbol found for file: "
-                using (MemoryStream symbols = new MemoryStream(compiledAssembly.InMemoryAssembly.PdbData))
+                using (var symbols = new MemoryStream(compiledAssembly.InMemoryAssembly.PdbData))
                 {
-                    ReaderParameters readerParameters = new ReaderParameters{
+                    var readerParameters = new ReaderParameters
+                    {
                         SymbolStream = symbols,
                         ReadWrite = true,
                         ReadSymbols = true,
@@ -80,7 +89,7 @@ namespace Mirror.Weaver
                         // not being found in custom assembly resolver above.
                         ReflectionImporterProvider = new ILPostProcessorReflectionImporterProvider()
                     };
-                    using (AssemblyDefinition asmDef = AssemblyDefinition.ReadAssembly(stream, readerParameters))
+                    using (var asmDef = AssemblyDefinition.ReadAssembly(stream, readerParameters))
                     {
                         // resolving a Mirror.dll type like NetworkServer while
                         // weaving Mirror.dll does not work. it throws a
@@ -90,11 +99,9 @@ namespace Mirror.Weaver
                         asmResolver.SetAssemblyDefinitionForCompiledAssembly(asmDef);
 
                         // weave this assembly.
-                        Weaver weaver = new Weaver(Log);
-                        if (weaver.Weave(asmDef, asmResolver, out bool modified))
-                        {
+                        var weaver = new Weaver(Log);
+                        if (weaver.Weave(asmDef, asmResolver, out var modified))
                             //Log.Warning($"Weaving succeeded for: {compiledAssembly.Name}");
-
                             // write if modified
                             if (modified)
                             {
@@ -105,15 +112,11 @@ namespace Mirror.Weaver
                                 // -> this would throw an exception:
                                 //    "Mirror references itself" and not compile
                                 // -> need to detect and fix manually here
-                                if (asmDef.MainModule.AssemblyReferences.Any(r => r.Name == asmDef.Name.Name))
-                                {
-                                    asmDef.MainModule.AssemblyReferences.Remove(asmDef.MainModule.AssemblyReferences.First(r => r.Name == asmDef.Name.Name));
-                                    //Log.Warning($"fixed self referencing Assembly: {asmDef.Name.Name}");
-                                }
-
-                                MemoryStream peOut = new MemoryStream();
-                                MemoryStream pdbOut = new MemoryStream();
-                                WriterParameters writerParameters = new WriterParameters
+                                if (asmDef.MainModule.AssemblyReferences.Any(r => r.Name == asmDef.Name.Name)) asmDef.MainModule.AssemblyReferences.Remove(asmDef.MainModule.AssemblyReferences.First(r => r.Name == asmDef.Name.Name));
+                                //Log.Warning($"fixed self referencing Assembly: {asmDef.Name.Name}");
+                                var peOut = new MemoryStream();
+                                var pdbOut = new MemoryStream();
+                                var writerParameters = new WriterParameters
                                 {
                                     SymbolWriterProvider = new PortablePdbWriterProvider(),
                                     SymbolStream = pdbOut,
@@ -122,10 +125,9 @@ namespace Mirror.Weaver
 
                                 asmDef.Write(peOut, writerParameters);
 
-                                InMemoryAssembly inMemory = new InMemoryAssembly(peOut.ToArray(), pdbOut.ToArray());
+                                var inMemory = new InMemoryAssembly(peOut.ToArray(), pdbOut.ToArray());
                                 return new ILPostProcessResult(inMemory, Log.Logs);
                             }
-                        }
                         // if anything during Weave() fails, we log an error.
                         // don't need to indicate 'weaving failed' again.
                         // in fact, this would break tests only expecting certain errors.

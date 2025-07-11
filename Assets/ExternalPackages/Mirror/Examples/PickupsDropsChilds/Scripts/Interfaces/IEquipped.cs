@@ -1,6 +1,8 @@
+using System;
+
 namespace Mirror.Examples.PickupsDropsChilds
 {
-    interface IEquipped
+    internal interface IEquipped
     {
         EquippedItemConfig equippedItemConfig { get; set; }
 
@@ -10,8 +12,8 @@ namespace Mirror.Examples.PickupsDropsChilds
         void ResetUsages(byte usages);
     }
 
-    [System.Serializable]
-    public struct EquippedItemConfig : System.IEquatable<EquippedItemConfig>
+    [Serializable]
+    public struct EquippedItemConfig : IEquatable<EquippedItemConfig>
     {
         // Usages remaining...this could be ammo, potion doses, magic item charges, etc.
         public byte usages;
@@ -51,7 +53,7 @@ namespace Mirror.Examples.PickupsDropsChilds
         // Fully reload to max usages
         public void ResetUsages()
         {
-            this.usages = maxUsages;
+            usages = maxUsages;
         }
 
         // Reload to a specific number of usages

@@ -7,9 +7,8 @@
 // => which means we don't need teleport detection either
 //
 // several functions are virtual in case someone needs to modify a part.
-using System;
+
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace Mirror
@@ -18,77 +17,71 @@ namespace Mirror
     public class NetworkTransformHybrid : NetworkBehaviourHybrid
     {
         public bool useFixedUpdate;
-        TransformSnapshot? pendingSnapshot;
 
         // target transform to sync. can be on a child.
-        [Header("Target")]
-        [Tooltip("The Transform component to sync. May be on this GameObject, or on a child.")]
+        [Header("Target")] [Tooltip("The Transform component to sync. May be on this GameObject, or on a child.")]
         public Transform target;
 
         [Tooltip("Buffer size limit to avoid ever growing list memory consumption attacks.")]
         public int bufferSizeLimit = 64;
-        internal SortedList<double, TransformSnapshot> clientSnapshots = new SortedList<double, TransformSnapshot>();
-        internal SortedList<double, TransformSnapshot> serverSnapshots = new SortedList<double, TransformSnapshot>();
 
         // CUSTOM CHANGE: bring back sendRate. this will probably be ported to Mirror.
         // TODO but use built in syncInterval instead of the extra field here!
-        [Header("Synchronization")]
-        [Tooltip("Send N snapshots per second. Multiples of frame rate make sense.")]
+        [Header("Synchronization")] [Tooltip("Send N snapshots per second. Multiples of frame rate make sense.")]
         public int sendRate = 30; // in Hz. easier to work with as int for EMA. easier to display '30' than '0.333333333'
-        public float sendInterval => 1f / sendRate;
+
+        // sensitivity is for changed-detection,
+        // this is != precision, which is for quantization and delta compression.
+        [Header("Sensitivity")] [Tooltip("Sensitivity of changes needed before an updated state is sent over the network")]
+        public float positionSensitivity = 0.01f;
+
+        public float rotationSensitivity = 0.01f;
+        public float scaleSensitivity = 0.01f;
+
+        // selective sync //////////////////////////////////////////////////////
+        [Header("Selective Sync & interpolation")]
+        public bool syncPosition = true;
+
+        public bool syncRotation = true;
+        public bool syncScale;
+
+        // debugging ///////////////////////////////////////////////////////////
+        [Header("Debug")] public bool debugDraw;
+
+        public bool showGizmos;
+        public bool showOverlay;
+        public Color overlayColor = new(0, 0, 0, 0.5f);
+        internal SortedList<double, TransformSnapshot> clientSnapshots = new();
+
+        // save last deserialized baseline to delta decompress against
+        private Vector3 lastDeserializedBaselinePosition = Vector3.zero; // unused, but keep for delta
+        private Quaternion lastDeserializedBaselineRotation = Quaternion.identity; // unused, but keep for delta
+
+        private Vector3 lastDeserializedBaselineScale = Vector3.one; // unused, but keep for delta
         // END CUSTOM CHANGE
 
         // delta compression needs to remember 'last' to compress against.
         // this is from reliable full state serializations, not from last
         // unreliable delta since that isn't guaranteed to be delivered.
-        Vector3 lastSerializedBaselinePosition = Vector3.zero;
-        Quaternion lastSerializedBaselineRotation = Quaternion.identity;
-        Vector3 lastSerializedBaselineScale = Vector3.one;
-
-        // save last deserialized baseline to delta decompress against
-        Vector3 lastDeserializedBaselinePosition = Vector3.zero;                // unused, but keep for delta
-        Quaternion lastDeserializedBaselineRotation = Quaternion.identity;      // unused, but keep for delta
-        Vector3 lastDeserializedBaselineScale = Vector3.one;                    // unused, but keep for delta
-
-        // sensitivity is for changed-detection,
-        // this is != precision, which is for quantization and delta compression.
-        [Header("Sensitivity"), Tooltip("Sensitivity of changes needed before an updated state is sent over the network")]
-        public float positionSensitivity = 0.01f;
-        public float rotationSensitivity = 0.01f;
-        public float scaleSensitivity    = 0.01f;
-
-        // selective sync //////////////////////////////////////////////////////
-        [Header("Selective Sync & interpolation")]
-        public bool syncPosition = true;
-        public bool syncRotation = true;
-        public bool syncScale    = false;
+        private Vector3 lastSerializedBaselinePosition = Vector3.zero;
+        private Quaternion lastSerializedBaselineRotation = Quaternion.identity;
+        private Vector3 lastSerializedBaselineScale = Vector3.one;
+        private TransformSnapshot? pendingSnapshot;
+        internal SortedList<double, TransformSnapshot> serverSnapshots = new();
+        public float sendInterval => 1f / sendRate;
 
         // velocity for convenience (animators etc.)
         // this isn't technically NetworkTransforms job, but it's needed by so many projects that we just provide it anyway.
         public Vector3 velocity { get; private set; }
         public Vector3 angularVelocity { get; private set; }
 
-        // debugging ///////////////////////////////////////////////////////////
-        [Header("Debug")]
-        public bool debugDraw;
-        public bool showGizmos;
-        public bool  showOverlay;
-        public Color overlayColor = new Color(0, 0, 0, 0.5f);
-
         // initialization //////////////////////////////////////////////////////
         // make sure to call this when inheriting too!
-        protected virtual void Awake() {}
-
-        protected override void OnValidate()
+        protected virtual void Awake()
         {
-            // Skip if Editor is in Play mode
-            if (Application.isPlaying) return;
-
-            base.OnValidate();
-            Reset();
         }
 
-        void Reset()
+        private void Reset()
         {
             // set target to self if none yet
             if (target == null) target = transform;
@@ -99,6 +92,51 @@ namespace Mirror
 
             // default to ClientToServer so this works immediately for users
             syncDirection = SyncDirection.ClientToServer;
+        }
+
+        // Update() without LateUpdate() split: otherwise perf. is cut in half!
+        protected override void Update()
+        {
+            base.Update(); // NetworkBehaviourHybrid
+
+            if (isServer)
+                // interpolate remote clients
+                UpdateServerInterpolation();
+            // 'else if' because host mode shouldn't update both.
+            else if (isClient)
+                // interpolate remote client (and local player if no authority)
+                if (!IsClientWithAuthority)
+                    UpdateClientInterpolation();
+        }
+
+        private void FixedUpdate()
+        {
+            if (!useFixedUpdate) return;
+
+            if (pendingSnapshot.HasValue)
+            {
+                ApplySnapshot(pendingSnapshot.Value);
+                pendingSnapshot = null;
+            }
+        }
+
+        protected virtual void OnEnable()
+        {
+            ResetState();
+        }
+
+        protected virtual void OnDisable()
+        {
+            ResetState();
+        }
+
+        protected override void OnValidate()
+        {
+            // Skip if Editor is in Play mode
+            if (Application.isPlaying) return;
+
+            base.OnValidate();
+            Reset();
         }
 
         // apply a snapshot to the Transform.
@@ -131,7 +169,7 @@ namespace Mirror
 
             if (syncPosition) target.localPosition = interpolated.position;
             if (syncRotation) target.localRotation = interpolated.rotation;
-            if (syncScale)    target.localScale    = interpolated.scale;
+            if (syncScale) target.localScale = interpolated.scale;
         }
 
         // store state after baseline sync
@@ -145,34 +183,25 @@ namespace Mirror
         // squared comparisons for performance
         protected override bool StateChanged()
         {
-            target.GetLocalPositionAndRotation(out Vector3 position, out Quaternion rotation);
-            Vector3 scale = target.localScale;
+            target.GetLocalPositionAndRotation(out var position, out var rotation);
+            var scale = target.localScale;
 
             if (syncPosition)
             {
-                float positionDelta = Vector3.Distance(position, lastSerializedBaselinePosition);
-                if (positionDelta >= positionSensitivity)
-                {
-                    return true;
-                }
+                var positionDelta = Vector3.Distance(position, lastSerializedBaselinePosition);
+                if (positionDelta >= positionSensitivity) return true;
             }
 
             if (syncRotation)
             {
-                float rotationDelta = Quaternion.Angle(lastSerializedBaselineRotation, rotation);
-                if (rotationDelta >= rotationSensitivity)
-                {
-                    return true;
-                }
+                var rotationDelta = Quaternion.Angle(lastSerializedBaselineRotation, rotation);
+                if (rotationDelta >= rotationSensitivity) return true;
             }
 
             if (syncScale)
             {
-                float scaleDelta = Vector3.Distance(scale, lastSerializedBaselineScale);
-                if (scaleDelta >= scaleSensitivity)
-                {
-                    return true;
-                }
+                var scaleDelta = Vector3.Distance(scale, lastSerializedBaselineScale);
+                if (scaleDelta >= scaleSensitivity) return true;
             }
 
             return false;
@@ -184,52 +213,49 @@ namespace Mirror
         {
             // perf: get position/rotation directly. TransformSnapshot is too expensive.
             // TransformSnapshot snapshot = ConstructSnapshot();
-            target.GetLocalPositionAndRotation(out Vector3 position, out Quaternion rotation);
-            Vector3 scale = target.localScale;
+            target.GetLocalPositionAndRotation(out var position, out var rotation);
+            var scale = target.localScale;
 
             if (syncPosition) writer.WriteVector3(position);
             if (syncRotation) writer.WriteQuaternion(rotation);
-            if (syncScale)    writer.WriteVector3(scale);
+            if (syncScale) writer.WriteVector3(scale);
         }
 
         // called on server and on client, depending on SyncDirection
         protected override void OnDeserializeBaseline(NetworkReader reader, byte baselineTick)
         {
             // deserialize
-            Vector3?    position = null;
+            Vector3? position = null;
             Quaternion? rotation = null;
-            Vector3?    scale    = null;
+            Vector3? scale = null;
 
             if (syncPosition)
             {
                 position = reader.ReadVector3();
                 lastDeserializedBaselinePosition = position.Value;
             }
+
             if (syncRotation)
             {
                 rotation = reader.ReadQuaternion();
                 lastDeserializedBaselineRotation = rotation.Value;
             }
+
             if (syncScale)
             {
-                scale    = reader.ReadVector3();
+                scale = reader.ReadVector3();
                 lastDeserializedBaselineScale = scale.Value;
             }
 
-           // debug draw: baseline = yellow
+            // debug draw: baseline = yellow
             if (debugDraw && position.HasValue) Debug.DrawLine(position.Value, position.Value + Vector3.up, Color.yellow, 10f);
 
             // if baseline counts as delta, insert it into snapshot buffer too
             if (baselineIsDelta)
             {
                 if (isServer)
-                {
                     OnClientToServerDeltaSync(position, rotation, scale);
-                }
-                else if (isClient)
-                {
-                    OnServerToClientDeltaSync(position, rotation, scale);
-                }
+                else if (isClient) OnServerToClientDeltaSync(position, rotation, scale);
             }
         }
 
@@ -238,12 +264,12 @@ namespace Mirror
         {
             // perf: get position/rotation directly. TransformSnapshot is too expensive.
             // TransformSnapshot snapshot = ConstructSnapshot();
-            target.GetLocalPositionAndRotation(out Vector3 position, out Quaternion rotation);
-            Vector3 scale = target.localScale;
+            target.GetLocalPositionAndRotation(out var position, out var rotation);
+            var scale = target.localScale;
 
             if (syncPosition) writer.WriteVector3(position);
             if (syncRotation) writer.WriteQuaternion(rotation);
-            if (syncScale)    writer.WriteVector3(scale);
+            if (syncScale) writer.WriteVector3(scale);
         }
 
         // called on server and on client, depending on SyncDirection
@@ -255,19 +281,14 @@ namespace Mirror
 
             if (syncPosition) position = reader.ReadVector3();
             if (syncRotation) rotation = reader.ReadQuaternion();
-            if (syncScale)    scale    = reader.ReadVector3();
+            if (syncScale) scale = reader.ReadVector3();
 
             // debug draw: delta = white
             if (debugDraw && position.HasValue) Debug.DrawLine(position.Value, position.Value + Vector3.up, Color.white, 10f);
 
             if (isServer)
-            {
                 OnClientToServerDeltaSync(position, rotation, scale);
-            }
-            else if (isClient)
-            {
-                OnServerToClientDeltaSync(position, rotation, scale);
-            }
+            else if (isClient) OnServerToClientDeltaSync(position, rotation, scale);
         }
 
         // processing //////////////////////////////////////////////////////////
@@ -282,19 +303,19 @@ namespace Mirror
 
             // only player owned objects (with a connection) can send to
             // server. we can get the timestamp from the connection.
-            double timestamp = connectionToClient.remoteTimeStamp;
+            var timestamp = connectionToClient.remoteTimeStamp;
 
             // insert transform snapshot
             SnapshotInterpolation.InsertIfNotExists(
                 serverSnapshots,
                 bufferSizeLimit,
                 new TransformSnapshot(
-                timestamp,         // arrival remote timestamp. NOT remote time.
-                NetworkTime.localTime, // Unity 2019 doesn't have Time.timeAsDouble yet
-                position.HasValue ? position.Value : Vector3.zero,
-                rotation.HasValue ? rotation.Value : Quaternion.identity,
-                scale.HasValue ? scale.Value : Vector3.one
-            ));
+                    timestamp, // arrival remote timestamp. NOT remote time.
+                    NetworkTime.localTime, // Unity 2019 doesn't have Time.timeAsDouble yet
+                    position.HasValue ? position.Value : Vector3.zero,
+                    rotation.HasValue ? rotation.Value : Quaternion.identity,
+                    scale.HasValue ? scale.Value : Vector3.one
+                ));
         }
 
         // server broadcasts sync message to all clients
@@ -317,7 +338,7 @@ namespace Mirror
             // not all of them have a connectionToServer.
             // but all of them go through NetworkClient.connection.
             // we can get the timestamp from there.
-            double timestamp = NetworkClient.connection.remoteTimeStamp;
+            var timestamp = NetworkClient.connection.remoteTimeStamp;
 
             // position, rotation, scale can have no value if same as last time.
             // saves bandwidth.
@@ -337,16 +358,16 @@ namespace Mirror
                 clientSnapshots,
                 bufferSizeLimit,
                 new TransformSnapshot(
-                timestamp,             // arrival remote timestamp. NOT remote time.
-                NetworkTime.localTime, // Unity 2019 doesn't have Time.timeAsDouble yet
-                position.HasValue ? position.Value : Vector3.zero,
-                rotation.HasValue ? rotation.Value : Quaternion.identity,
-                scale.HasValue ? scale.Value : Vector3.one
-            ));
+                    timestamp, // arrival remote timestamp. NOT remote time.
+                    NetworkTime.localTime, // Unity 2019 doesn't have Time.timeAsDouble yet
+                    position.HasValue ? position.Value : Vector3.zero,
+                    rotation.HasValue ? rotation.Value : Quaternion.identity,
+                    scale.HasValue ? scale.Value : Vector3.one
+                ));
         }
 
         // update server ///////////////////////////////////////////////////////
-        void UpdateServerInterpolation()
+        private void UpdateServerInterpolation()
         {
             // apply buffered snapshots IF client authority
             // -> in server authority, server moves the object
@@ -355,7 +376,6 @@ namespace Mirror
             //    client authority mode. if it doesn't go over the network,
             //    then we don't need to do anything.
             if (syncDirection == SyncDirection.ClientToServer && !isOwned)
-            {
                 if (serverSnapshots.Count > 0)
                 {
                     // step the transform interpolation without touching time.
@@ -367,22 +387,21 @@ namespace Mirror
                         // that's how we still get smooth movement even with a global timeline.
                         connectionToClient.remoteTimeline - sendInterval,
                         // END CUSTOM CHANGE
-                        out TransformSnapshot from,
-                        out TransformSnapshot to,
-                        out double t);
+                        out var from,
+                        out var to,
+                        out var t);
 
                     // interpolate & apply
-                    TransformSnapshot computed = TransformSnapshot.Interpolate(from, to, t);
+                    var computed = TransformSnapshot.Interpolate(from, to, t);
                     if (useFixedUpdate)
                         pendingSnapshot = computed;
                     else
                         ApplySnapshot(computed);
                 }
-            }
         }
 
         // update client ///////////////////////////////////////////////////////
-        void UpdateClientInterpolation()
+        private void UpdateClientInterpolation()
         {
             // only while we have snapshots
             if (clientSnapshots.Count > 0)
@@ -396,45 +415,16 @@ namespace Mirror
                     // that's how we still get smooth movement even with a global timeline.
                     NetworkTime.time - sendInterval, // == NetworkClient.localTimeline from snapshot interpolation
                     // END CUSTOM CHANGE
-                    out TransformSnapshot from,
-                    out TransformSnapshot to,
-                    out double t);
+                    out var from,
+                    out var to,
+                    out var t);
 
                 // interpolate & apply
-                TransformSnapshot computed = TransformSnapshot.Interpolate(from, to, t);
+                var computed = TransformSnapshot.Interpolate(from, to, t);
                 if (useFixedUpdate)
                     pendingSnapshot = computed;
                 else
                     ApplySnapshot(computed);
-            }
-        }
-
-        // Update() without LateUpdate() split: otherwise perf. is cut in half!
-        protected override void Update()
-        {
-            base.Update(); // NetworkBehaviourHybrid
-
-            if (isServer)
-            {
-                // interpolate remote clients
-                UpdateServerInterpolation();
-            }
-            // 'else if' because host mode shouldn't update both.
-            else if (isClient)
-            {
-                // interpolate remote client (and local player if no authority)
-                if (!IsClientWithAuthority) UpdateClientInterpolation();
-            }
-        }
-
-        void FixedUpdate()
-        {
-            if (!useFixedUpdate) return;
-
-            if (pendingSnapshot.HasValue)
-            {
-                ApplySnapshot(pendingSnapshot.Value);
-                pendingSnapshot = null;
             }
         }
 
@@ -565,11 +555,11 @@ namespace Mirror
             // reset baseline
             lastSerializedBaselinePosition = Vector3.zero;
             lastSerializedBaselineRotation = Quaternion.identity;
-            lastSerializedBaselineScale    = Vector3.one;
+            lastSerializedBaselineScale = Vector3.one;
 
             lastDeserializedBaselinePosition = Vector3.zero;
             lastDeserializedBaselineRotation = Quaternion.identity;
-            lastDeserializedBaselineScale    = Vector3.one;
+            lastDeserializedBaselineScale = Vector3.one;
 
             // Prevent resistance from CharacterController
             // or non-knematic Rigidbodies when teleporting.
@@ -577,9 +567,6 @@ namespace Mirror
 
             // Debug.Log($"[{name}] ResetState to baselineTick=0");
         }
-
-        protected virtual void OnDisable() => ResetState();
-        protected virtual void OnEnable() => ResetState();
 
         public override void OnSerialize(NetworkWriter writer, bool initialState)
         {
@@ -596,12 +583,12 @@ namespace Mirror
                 // spawn message is used as first baseline.
                 // perf: get position/rotation directly. TransformSnapshot is too expensive.
                 // TransformSnapshot snapshot = ConstructSnapshot();
-                target.GetLocalPositionAndRotation(out Vector3 position, out Quaternion rotation);
-                Vector3 scale = target.localScale;
+                target.GetLocalPositionAndRotation(out var position, out var rotation);
+                var scale = target.localScale;
 
                 if (syncPosition) writer.WriteVector3(position);
                 if (syncRotation) writer.WriteQuaternion(rotation);
-                if (syncScale)    writer.WriteVector3(scale);
+                if (syncScale) writer.WriteVector3(scale);
             }
         }
 
@@ -615,20 +602,22 @@ namespace Mirror
             if (initialState)
             {
                 // save last deserialized baseline tick number to compare deltas against
-                Vector3 position = Vector3.zero;
-                Quaternion rotation = Quaternion.identity;
-                Vector3 scale = Vector3.one;
+                var position = Vector3.zero;
+                var rotation = Quaternion.identity;
+                var scale = Vector3.one;
 
                 if (syncPosition)
                 {
                     position = reader.ReadVector3();
                     lastDeserializedBaselinePosition = position;
                 }
+
                 if (syncRotation)
                 {
                     rotation = reader.ReadQuaternion();
                     lastDeserializedBaselineRotation = rotation;
                 }
+
                 if (syncScale)
                 {
                     scale = reader.ReadVector3();
@@ -657,7 +646,7 @@ namespace Mirror
             if (!Debug.isDebugBuild) return;
 
             // project position to screen
-            Vector3 point = Camera.main.WorldToScreenPoint(target.position);
+            var point = Camera.main.WorldToScreenPoint(target.position);
 
             // enough alpha, in front of camera and in screen?
             if (point.z >= 0 && Utils.IsPointInScreen(point))
@@ -681,17 +670,17 @@ namespace Mirror
             if (buffer.Count < 2) return;
 
             // calculate threshold for 'old enough' snapshots
-            double threshold = NetworkTime.localTime - NetworkClient.bufferTime;
-            Color oldEnoughColor = new Color(0, 1, 0, 0.5f);
-            Color notOldEnoughColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
+            var threshold = NetworkTime.localTime - NetworkClient.bufferTime;
+            var oldEnoughColor = new Color(0, 1, 0, 0.5f);
+            var notOldEnoughColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
 
             // draw the whole buffer for easier debugging.
             // it's worth seeing how much we have buffered ahead already
-            for (int i = 0; i < buffer.Count; ++i)
+            for (var i = 0; i < buffer.Count; ++i)
             {
                 // color depends on if old enough or not
-                TransformSnapshot entry = buffer.Values[i];
-                bool oldEnough = entry.localTime <= threshold;
+                var entry = buffer.Values[i];
+                var oldEnough = entry.localTime <= threshold;
                 Gizmos.color = oldEnough ? oldEnoughColor : notOldEnoughColor;
                 Gizmos.DrawCube(entry.position, Vector3.one);
             }

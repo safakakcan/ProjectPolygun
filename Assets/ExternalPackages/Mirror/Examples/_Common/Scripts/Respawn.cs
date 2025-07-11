@@ -26,7 +26,7 @@ namespace Mirror.Examples.Common
                 yield break;
             }
 
-            GameObject playerObject = conn.identity.gameObject;
+            var playerObject = conn.identity.gameObject;
             NetworkServer.RemovePlayerForConnection(conn, RemovePlayerOptions.Unspawn);
             //Debug.Log("Player unspawned");
 
@@ -34,9 +34,9 @@ namespace Mirror.Examples.Common
             yield return new WaitForSeconds(respawnTime);
 
             // Respawn Player - fallback to Vector3.up * 5f to avoid spawning on another player.
-            Transform spawnPoint = NetworkManager.singleton.GetStartPosition();
-            Vector3 position = spawnPoint != null ? spawnPoint.position : Vector3.up * 5f;
-            Quaternion rotation = spawnPoint != null ? spawnPoint.rotation : Quaternion.identity;
+            var spawnPoint = NetworkManager.singleton.GetStartPosition();
+            var position = spawnPoint != null ? spawnPoint.position : Vector3.up * 5f;
+            var rotation = spawnPoint != null ? spawnPoint.rotation : Quaternion.identity;
 
             playerObject.transform.SetPositionAndRotation(position, rotation);
 

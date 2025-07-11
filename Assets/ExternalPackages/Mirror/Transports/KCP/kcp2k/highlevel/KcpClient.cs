@@ -1,5 +1,6 @@
 // kcp client logic abstracted into a class.
 // for use in Mirror, DOTSNET, testing, etc.
+
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -8,23 +9,8 @@ namespace kcp2k
 {
     public class KcpClient : KcpPeer
     {
-        // IO
-        protected Socket socket;
-        public EndPoint remoteEndPoint;
-
-        // expose local endpoint for users / relays / nat traversal etc.
-        public EndPoint LocalEndPoint => socket?.LocalEndPoint;
-
         // config
         protected readonly KcpConfig config;
-
-        // raw receive buffer always needs to be of 'MTU' size, even if
-        // MaxMessageSize is larger. kcp always sends in MTU segments and having
-        // a buffer smaller than MTU would silently drop excess data.
-        // => we need the MTU to fit channel + message!
-        // => protected because someone may overwrite RawReceive but still wants
-        //    to reuse the buffer.
-        protected readonly byte[] rawReceiveBuffer;
 
         // callbacks
         // even for errors, to allow liraries to show popups etc.
@@ -39,16 +25,29 @@ namespace kcp2k
         protected readonly Action OnDisconnectedCallback;
         protected readonly Action<ErrorCode, string> OnErrorCallback;
 
+        // raw receive buffer always needs to be of 'MTU' size, even if
+        // MaxMessageSize is larger. kcp always sends in MTU segments and having
+        // a buffer smaller than MTU would silently drop excess data.
+        // => we need the MTU to fit channel + message!
+        // => protected because someone may overwrite RawReceive but still wants
+        //    to reuse the buffer.
+        protected readonly byte[] rawReceiveBuffer;
+
         // state
-        bool active = false; // active between when connect() and disconnect() are called
+        private bool active; // active between when connect() and disconnect() are called
         public bool connected;
 
+        public EndPoint remoteEndPoint;
+
+        // IO
+        protected Socket socket;
+
         public KcpClient(Action OnConnected,
-                         Action<ArraySegment<byte>, KcpChannel> OnData,
-                         Action OnDisconnected,
-                         Action<ErrorCode, string> OnError,
-                         KcpConfig config)
-                         : base(config, 0) // client has no cookie yet
+            Action<ArraySegment<byte>, KcpChannel> OnData,
+            Action OnDisconnected,
+            Action<ErrorCode, string> OnError,
+            KcpConfig config)
+            : base(config, 0) // client has no cookie yet
         {
             // initialize callbacks first to ensure they can be used safely.
             OnConnectedCallback = OnConnected;
@@ -61,24 +60,31 @@ namespace kcp2k
             rawReceiveBuffer = new byte[config.Mtu];
         }
 
+        // expose local endpoint for users / relays / nat traversal etc.
+        public EndPoint LocalEndPoint => socket?.LocalEndPoint;
+
         // callbacks ///////////////////////////////////////////////////////////
         // some callbacks need to wrapped with some extra logic
         protected override void OnAuthenticated()
         {
-            Log.Info($"[KCP] Client: OnConnected");
+            Log.Info("[KCP] Client: OnConnected");
             connected = true;
             OnConnectedCallback();
         }
 
-        protected override void OnData(ArraySegment<byte> message, KcpChannel channel) =>
+        protected override void OnData(ArraySegment<byte> message, KcpChannel channel)
+        {
             OnDataCallback(message, channel);
+        }
 
-        protected override void OnError(ErrorCode error, string message) =>
+        protected override void OnError(ErrorCode error, string message)
+        {
             OnErrorCallback(error, message);
+        }
 
         protected override void OnDisconnected()
         {
-            Log.Info($"[KCP] Client: OnDisconnected");
+            Log.Info("[KCP] Client: OnDisconnected");
             connected = false;
             socket?.Close();
             socket = null;
@@ -98,7 +104,7 @@ namespace kcp2k
 
             // resolve host name before creating peer.
             // fixes: https://github.com/MirrorNetworking/Mirror/issues/3361
-            if (!Common.ResolveHostname(address, out IPAddress[] addresses))
+            if (!Common.ResolveHostname(address, out var addresses))
             {
                 // pass error to user callback. no need to log it manually.
                 OnError(ErrorCode.DnsResolve, $"Failed to resolve host: {address}");
@@ -183,7 +189,6 @@ namespace kcp2k
                 // at least log a message for easier debugging.
                 Log.Info($"[KCP] Client.RawSend: looks like the other end has closed the connection. This is fine: {e}");
                 // base.Disconnect(); <- don't call this, would deadlock if SendDisconnect() already throws
-
             }
         }
 
@@ -208,15 +213,12 @@ namespace kcp2k
 
             // parse channel
             // byte channel = segment[0]; ArraySegment[i] isn't supported in some older Unity Mono versions
-            byte channel = segment.Array[segment.Offset + 0];
+            var channel = segment.Array[segment.Offset + 0];
 
             // server messages always contain the security cookie.
             // parse it, assign if not assigned, warn if suddenly different.
-            Utils.Decode32U(segment.Array, segment.Offset + 1, out uint messageCookie);
-            if (messageCookie == 0)
-            {
-                Log.Error($"[KCP] Client: received message with cookie=0, this should never happen. Server should always include the security cookie.");
-            }
+            Utils.Decode32U(segment.Array, segment.Offset + 1, out var messageCookie);
+            if (messageCookie == 0) Log.Error("[KCP] Client: received message with cookie=0, this should never happen. Server should always include the security cookie.");
 
             if (cookie == 0)
             {
@@ -230,7 +232,7 @@ namespace kcp2k
             }
 
             // parse message
-            ArraySegment<byte> message = new ArraySegment<byte>(segment.Array, segment.Offset + 1+4, segment.Count - 1-4);
+            var message = new ArraySegment<byte>(segment.Array, segment.Offset + 1 + 4, segment.Count - 1 - 4);
 
             switch (channel)
             {
@@ -263,10 +265,8 @@ namespace kcp2k
             // (even if we didn't receive anything. need to tick ping etc.)
             // (connection is null if not active)
             if (active)
-            {
-                while (RawReceive(out ArraySegment<byte> segment))
+                while (RawReceive(out var segment))
                     RawInput(segment);
-            }
 
             // RawReceive may have disconnected peer. active check again.
             if (active) base.TickIncoming();

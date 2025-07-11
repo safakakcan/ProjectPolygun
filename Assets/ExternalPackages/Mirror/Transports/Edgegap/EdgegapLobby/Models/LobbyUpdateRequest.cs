@@ -1,4 +1,5 @@
 using System;
+
 namespace Edgegap
 {
     // https://docs.edgegap.com/docs/lobby/functions#updating-a-lobby

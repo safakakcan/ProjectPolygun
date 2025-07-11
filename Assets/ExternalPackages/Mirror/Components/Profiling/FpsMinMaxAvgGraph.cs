@@ -1,9 +1,24 @@
 using System;
 using UnityEngine;
+
 namespace Mirror
 {
     public class FpsMinMaxAvgGraph : BaseUIGraph
     {
+        protected override void OnValidate()
+        {
+            base.OnValidate();
+            if (CategoryColors.Length != 3)
+                CategoryColors = new[]
+                {
+                    Color.cyan, // avg
+                    Color.red, // min
+                    Color.green // max
+                };
+
+            IsStacked = false;
+        }
+
         protected override void CollectData(int category, out float value, out GraphAggregationMode mode)
         {
             value = 1 / Time.deltaTime;
@@ -21,20 +36,6 @@ namespace Mirror
                 default:
                     throw new ArgumentOutOfRangeException($"{category} is not valid.");
             }
-        }
-
-        protected override void OnValidate()
-        {
-            base.OnValidate();
-            if (CategoryColors.Length != 3)
-                CategoryColors = new[]
-                {
-                    Color.cyan, // avg
-                    Color.red,  // min
-                    Color.green // max
-                };
-
-            IsStacked = false;
         }
     }
 }

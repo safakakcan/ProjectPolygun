@@ -6,6 +6,7 @@ namespace Mirror
     public struct NetworkBehaviourSyncVar : IEquatable<NetworkBehaviourSyncVar>
     {
         public uint netId;
+
         // limited to 255 behaviours per identity
         public byte componentIndex;
 

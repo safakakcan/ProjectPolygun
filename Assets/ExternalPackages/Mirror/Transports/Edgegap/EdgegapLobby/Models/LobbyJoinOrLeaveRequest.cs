@@ -1,4 +1,5 @@
 using System;
+
 namespace Edgegap
 {
     // https://docs.edgegap.com/docs/lobby/functions#updating-a-lobby
@@ -11,6 +12,7 @@ namespace Edgegap
         {
             public string id;
         }
+
         public string lobby_id;
         public Player player;
     }

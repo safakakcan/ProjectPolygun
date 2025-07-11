@@ -2,36 +2,30 @@
 // reuses KcpTransport with custom KcpServer/Client.
 
 //#if MIRROR <- commented out because MIRROR isn't defined on first import yet
+
 using System;
 using System.Text.RegularExpressions;
-using UnityEngine;
-using Mirror;
 using kcp2k;
+using Mirror;
+using UnityEngine;
 
 namespace Edgegap
 {
     [HelpURL("https://mirror-networking.gitbook.io/docs/manual/transports/edgegap-transports/edgegap-relay")]
     public class EdgegapKcpTransport : KcpTransport
     {
-        [Header("Relay")]
-        public string relayAddress = "127.0.0.1";
-        public ushort relayGameServerPort = 8888;
-        public ushort relayGameClientPort = 9999;
-
         // mtu for kcp transport. respects relay overhead.
         public const int MaxPayload = Kcp.MTU_DEF - Protocol.Overhead;
 
-        [Header("Relay")]
-        public bool relayGUI = true;
+        [Header("Relay")] public string relayAddress = "127.0.0.1";
+
+        public ushort relayGameServerPort = 8888;
+        public ushort relayGameClientPort = 9999;
+
+        [Header("Relay")] public bool relayGUI = true;
+
         public uint userId = 11111111;
         public uint sessionId = 22222222;
-
-        // helper
-        internal static String ReParse(String cmd, String pattern, String defaultValue)
-        {
-            Match match = Regex.Match(cmd, pattern);
-            return match.Success ? match.Groups[1].Value : defaultValue;
-        }
 
         protected override void Awake()
         {
@@ -41,7 +35,7 @@ namespace Edgegap
             if (debugLog)
                 Log.Info = Debug.Log;
             else
-                Log.Info = _ => {};
+                Log.Info = _ => { };
             Log.Warning = Debug.LogWarning;
             Log.Error = Debug.LogError;
 
@@ -62,7 +56,7 @@ namespace Edgegap
             server = new EdgegapKcpServer(
                 (connectionId, endPoint) => OnServerConnectedWithAddress.Invoke(connectionId, endPoint.PrettyAddress()),
                 (connectionId, message, channel) => OnServerDataReceived.Invoke(connectionId, message, FromKcpChannel(channel)),
-                (connectionId) => OnServerDisconnected.Invoke(connectionId),
+                connectionId => OnServerDisconnected.Invoke(connectionId),
                 (connectionId, error, reason) => OnServerError.Invoke(connectionId, ToTransportError(error), reason),
                 config);
 
@@ -80,23 +74,31 @@ namespace Edgegap
             UnreliableMaxMessageSize = KcpPeer.UnreliableMaxMessageSize(MaxPayload);
         }
 
+        // helper
+        internal static string ReParse(string cmd, string pattern, string defaultValue)
+        {
+            var match = Regex.Match(cmd, pattern);
+            return match.Success ? match.Groups[1].Value : defaultValue;
+        }
+
         // client overwrites to use EdgegapClient instead of KcpClient
         public override void ClientConnect(string address)
         {
             // connect to relay address:port instead of the expected server address
-            EdgegapKcpClient client = (EdgegapKcpClient)this.client;
+            var client = (EdgegapKcpClient)this.client;
             client.userId = userId;
             client.sessionId = sessionId;
             client.connectionState = ConnectionState.Checking; // reset from last time
             client.Connect(relayAddress, relayGameClientPort);
         }
+
         public override void ClientConnect(Uri uri)
         {
             if (uri.Scheme != Scheme)
                 throw new ArgumentException($"Invalid url {uri}, use {Scheme}://host:port instead", nameof(uri));
 
             // connect to relay address:port instead of the expected server address
-            EdgegapKcpClient client = (EdgegapKcpClient)this.client;
+            var client = (EdgegapKcpClient)this.client;
             client.Connect(relayAddress, relayGameClientPort, userId, sessionId);
         }
 
@@ -104,11 +106,11 @@ namespace Edgegap
         public override void ServerStart()
         {
             // start the server
-            EdgegapKcpServer server = (EdgegapKcpServer)this.server;
+            var server = (EdgegapKcpServer)this.server;
             server.Start(relayAddress, relayGameServerPort, userId, sessionId);
         }
 
-        void OnGUIRelay()
+        private void OnGUIRelay()
         {
             // if (server.IsActive()) return;
 
@@ -126,7 +128,7 @@ namespace Edgegap
 
             if (NetworkServer.active)
             {
-                EdgegapKcpServer server = (EdgegapKcpServer)this.server;
+                var server = (EdgegapKcpServer)this.server;
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("State:");
                 GUILayout.Label(server.state.ToString());
@@ -134,7 +136,7 @@ namespace Edgegap
             }
             else if (NetworkClient.active)
             {
-                EdgegapKcpClient client = (EdgegapKcpClient)this.client;
+                var client = (EdgegapKcpClient)this.client;
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("State:");
                 GUILayout.Label(client.connectionState.ToString());
@@ -147,7 +149,7 @@ namespace Edgegap
         // base OnGUI only shows in editor & development builds.
         // here we always show it because we need the sessionid & userid buttons.
 #pragma warning disable CS0109
-        new void OnGUI()
+        private new void OnGUI()
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             base.OnGUI();
@@ -155,7 +157,10 @@ namespace Edgegap
             if (relayGUI) OnGUIRelay();
         }
 
-        public override string ToString() => "Edgegap Kcp Transport";
+        public override string ToString()
+        {
+            return "Edgegap Kcp Transport";
+        }
     }
 #pragma warning restore CS0109
 }

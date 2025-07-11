@@ -7,26 +7,22 @@ namespace StinkySteak.SimulationTimer
         public static PauseableSimulationTimer None => default;
 
         private float _targetTime;
-        private bool _isPaused;
 
         private float _pauseAtTime;
 
         public float TargetTime => GetTargetTime();
-        public bool IsPaused => _isPaused;
+        public bool IsPaused { get; private set; }
 
         private float GetTargetTime()
         {
-            if (!_isPaused)
-            {
-                return _targetTime;
-            }
+            if (!IsPaused) return _targetTime;
 
             return _targetTime + Time.time - _pauseAtTime;
         }
 
         public static PauseableSimulationTimer CreateFromSeconds(float duration)
         {
-            return new PauseableSimulationTimer()
+            return new PauseableSimulationTimer
             {
                 _targetTime = duration + Time.time
             };
@@ -34,28 +30,32 @@ namespace StinkySteak.SimulationTimer
 
         public void Pause()
         {
-            if (_isPaused) return;
+            if (IsPaused) return;
 
-            _isPaused = true;
+            IsPaused = true;
             _pauseAtTime = Time.time;
         }
 
         public void Resume()
         {
-            if (!_isPaused) return;
+            if (!IsPaused) return;
 
             _targetTime = GetTargetTime();
-            _isPaused = false;
+            IsPaused = false;
             _pauseAtTime = 0;
         }
 
         public bool IsRunning => _targetTime > 0;
 
         public bool IsExpired()
-            => Time.time >= TargetTime && IsRunning;
+        {
+            return Time.time >= TargetTime && IsRunning;
+        }
 
         public bool IsExpiredOrNotRunning()
-            => Time.time >= TargetTime;
+        {
+            return Time.time >= TargetTime;
+        }
 
         public float RemainingSeconds
             => Mathf.Max(TargetTime - Time.time, 0);

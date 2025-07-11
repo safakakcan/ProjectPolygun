@@ -1,45 +1,48 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using kcp2k;
 using Mirror;
 using UnityEngine;
-using kcp2k;
 
 namespace Edgegap
 {
     public class EdgegapKcpServer : KcpServer
     {
         // need buffer larger than KcpClient.rawReceiveBuffer to add metadata
-        readonly byte[] relayReceiveBuffer;
+        private readonly byte[] relayReceiveBuffer;
 
-        // authentication
-        public uint userId;
-        public uint sessionId;
-        public ConnectionState state = ConnectionState.Disconnected;
+        // ping
+        private double lastPingTime;
+
+        // custom 'active'. while connected to relay
+        private bool relayActive;
 
         // server is an UDP client talking to relay
         protected Socket relaySocket;
         public EndPoint remoteEndPoint;
+        public uint sessionId;
+        public ConnectionState state = ConnectionState.Disconnected;
 
-        // ping
-        double lastPingTime;
-
-        // custom 'active'. while connected to relay
-        bool relayActive;
+        // authentication
+        public uint userId;
 
         public EdgegapKcpServer(
-            Action<int, IPEndPoint> OnConnected,
-            Action<int, ArraySegment<byte>, KcpChannel> OnData,
-            Action<int> OnDisconnected,
-            Action<int, ErrorCode, string> OnError,
-            KcpConfig config)
-              // TODO don't call base. don't listen to local UdpServer at all?
-              : base(OnConnected, OnData, OnDisconnected, OnError, config)
+                Action<int, IPEndPoint> OnConnected,
+                Action<int, ArraySegment<byte>, KcpChannel> OnData,
+                Action<int> OnDisconnected,
+                Action<int, ErrorCode, string> OnError,
+                KcpConfig config)
+            // TODO don't call base. don't listen to local UdpServer at all?
+            : base(OnConnected, OnData, OnDisconnected, OnError, config)
         {
             relayReceiveBuffer = new byte[config.Mtu + Protocol.Overhead];
         }
 
-        public override bool IsActive() => relayActive;
+        public override bool IsActive()
+        {
+            return relayActive;
+        }
 
         // custom start function with relay parameters; connects udp client.
         public void Start(string relayAddress, ushort relayPort, uint userId, uint sessionId)
@@ -50,7 +53,7 @@ namespace Edgegap
             this.sessionId = sessionId;
 
             // try resolve host name
-            if (!Common.ResolveHostname(relayAddress, out IPAddress[] addresses))
+            if (!Common.ResolveHostname(relayAddress, out var addresses))
             {
                 OnError(0, ErrorCode.DnsResolve, $"Failed to resolve host: {relayAddress}");
                 return;
@@ -85,9 +88,8 @@ namespace Edgegap
             {
                 // TODO need separate buffer. don't write into result yet. only payload
 
-                if (relaySocket.ReceiveNonBlocking(relayReceiveBuffer, out ArraySegment<byte> content))
-                {
-                    using (NetworkReaderPooled reader = NetworkReaderPool.Get(content))
+                if (relaySocket.ReceiveNonBlocking(relayReceiveBuffer, out var content))
+                    using (var reader = NetworkReaderPool.Get(content))
                     {
                         // parse message type
                         if (reader.Remaining == 0)
@@ -95,7 +97,8 @@ namespace Edgegap
                             Debug.LogWarning($"EdgegapServer: message of {content.Count} is too small to parse header.");
                             return false;
                         }
-                        byte messageType = reader.ReadByte();
+
+                        var messageType = reader.ReadByte();
 
                         // handle message type
                         switch (messageType)
@@ -104,7 +107,7 @@ namespace Edgegap
                             {
                                 // parse state
                                 if (reader.Remaining < 1) return false;
-                                ConnectionState last = state;
+                                var last = state;
                                 state = (ConnectionState)reader.ReadByte();
 
                                 // log state changes for debugging.
@@ -132,18 +135,18 @@ namespace Edgegap
                             default: return false;
                         }
                     }
-                }
             }
             catch (SocketException e)
             {
                 Log.Info($"EdgegapServer: looks like the other end has closed the connection. This is fine: {e}");
             }
+
             return false;
         }
 
         protected override void RawSend(int connectionId, ArraySegment<byte> data)
         {
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 // Debug.Log($"EdgegapServer: sending to connId={connectionId}: {data.ToHexString()}");
                 writer.WriteUInt(userId);
@@ -164,9 +167,9 @@ namespace Edgegap
             }
         }
 
-        void SendPing()
+        private void SendPing()
         {
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 writer.WriteUInt(userId);
                 writer.WriteUInt(sessionId);
@@ -187,14 +190,12 @@ namespace Edgegap
         public override void TickOutgoing()
         {
             if (relayActive)
-            {
                 // ping every interval for keepalive & handshake
                 if (NetworkTime.localTime >= lastPingTime + Protocol.PingInterval)
                 {
                     SendPing();
                     lastPingTime = NetworkTime.localTime;
                 }
-            }
 
             // base processing
             base.TickOutgoing();

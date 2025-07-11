@@ -8,6 +8,7 @@ namespace Mirror.SimpleWeb
         public WebsocketPortOption ClientPortOption;
         public ushort CustomClientPort;
     }
+
     public enum WebsocketPortOption
     {
         DefaultSameAsServer,

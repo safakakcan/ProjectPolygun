@@ -1,17 +1,22 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using ProjectPolygun.Core.Interfaces;
+using UnityEngine;
 
 namespace ProjectPolygun.Core.Systems
 {
     /// <summary>
-    /// Thread-safe event bus implementation for decoupled system communication
+    ///     Thread-safe event bus implementation for decoupled system communication
     /// </summary>
     public class EventBus : MonoBehaviour, IEventBus
     {
-        private readonly Dictionary<Type, List<Delegate>> _subscriptions = new Dictionary<Type, List<Delegate>>();
-        private readonly object _lock = new object();
+        private readonly object _lock = new();
+        private readonly Dictionary<Type, List<Delegate>> _subscriptions = new();
+
+        private void OnDestroy()
+        {
+            Clear();
+        }
 
         public void Subscribe<T>(Action<T> handler) where T : IGameEvent
         {
@@ -20,11 +25,8 @@ namespace ProjectPolygun.Core.Systems
             lock (_lock)
             {
                 var eventType = typeof(T);
-                if (!_subscriptions.ContainsKey(eventType))
-                {
-                    _subscriptions[eventType] = new List<Delegate>();
-                }
-                
+                if (!_subscriptions.ContainsKey(eventType)) _subscriptions[eventType] = new List<Delegate>();
+
                 _subscriptions[eventType].Add(handler);
             }
         }
@@ -39,12 +41,9 @@ namespace ProjectPolygun.Core.Systems
                 if (_subscriptions.ContainsKey(eventType))
                 {
                     _subscriptions[eventType].Remove(handler);
-                    
+
                     // Clean up empty lists
-                    if (_subscriptions[eventType].Count == 0)
-                    {
-                        _subscriptions.Remove(eventType);
-                    }
+                    if (_subscriptions[eventType].Count == 0) _subscriptions.Remove(eventType);
                 }
             }
         }
@@ -66,7 +65,6 @@ namespace ProjectPolygun.Core.Systems
 
             // Execute handlers outside of lock to prevent deadlocks
             foreach (var handler in handlers)
-            {
                 try
                 {
                     ((Action<T>)handler)?.Invoke(eventData);
@@ -75,7 +73,6 @@ namespace ProjectPolygun.Core.Systems
                 {
                     Debug.LogError($"Error in event handler for {typeof(T).Name}: {ex.Message}");
                 }
-            }
         }
 
         public void Clear()
@@ -85,10 +82,5 @@ namespace ProjectPolygun.Core.Systems
                 _subscriptions.Clear();
             }
         }
-
-        private void OnDestroy()
-        {
-            Clear();
-        }
     }
-} 
+}

@@ -3,6 +3,7 @@
 // => scales way higher
 // checks on three dimensions (XYZ) which includes the vertical axes.
 // this is slower than XY checking for regular spatial hashing.
+
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,6 +14,17 @@ namespace Mirror
     {
         [Tooltip("The maximum range that objects will be visible at.")]
         public int visRange = 30;
+
+        [Tooltip("Rebuild all every 'rebuildInterval' seconds.")]
+        public float rebuildInterval = 1;
+
+        [Header("Debug Settings")] public bool showSlider;
+
+        // the grid
+        // begin with a large capacity to avoid resizing & allocations.
+        private Grid3D<NetworkConnectionToClient> grid = new(1024);
+
+        private double lastRebuildTime;
 
         // we use a 9 neighbour grid.
         // so we always see in a distance of 2 grids.
@@ -25,49 +37,6 @@ namespace Mirror
         // but that's not the case.
         // resolution would be 10, and we only see 1 cell far, so 10+10=20.
         public int resolution => visRange / 2; // same as XY because if XY is rotated 90 degree for 3D, it's still the same distance
-
-        [Tooltip("Rebuild all every 'rebuildInterval' seconds.")]
-        public float rebuildInterval = 1;
-        double lastRebuildTime;
-
-        [Header("Debug Settings")]
-        public bool showSlider;
-
-        // the grid
-        // begin with a large capacity to avoid resizing & allocations.
-        Grid3D<NetworkConnectionToClient> grid = new Grid3D<NetworkConnectionToClient>(1024);
-
-        // project 3d world position to grid position
-        Vector3Int ProjectToGrid(Vector3 position) =>
-            Vector3Int.RoundToInt(position / resolution);
-
-        public override bool OnCheckObserver(NetworkIdentity identity, NetworkConnectionToClient newObserver)
-        {
-            // calculate projected positions
-            Vector3Int projected = ProjectToGrid(identity.transform.position);
-            Vector3Int observerProjected = ProjectToGrid(newObserver.identity.transform.position);
-
-            // distance needs to be at max one of the 8 neighbors, which is
-            //   1 for the direct neighbors
-            //   1.41 for the diagonal neighbors (= sqrt(2))
-            // => use sqrMagnitude and '2' to avoid computations. same result.
-            return (projected - observerProjected).sqrMagnitude <= 2; // same as XY because if XY is rotated 90 degree for 3D, it's still the same distance
-        }
-
-        public override void OnRebuildObservers(NetworkIdentity identity, HashSet<NetworkConnectionToClient> newObservers)
-        {
-            // add everyone in 9 neighbour grid
-            // -> pass observers to GetWithNeighbours directly to avoid allocations
-            //    and expensive .UnionWith computations.
-            Vector3Int current = ProjectToGrid(identity.transform.position);
-            grid.GetWithNeighbours(current, newObservers);
-        }
-
-        [ServerCallback]
-        public override void ResetState()
-        {
-            lastRebuildTime = 0D;
-        }
 
         // update everyone's position in the grid
         // (internal so we can update from tests)
@@ -97,18 +66,16 @@ namespace Mirror
 
             // put every connection into the grid at it's main player's position
             // NOTE: player sees in a radius around him. NOT around his pet too.
-            foreach (NetworkConnectionToClient connection in NetworkServer.connections.Values)
-            {
+            foreach (var connection in NetworkServer.connections.Values)
                 // authenticated and joined world with a player?
                 if (connection.isAuthenticated && connection.identity != null)
                 {
                     // calculate current grid position
-                    Vector3Int position = ProjectToGrid(connection.identity.transform.position);
+                    var position = ProjectToGrid(connection.identity.transform.position);
 
                     // put into grid
                     grid.Add(position, connection);
                 }
-            }
 
             // rebuild all spawned entities' observers every 'interval'
             // this will call OnRebuildObservers which then returns the
@@ -124,15 +91,15 @@ namespace Mirror
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         // slider from dotsnet. it's nice to play around with in the benchmark
         // demo.
-        void OnGUI()
+        private void OnGUI()
         {
             if (!showSlider) return;
 
             // only show while server is running. not on client, etc.
             if (!NetworkServer.active) return;
 
-            int height = 30;
-            int width = 250;
+            var height = 30;
+            var width = 250;
             GUILayout.BeginArea(new Rect(Screen.width / 2 - width / 2, Screen.height - height, width, height));
             GUILayout.BeginHorizontal("Box");
             GUILayout.Label("Radius:");
@@ -142,5 +109,39 @@ namespace Mirror
             GUILayout.EndArea();
         }
 #endif
+
+        // project 3d world position to grid position
+        private Vector3Int ProjectToGrid(Vector3 position)
+        {
+            return Vector3Int.RoundToInt(position / resolution);
+        }
+
+        public override bool OnCheckObserver(NetworkIdentity identity, NetworkConnectionToClient newObserver)
+        {
+            // calculate projected positions
+            var projected = ProjectToGrid(identity.transform.position);
+            var observerProjected = ProjectToGrid(newObserver.identity.transform.position);
+
+            // distance needs to be at max one of the 8 neighbors, which is
+            //   1 for the direct neighbors
+            //   1.41 for the diagonal neighbors (= sqrt(2))
+            // => use sqrMagnitude and '2' to avoid computations. same result.
+            return (projected - observerProjected).sqrMagnitude <= 2; // same as XY because if XY is rotated 90 degree for 3D, it's still the same distance
+        }
+
+        public override void OnRebuildObservers(NetworkIdentity identity, HashSet<NetworkConnectionToClient> newObservers)
+        {
+            // add everyone in 9 neighbour grid
+            // -> pass observers to GetWithNeighbours directly to avoid allocations
+            //    and expensive .UnionWith computations.
+            var current = ProjectToGrid(identity.transform.position);
+            grid.GetWithNeighbours(current, newObservers);
+        }
+
+        [ServerCallback]
+        public override void ResetState()
+        {
+            lastRebuildTime = 0D;
+        }
     }
 }

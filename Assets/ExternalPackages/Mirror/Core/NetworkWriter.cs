@@ -6,7 +6,10 @@ using UnityEngine;
 
 namespace Mirror
 {
-    /// <summary>Network Writer for most simple types like floats, ints, buffers, structs, etc. Use NetworkWriterPool.GetReader() to avoid allocations.</summary>
+    /// <summary>
+    ///     Network Writer for most simple types like floats, ints, buffers, structs, etc. Use
+    ///     NetworkWriterPool.GetReader() to avoid allocations.
+    /// </summary>
     public class NetworkWriter
     {
         // the limit of ushort is so we can write string size prefix as only 2 bytes.
@@ -17,13 +20,6 @@ namespace Mirror
         // note: BinaryWriter allocates too much, so we only use a MemoryStream
         // => 1500 bytes by default because on average, most packets will be <= MTU
         public const int DefaultCapacity = 1500;
-        internal byte[] buffer = new byte[DefaultCapacity];
-
-        /// <summary>Next position to write to the buffer</summary>
-        public int Position;
-
-        /// <summary>Current capacity. Automatically resized if necessary.</summary>
-        public int Capacity => buffer.Length;
 
         // cache encoding for WriteString instead of creating it each time.
         // 1000 readers before:  1MB GC, 30ms
@@ -33,7 +29,14 @@ namespace Mirror
         // throwOnInvalidBytes is true.
         // writer should throw and user should fix if this ever happens.
         // unlike reader, which needs to expect it to happen from attackers.
-        internal readonly UTF8Encoding encoding = new UTF8Encoding(false, true);
+        internal readonly UTF8Encoding encoding = new(false, true);
+        internal byte[] buffer = new byte[DefaultCapacity];
+
+        /// <summary>Next position to write to the buffer</summary>
+        public int Position;
+
+        /// <summary>Current capacity. Automatically resized if necessary.</summary>
+        public int Capacity => buffer.Length;
 
         /// <summary>Reset both the position and length of the stream</summary>
         // Leaves the capacity the same so that we can reuse this writer without
@@ -52,7 +55,7 @@ namespace Mirror
         {
             if (buffer.Length < value)
             {
-                int capacity = Math.Max(value, buffer.Length * 2);
+                var capacity = Math.Max(value, buffer.Length * 2);
                 Array.Resize(ref buffer, capacity);
             }
         }
@@ -61,20 +64,24 @@ namespace Mirror
         // Try to use ToArraySegment instead to avoid allocations!
         public byte[] ToArray()
         {
-            byte[] data = new byte[Position];
+            var data = new byte[Position];
             Array.ConstrainedCopy(buffer, 0, data, 0, Position);
             return data;
         }
 
         /// <summary>Returns allocation-free ArraySegment until 'Position'.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ArraySegment<byte> ToArraySegment() =>
-            new ArraySegment<byte>(buffer, 0, Position);
+        public ArraySegment<byte> ToArraySegment()
+        {
+            return new ArraySegment<byte>(buffer, 0, Position);
+        }
 
         // implicit conversion for convenience
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator ArraySegment<byte>(NetworkWriter w) =>
-            w.ToArraySegment();
+        public static implicit operator ArraySegment<byte>(NetworkWriter w)
+        {
+            return w.ToArraySegment();
+        }
 
         // WriteBlittable<T> from DOTSNET.
         // this is extremely fast, but only works for blittable types.
@@ -139,7 +146,7 @@ namespace Mirror
             // => our 1mio writes benchmark is 6x slower with Marshal.SizeOf<T>
             // => for blittable types, sizeof(T) is even recommended:
             // https://docs.microsoft.com/en-us/dotnet/standard/native-interop/best-practices
-            int size = sizeof(T);
+            var size = sizeof(T);
 
             // ensure capacity
             // NOTE that our runtime resizing comes at no extra cost because:
@@ -171,6 +178,7 @@ namespace Mirror
                 *(T*)ptr = value;
 #endif
             }
+
             Position += size;
         }
 
@@ -187,16 +195,20 @@ namespace Mirror
                 WriteBlittable(value.Value);
         }
 
-        public void WriteByte(byte value) => WriteBlittable(value);
+        public void WriteByte(byte value)
+        {
+            WriteBlittable(value);
+        }
 
         // for byte arrays with consistent size, where the reader knows how many to read
         // (like a packet opcode that's always the same)
         public void WriteBytes(byte[] array, int offset, int count)
         {
             EnsureCapacity(Position + count);
-            Array.ConstrainedCopy(array, offset, this.buffer, Position, count);
+            Array.ConstrainedCopy(array, offset, buffer, Position, count);
             Position += count;
         }
+
         // write an unsafe byte* array.
         // useful for bit tree compression, etc.
         public unsafe bool WriteBytes(byte* ptr, int offset, int size)
@@ -221,22 +233,20 @@ namespace Mirror
         /// <summary>Writes any type that mirror supports. Uses weaver populated Writer(T).write.</summary>
         public void Write<T>(T value)
         {
-            Action<NetworkWriter, T> writeDelegate = Writer<T>.write;
+            var writeDelegate = Writer<T>.write;
             if (writeDelegate == null)
-            {
                 Debug.LogError($"No writer found for {typeof(T)}. This happens either if you are missing a NetworkWriter extension for your custom type, or if weaving failed. Try to reimport a script to weave again.");
-            }
             else
-            {
                 writeDelegate(this, value);
-            }
         }
 
         // print with buffer content for easier debugging.
         // [content, position / capacity].
         // showing "position / space" would be too confusing.
-        public override string ToString() =>
-            $"[{ToArraySegment().ToHexString()} @ {Position}/{Capacity}]";
+        public override string ToString()
+        {
+            return $"[{ToArraySegment().ToHexString()} @ {Position}/{Capacity}]";
+        }
     }
 
     /// <summary>Helper class that weaver populates with all writer types.</summary>

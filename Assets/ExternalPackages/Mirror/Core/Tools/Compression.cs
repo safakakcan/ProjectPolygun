@@ -1,4 +1,5 @@
 // Quaternion compression from DOTSNET
+
 using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -8,6 +9,11 @@ namespace Mirror
     /// <summary>Functions to Compress Quaternions and Floats</summary>
     public static class Compression
     {
+        private const float QuaternionMinRange = -0.707107f;
+        private const float QuaternionMaxRange = 0.707107f;
+
+        private const ushort TenBitsMax = 0b11_1111_1111;
+
         // divide by precision (functions backported from Mirror II)
         // for example, 0.1 cm precision converts '5.0f' float to '50' long.
         //
@@ -34,7 +40,7 @@ namespace Mirror
             // otherwise we would have to reinterpret-cast if ==0 etc.
             // this function should be kept simple.
             // if rounding isn't wanted, this function shouldn't be called.
-            if (precision == 0) throw new DivideByZeroException($"ScaleToLong: precision=0 would cause null division. If rounding isn't wanted, don't call this function.");
+            if (precision == 0) throw new DivideByZeroException("ScaleToLong: precision=0 would cause null division. If rounding isn't wanted, don't call this function.");
 
             // catch OverflowException if value/precision > long.max.
             // attackers should never be able to throw exceptions.
@@ -64,7 +70,7 @@ namespace Mirror
             // attempt to convert every component.
             // do not return early if one conversion returned 'false'.
             // the return value is optional. always attempt to convert all.
-            bool result = true;
+            var result = true;
             result &= ScaleToLong(value.x, precision, out x);
             result &= ScaleToLong(value.y, precision, out y);
             result &= ScaleToLong(value.z, precision, out z);
@@ -81,7 +87,7 @@ namespace Mirror
             // attempt to convert every component.
             // do not return early if one conversion returned 'false'.
             // the return value is optional. always attempt to convert all.
-            bool result = true;
+            var result = true;
             result &= ScaleToLong(value.x, precision, out x);
             result &= ScaleToLong(value.y, precision, out y);
             result &= ScaleToLong(value.z, precision, out z);
@@ -113,7 +119,7 @@ namespace Mirror
             // otherwise we would have to reinterpret-cast if ==0 etc.
             // this function should be kept simple.
             // if rounding isn't wanted, this function shouldn't be called.
-            if (precision == 0) throw new DivideByZeroException($"ScaleToLong: precision=0 would cause null division. If rounding isn't wanted, don't call this function.");
+            if (precision == 0) throw new DivideByZeroException("ScaleToLong: precision=0 would cause null division. If rounding isn't wanted, don't call this function.");
 
             return value * precision;
         }
@@ -140,12 +146,16 @@ namespace Mirror
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector3 ScaleToFloat(Vector3Long value, float precision) =>
-            ScaleToFloat(value.x, value.y, value.z, precision);
+        public static Vector3 ScaleToFloat(Vector3Long value, float precision)
+        {
+            return ScaleToFloat(value.x, value.y, value.z, precision);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Quaternion ScaleToFloat(Vector4Long value, float precision) =>
-            ScaleToFloat(value.x, value.y, value.z, value.w, precision);
+        public static Quaternion ScaleToFloat(Vector4Long value, float precision)
+        {
+            return ScaleToFloat(value.x, value.y, value.z, value.w, precision);
+        }
 
         // scale a float within min/max range to an ushort between min/max range
         // note: can also use this for byte range from byte.MinValue to byte.MaxValue
@@ -153,9 +163,9 @@ namespace Mirror
         {
             // note: C# ushort - ushort => int, hence so many casts
             // max ushort - min ushort only fits into something bigger
-            int targetRange = maxTarget - minTarget;
-            float valueRange = maxValue - minValue;
-            float valueRelative = value - minValue;
+            var targetRange = maxTarget - minTarget;
+            var valueRange = maxValue - minValue;
+            var valueRelative = value - minValue;
             return (ushort)(minTarget + (ushort)(valueRelative / valueRange * targetRange));
         }
 
@@ -164,10 +174,10 @@ namespace Mirror
         public static float ScaleUShortToFloat(ushort value, ushort minValue, ushort maxValue, float minTarget, float maxTarget)
         {
             // note: C# ushort - ushort => int, hence so many casts
-            float targetRange = maxTarget - minTarget;
-            ushort valueRange = (ushort)(maxValue - minValue);
-            ushort valueRelative = (ushort)(value - minValue);
-            return minTarget + (valueRelative / (float)valueRange * targetRange);
+            var targetRange = maxTarget - minTarget;
+            var valueRange = (ushort)(maxValue - minValue);
+            var valueRelative = (ushort)(value - minValue);
+            return minTarget + valueRelative / (float)valueRange * targetRange;
         }
 
         // quaternion compression //////////////////////////////////////////////
@@ -179,12 +189,12 @@ namespace Mirror
         public static int LargestAbsoluteComponentIndex(Vector4 value, out float largestAbs, out Vector3 withoutLargest)
         {
             // convert to abs
-            Vector4 abs = new Vector4(Mathf.Abs(value.x), Mathf.Abs(value.y), Mathf.Abs(value.z), Mathf.Abs(value.w));
+            var abs = new Vector4(Mathf.Abs(value.x), Mathf.Abs(value.y), Mathf.Abs(value.z), Mathf.Abs(value.w));
 
             // set largest to first abs (x)
             largestAbs = abs.x;
             withoutLargest = new Vector3(value.y, value.z, value.w);
-            int largestIndex = 0;
+            var largestIndex = 0;
 
             // compare to the others, starting at second value
             // performance for 100k calls
@@ -196,12 +206,14 @@ namespace Mirror
                 largestAbs = abs.y;
                 withoutLargest = new Vector3(value.x, value.z, value.w);
             }
+
             if (abs.z > largestAbs)
             {
                 largestIndex = 2;
                 largestAbs = abs.z;
                 withoutLargest = new Vector3(value.x, value.y, value.w);
             }
+
             if (abs.w > largestAbs)
             {
                 largestIndex = 3;
@@ -212,10 +224,6 @@ namespace Mirror
             return largestIndex;
         }
 
-        const float QuaternionMinRange = -0.707107f;
-        const float QuaternionMaxRange =  0.707107f;
-        const ushort TenBitsMax = 0b11_1111_1111;
-
         // note: assumes normalized quaternions
         public static uint CompressQuaternion(Quaternion q)
         {
@@ -223,7 +231,7 @@ namespace Mirror
             //       normalize here. we already normalize when decompressing.
 
             // find the largest component index [0,3] + value
-            int largestIndex = LargestAbsoluteComponentIndex(new Vector4(q.x, q.y, q.z, q.w), out float _, out Vector3 withoutLargest);
+            var largestIndex = LargestAbsoluteComponentIndex(new Vector4(q.x, q.y, q.z, q.w), out _, out var withoutLargest);
 
             // from here on, we work with the 3 components without largest!
 
@@ -249,64 +257,64 @@ namespace Mirror
             // => the article recommends storing each float in 9 bits
             // => our uint has 32 bits, so we might as well store in (32-2)/3=10
             //    10 bits max value: 1023=0x3FF (use OSX calc to flip 10 bits)
-            ushort aScaled = ScaleFloatToUShort(withoutLargest.x, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
-            ushort bScaled = ScaleFloatToUShort(withoutLargest.y, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
-            ushort cScaled = ScaleFloatToUShort(withoutLargest.z, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
+            var aScaled = ScaleFloatToUShort(withoutLargest.x, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
+            var bScaled = ScaleFloatToUShort(withoutLargest.y, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
+            var cScaled = ScaleFloatToUShort(withoutLargest.z, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
 
             // now we just need to pack them into one integer
             // -> index is 2 bit and needs to be shifted to 31..32
             // -> a is 10 bit and needs to be shifted 20..30
             // -> b is 10 bit and needs to be shifted 10..20
             // -> c is 10 bit and needs to be at      0..10
-            return (uint)(largestIndex << 30 | aScaled << 20 | bScaled << 10 | cScaled);
+            return (uint)((largestIndex << 30) | (aScaled << 20) | (bScaled << 10) | cScaled);
         }
 
         // Quaternion normalizeSAFE from ECS math.normalizesafe()
         // => useful to produce valid quaternions even if client sends invalid
         //    data
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static Quaternion QuaternionNormalizeSafe(Quaternion value)
+        private static Quaternion QuaternionNormalizeSafe(Quaternion value)
         {
             // The smallest positive normal number representable in a float.
             const float FLT_MIN_NORMAL = 1.175494351e-38F;
 
-            Vector4 v = new Vector4(value.x, value.y, value.z, value.w);
-            float length = Vector4.Dot(v, v);
+            var v = new Vector4(value.x, value.y, value.z, value.w);
+            var length = Vector4.Dot(v, v);
             return length > FLT_MIN_NORMAL
-                   ? value.normalized
-                   : Quaternion.identity;
+                ? value.normalized
+                : Quaternion.identity;
         }
 
         // note: gives normalized quaternions
         public static Quaternion DecompressQuaternion(uint data)
         {
             // get cScaled which is at 0..10 and ignore the rest
-            ushort cScaled = (ushort)(data & TenBitsMax);
+            var cScaled = (ushort)(data & TenBitsMax);
 
             // get bScaled which is at 10..20 and ignore the rest
-            ushort bScaled = (ushort)((data >> 10) & TenBitsMax);
+            var bScaled = (ushort)((data >> 10) & TenBitsMax);
 
             // get aScaled which is at 20..30 and ignore the rest
-            ushort aScaled = (ushort)((data >> 20) & TenBitsMax);
+            var aScaled = (ushort)((data >> 20) & TenBitsMax);
 
             // get 2 bit largest index, which is at 31..32
-            int largestIndex = (int)(data >> 30);
+            var largestIndex = (int)(data >> 30);
 
             // scale back to floats
-            float a = ScaleUShortToFloat(aScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
-            float b = ScaleUShortToFloat(bScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
-            float c = ScaleUShortToFloat(cScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
+            var a = ScaleUShortToFloat(aScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
+            var b = ScaleUShortToFloat(bScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
+            var c = ScaleUShortToFloat(cScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
 
             // calculate the omitted component based on a²+b²+c²+d²=1
-            float d = Mathf.Sqrt(1 - a*a - b*b - c*c);
+            var d = Mathf.Sqrt(1 - a * a - b * b - c * c);
 
             // reconstruct based on largest index
             Vector4 value;
             switch (largestIndex)
             {
-                case 0:  value = new Vector4(d, a, b, c); break;
-                case 1:  value = new Vector4(a, d, b, c); break;
-                case 2:  value = new Vector4(a, b, d, c); break;
+                case 0: value = new Vector4(d, a, b, c); break;
+                case 1: value = new Vector4(a, d, b, c); break;
+                case 2: value = new Vector4(a, b, d, c); break;
                 default: value = new Vector4(a, b, c, d); break;
             }
 
@@ -347,7 +355,7 @@ namespace Mirror
         public static int VarIntSize(long value)
         {
             // CompressVarInt zigzags it first
-            ulong zigzagged = (ulong)((value >> 63) ^ (value << 1));
+            var zigzagged = (ulong)((value >> 63) ^ (value << 1));
             return VarUIntSize(zigzagged);
         }
 
@@ -447,65 +455,72 @@ namespace Mirror
             // VarInt is in hot path, performance matters here.
             if (value <= 240)
             {
-                byte a = (byte)value;
+                var a = (byte)value;
                 writer.WriteByte(a);
                 return;
             }
+
             if (value <= 2287)
             {
-                byte a = (byte)(((value - 240) >> 8) + 241);
-                byte b = (byte)((value - 240) & 0xFF);
-                writer.WriteUShort((ushort)(b << 8 | a));
+                var a = (byte)(((value - 240) >> 8) + 241);
+                var b = (byte)((value - 240) & 0xFF);
+                writer.WriteUShort((ushort)((b << 8) | a));
                 return;
             }
+
             if (value <= 67823)
             {
-                byte a = (byte)249;
-                byte b = (byte)((value - 2288) >> 8);
-                byte c = (byte)((value - 2288) & 0xFF);
+                var a = (byte)249;
+                var b = (byte)((value - 2288) >> 8);
+                var c = (byte)((value - 2288) & 0xFF);
                 writer.WriteByte(a);
-                writer.WriteUShort((ushort)(c << 8 | b));
+                writer.WriteUShort((ushort)((c << 8) | b));
                 return;
             }
+
             if (value <= 16777215)
             {
-                byte a = (byte)250;
-                uint b = (uint)(value << 8);
+                var a = (byte)250;
+                var b = (uint)(value << 8);
                 writer.WriteUInt(b | a);
                 return;
             }
+
             if (value <= 4294967295)
             {
-                byte a = (byte)251;
-                uint b = (uint)value;
+                var a = (byte)251;
+                var b = (uint)value;
                 writer.WriteByte(a);
                 writer.WriteUInt(b);
                 return;
             }
+
             if (value <= 1099511627775)
             {
-                byte a = (byte)252;
-                byte b = (byte)(value & 0xFF);
-                uint c = (uint)(value >> 8);
-                writer.WriteUShort((ushort)(b << 8 | a));
+                var a = (byte)252;
+                var b = (byte)(value & 0xFF);
+                var c = (uint)(value >> 8);
+                writer.WriteUShort((ushort)((b << 8) | a));
                 writer.WriteUInt(c);
                 return;
             }
+
             if (value <= 281474976710655)
             {
-                byte a = (byte)253;
-                byte b = (byte)(value & 0xFF);
-                byte c = (byte)((value >> 8) & 0xFF);
-                uint d = (uint)(value >> 16);
+                var a = (byte)253;
+                var b = (byte)(value & 0xFF);
+                var c = (byte)((value >> 8) & 0xFF);
+                var d = (uint)(value >> 16);
                 writer.WriteByte(a);
-                writer.WriteUShort((ushort)(c << 8 | b));
+                writer.WriteUShort((ushort)((c << 8) | b));
                 writer.WriteUInt(d);
                 return;
             }
+
             if (value <= 72057594037927935)
             {
                 byte a = 254;
-                ulong b = value << 8;
+                var b = value << 8;
                 writer.WriteULong(b | a);
                 return;
             }
@@ -521,66 +536,39 @@ namespace Mirror
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void CompressVarInt(NetworkWriter writer, long i)
         {
-            ulong zigzagged = (ulong)((i >> 63) ^ (i << 1));
+            var zigzagged = (ulong)((i >> 63) ^ (i << 1));
             CompressVarUInt(writer, zigzagged);
         }
 
         // NOT an extension. otherwise weaver might accidentally use it.
         public static ulong DecompressVarUInt(NetworkReader reader)
         {
-            byte a0 = reader.ReadByte();
-            if (a0 < 241)
-            {
-                return a0;
-            }
+            var a0 = reader.ReadByte();
+            if (a0 < 241) return a0;
 
-            byte a1 = reader.ReadByte();
-            if (a0 <= 248)
-            {
-                return 240 + ((a0 - (ulong)241) << 8) + a1;
-            }
+            var a1 = reader.ReadByte();
+            if (a0 <= 248) return 240 + ((a0 - (ulong)241) << 8) + a1;
 
-            byte a2 = reader.ReadByte();
-            if (a0 == 249)
-            {
-                return 2288 + ((ulong)a1 << 8) + a2;
-            }
+            var a2 = reader.ReadByte();
+            if (a0 == 249) return 2288 + ((ulong)a1 << 8) + a2;
 
-            byte a3 = reader.ReadByte();
-            if (a0 == 250)
-            {
-                return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16);
-            }
+            var a3 = reader.ReadByte();
+            if (a0 == 250) return a1 + ((ulong)a2 << 8) + ((ulong)a3 << 16);
 
-            byte a4 = reader.ReadByte();
-            if (a0 == 251)
-            {
-                return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24);
-            }
+            var a4 = reader.ReadByte();
+            if (a0 == 251) return a1 + ((ulong)a2 << 8) + ((ulong)a3 << 16) + ((ulong)a4 << 24);
 
-            byte a5 = reader.ReadByte();
-            if (a0 == 252)
-            {
-                return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32);
-            }
+            var a5 = reader.ReadByte();
+            if (a0 == 252) return a1 + ((ulong)a2 << 8) + ((ulong)a3 << 16) + ((ulong)a4 << 24) + ((ulong)a5 << 32);
 
-            byte a6 = reader.ReadByte();
-            if (a0 == 253)
-            {
-                return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32) + (((ulong)a6) << 40);
-            }
+            var a6 = reader.ReadByte();
+            if (a0 == 253) return a1 + ((ulong)a2 << 8) + ((ulong)a3 << 16) + ((ulong)a4 << 24) + ((ulong)a5 << 32) + ((ulong)a6 << 40);
 
-            byte a7 = reader.ReadByte();
-            if (a0 == 254)
-            {
-                return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32) + (((ulong)a6) << 40) + (((ulong)a7) << 48);
-            }
+            var a7 = reader.ReadByte();
+            if (a0 == 254) return a1 + ((ulong)a2 << 8) + ((ulong)a3 << 16) + ((ulong)a4 << 24) + ((ulong)a5 << 32) + ((ulong)a6 << 40) + ((ulong)a7 << 48);
 
-            byte a8 = reader.ReadByte();
-            if (a0 == 255)
-            {
-                return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32) + (((ulong)a6) << 40) + (((ulong)a7) << 48)  + (((ulong)a8) << 56);
-            }
+            var a8 = reader.ReadByte();
+            if (a0 == 255) return a1 + ((ulong)a2 << 8) + ((ulong)a3 << 16) + ((ulong)a4 << 24) + ((ulong)a5 << 32) + ((ulong)a6 << 40) + ((ulong)a7 << 48) + ((ulong)a8 << 56);
 
             throw new IndexOutOfRangeException($"DecompressVarInt failure: {a0}");
         }
@@ -589,8 +577,8 @@ namespace Mirror
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long DecompressVarInt(NetworkReader reader)
         {
-            ulong data = DecompressVarUInt(reader);
-            return ((long)(data >> 1)) ^ -((long)data & 1);
+            var data = DecompressVarUInt(reader);
+            return (long)(data >> 1) ^ -((long)data & 1);
         }
     }
 }

@@ -2,38 +2,47 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mono.CecilX;
+using UnityEngine;
 
 namespace Mirror.Weaver
 {
     public static class Extensions
     {
-        public static bool Is(this TypeReference td, Type type) =>
-            type.IsGenericType
-              ? td.GetElementType().FullName == type.FullName
-              : td.FullName == type.FullName;
+        public static bool Is(this TypeReference td, Type type)
+        {
+            return type.IsGenericType
+                ? td.GetElementType().FullName == type.FullName
+                : td.FullName == type.FullName;
+        }
 
         // check if 'td' is exactly of type T.
         // it does not check if any base type is of <T>, only the specific type.
         // for example:
         //   NetworkConnection         Is NetworkConnection: true
         //   NetworkConnectionToClient Is NetworkConnection: false
-        public static bool Is<T>(this TypeReference td) => Is(td, typeof(T));
+        public static bool Is<T>(this TypeReference td)
+        {
+            return Is(td, typeof(T));
+        }
 
         // check if 'tr' is derived from T.
         // it does not check if 'tr' is exactly T.
         // for example:
         //   NetworkConnection         IsDerivedFrom<NetworkConnection>: false
         //   NetworkConnectionToClient IsDerivedFrom<NetworkConnection>: true
-        public static bool IsDerivedFrom<T>(this TypeReference tr) => IsDerivedFrom(tr, typeof(T));
+        public static bool IsDerivedFrom<T>(this TypeReference tr)
+        {
+            return IsDerivedFrom(tr, typeof(T));
+        }
 
         public static bool IsDerivedFrom(this TypeReference tr, Type baseClass)
         {
-            TypeDefinition td = tr.Resolve();
+            var td = tr.Resolve();
             if (!td.IsClass)
                 return false;
 
             // are ANY parent classes of baseClass?
-            TypeReference parent = td.BaseType;
+            var parent = td.BaseType;
 
             if (parent == null)
                 return false;
@@ -49,17 +58,15 @@ namespace Mirror.Weaver
 
         public static TypeReference GetEnumUnderlyingType(this TypeDefinition td)
         {
-            foreach (FieldDefinition field in td.Fields)
-            {
+            foreach (var field in td.Fields)
                 if (!field.IsStatic)
                     return field.FieldType;
-            }
             throw new ArgumentException($"Invalid enum {td.FullName}");
         }
 
         public static bool ImplementsInterface<TInterface>(this TypeDefinition td)
         {
-            TypeDefinition typedef = td;
+            var typedef = td;
 
             while (typedef != null)
             {
@@ -68,7 +75,7 @@ namespace Mirror.Weaver
 
                 try
                 {
-                    TypeReference parent = typedef.BaseType;
+                    var parent = typedef.BaseType;
                     typedef = parent?.Resolve();
                 }
                 catch (AssemblyResolutionException)
@@ -82,30 +89,31 @@ namespace Mirror.Weaver
             return false;
         }
 
-        public static bool IsMultidimensionalArray(this TypeReference tr) =>
-            tr is ArrayType arrayType && arrayType.Rank > 1;
+        public static bool IsMultidimensionalArray(this TypeReference tr)
+        {
+            return tr is ArrayType arrayType && arrayType.Rank > 1;
+        }
 
         // Does type use netId as backing field
-        public static bool IsNetworkIdentityField(this TypeReference tr) =>
-            tr.Is<UnityEngine.GameObject>() ||
-            tr.Is<NetworkIdentity>() ||
-            // handle both NetworkBehaviour and inheritors.
-            // fixes: https://github.com/MirrorNetworking/Mirror/issues/2939
-            tr.IsDerivedFrom<NetworkBehaviour>() ||
-            tr.Is<NetworkBehaviour>();
+        public static bool IsNetworkIdentityField(this TypeReference tr)
+        {
+            return tr.Is<GameObject>() ||
+                   tr.Is<NetworkIdentity>() ||
+                   // handle both NetworkBehaviour and inheritors.
+                   // fixes: https://github.com/MirrorNetworking/Mirror/issues/2939
+                   tr.IsDerivedFrom<NetworkBehaviour>() ||
+                   tr.Is<NetworkBehaviour>();
+        }
 
         public static bool CanBeResolved(this TypeReference parent)
         {
             while (parent != null)
             {
-                if (parent.Scope.Name == "Windows")
-                {
-                    return false;
-                }
+                if (parent.Scope.Name == "Windows") return false;
 
                 if (parent.Scope.Name == "mscorlib")
                 {
-                    TypeDefinition resolved = parent.Resolve();
+                    var resolved = parent.Resolve();
                     return resolved != null;
                 }
 
@@ -118,16 +126,17 @@ namespace Mirror.Weaver
                     return false;
                 }
             }
+
             return true;
         }
 
         // Makes T => Variable and imports function
         public static MethodReference MakeGeneric(this MethodReference generic, ModuleDefinition module, TypeReference variableReference)
         {
-            GenericInstanceMethod instance = new GenericInstanceMethod(generic);
+            var instance = new GenericInstanceMethod(generic);
             instance.GenericArguments.Add(variableReference);
 
-            MethodReference readFunc = module.ImportReference(instance);
+            var readFunc = module.ImportReference(instance);
             return readFunc;
         }
 
@@ -137,17 +146,17 @@ namespace Mirror.Weaver
         // Note that calling ArraySegment`T.get_Count directly gives an invalid IL error
         public static MethodReference MakeHostInstanceGeneric(this MethodReference self, ModuleDefinition module, GenericInstanceType instanceType)
         {
-            MethodReference reference = new MethodReference(self.Name, self.ReturnType, instanceType)
+            var reference = new MethodReference(self.Name, self.ReturnType, instanceType)
             {
                 CallingConvention = self.CallingConvention,
                 HasThis = self.HasThis,
                 ExplicitThis = self.ExplicitThis
             };
 
-            foreach (ParameterDefinition parameter in self.Parameters)
+            foreach (var parameter in self.Parameters)
                 reference.Parameters.Add(new ParameterDefinition(parameter.ParameterType));
 
-            foreach (GenericParameter generic_parameter in self.GenericParameters)
+            foreach (var generic_parameter in self.GenericParameters)
                 reference.GenericParameters.Add(new GenericParameter(generic_parameter.Name, reference));
 
             return module.ImportReference(reference);
@@ -158,10 +167,7 @@ namespace Mirror.Weaver
         public static FieldReference MakeHostInstanceGeneric(this FieldReference self)
         {
             var declaringType = new GenericInstanceType(self.DeclaringType);
-            foreach (var parameter in self.DeclaringType.GenericParameters)
-            {
-                declaringType.GenericArguments.Add(parameter);
-            }
+            foreach (var parameter in self.DeclaringType.GenericParameters) declaringType.GenericArguments.Add(parameter);
             return new FieldReference(self.Name, self.FieldType, declaringType);
         }
 
@@ -171,7 +177,7 @@ namespace Mirror.Weaver
         // Note that calling ArraySegment`T.get_Count directly gives an invalid IL error
         public static FieldReference SpecializeField(this FieldReference self, ModuleDefinition module, GenericInstanceType instanceType)
         {
-            FieldReference reference = new FieldReference(self.Name, self.FieldType, instanceType);
+            var reference = new FieldReference(self.Name, self.FieldType, instanceType);
             return module.ImportReference(reference);
         }
 
@@ -187,7 +193,7 @@ namespace Mirror.Weaver
 
         public static T GetField<T>(this CustomAttribute ca, string field, T defaultValue)
         {
-            foreach (CustomAttributeNamedArgument customField in ca.Fields)
+            foreach (var customField in ca.Fields)
                 if (customField.Name == field)
                     return (T)customField.Argument.Value;
             return defaultValue;
@@ -205,18 +211,16 @@ namespace Mirror.Weaver
 
         public static MethodDefinition GetMethodInBaseType(this TypeDefinition td, string methodName)
         {
-            TypeDefinition typedef = td;
+            var typedef = td;
             while (typedef != null)
             {
-                foreach (MethodDefinition md in typedef.Methods)
-                {
+                foreach (var md in typedef.Methods)
                     if (md.Name == methodName)
                         return md;
-                }
 
                 try
                 {
-                    TypeReference parent = typedef.BaseType;
+                    var parent = typedef.BaseType;
                     typedef = parent?.Resolve();
                 }
                 catch (AssemblyResolutionException)
@@ -240,7 +244,7 @@ namespace Mirror.Weaver
         {
             while (typeDefinition != null)
             {
-                foreach (FieldDefinition field in typeDefinition.Fields)
+                foreach (var field in typeDefinition.Fields)
                 {
                     // ignore static, private, protected fields
                     // fixes: https://github.com/MirrorNetworking/Mirror/issues/3485
@@ -271,18 +275,18 @@ namespace Mirror.Weaver
             }
         }
 
-        public static bool ContainsClass(this ModuleDefinition module, string nameSpace, string className) =>
-            module.GetTypes().Any(td => td.Namespace == nameSpace &&
-                                  td.Name == className);
+        public static bool ContainsClass(this ModuleDefinition module, string nameSpace, string className)
+        {
+            return module.GetTypes().Any(td => td.Namespace == nameSpace &&
+                                               td.Name == className);
+        }
 
 
         public static AssemblyNameReference FindReference(this ModuleDefinition module, string referenceName)
         {
-            foreach (AssemblyNameReference reference in module.AssemblyReferences)
-            {
+            foreach (var reference in module.AssemblyReferences)
                 if (reference.Name == referenceName)
                     return reference;
-            }
             return null;
         }
 
@@ -297,15 +301,15 @@ namespace Mirror.Weaver
             if (!parentReference.IsGenericInstance)
                 return parentReference;
 
-            GenericInstanceType parentGeneric = (GenericInstanceType)parentReference;
+            var parentGeneric = (GenericInstanceType)parentReference;
             // make new type so we can replace the args on it
             // resolve it so we have non-generic instance (eg just instance with <T> instead of <int>)
             // if we don't cecil will make it double generic (eg INVALID IL)
-            GenericInstanceType generic = new GenericInstanceType(parentReference.Resolve());
-            foreach (TypeReference arg in parentGeneric.GenericArguments)
+            var generic = new GenericInstanceType(parentReference.Resolve());
+            foreach (var arg in parentGeneric.GenericArguments)
                 generic.GenericArguments.Add(arg);
 
-            for (int i = 0; i < generic.GenericArguments.Count; i++)
+            for (var i = 0; i < generic.GenericArguments.Count; i++)
             {
                 // if arg is not generic
                 // eg List<int> would be int so not generic.
@@ -314,12 +318,12 @@ namespace Mirror.Weaver
                     continue;
 
                 // get the generic name, eg T
-                string name = generic.GenericArguments[i].Name;
+                var name = generic.GenericArguments[i].Name;
                 // find what type T is, eg turn it into `int` if `List<int>`
-                TypeReference arg = FindMatchingGenericArgument(childReference, name);
+                var arg = FindMatchingGenericArgument(childReference, name);
 
                 // import just to be safe
-                TypeReference imported = parentReference.Module.ImportReference(arg);
+                var imported = parentReference.Module.ImportReference(arg);
                 // set arg on generic, parent ref will be Base<int> instead of just Base<T>
                 generic.GenericArguments[i] = imported;
             }
@@ -330,9 +334,9 @@ namespace Mirror.Weaver
         // Finds the type reference for a generic parameter with the provided name in the child reference
         // Originally by James-Frowen under MIT
         // https://github.com/MirageNet/Mirage/commit/cf91e1d54796866d2cf87f8e919bb5c681977e45
-        static TypeReference FindMatchingGenericArgument(TypeReference childReference, string paramName)
+        private static TypeReference FindMatchingGenericArgument(TypeReference childReference, string paramName)
         {
-            TypeDefinition def = childReference.Resolve();
+            var def = childReference.Resolve();
             // child class must be generic if we are in this part of the code
             // eg Child<T> : Base<T>  <--- child must have generic if Base has T
             // vs Child : Base<int> <--- wont be here if Base has int (we check if T exists before calling this)
@@ -341,12 +345,12 @@ namespace Mirror.Weaver
                     "Base class had generic parameters, but could not find them in child class");
 
             // go through parameters in child class, and find the generic that matches the name
-            for (int i = 0; i < def.GenericParameters.Count; i++)
+            for (var i = 0; i < def.GenericParameters.Count; i++)
             {
-                GenericParameter param = def.GenericParameters[i];
+                var param = def.GenericParameters[i];
                 if (param.Name == paramName)
                 {
-                    GenericInstanceType generic = (GenericInstanceType)childReference;
+                    var generic = (GenericInstanceType)childReference;
                     // return generic arg with same index
                     return generic.GenericArguments[i];
                 }

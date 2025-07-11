@@ -8,12 +8,12 @@ namespace Mirror.Examples.MultipleMatch
         public MatchController matchController;
         public CellValue cellValue;
 
-        [Header("GUI References")]
-        public Image image;
+        [Header("GUI References")] public Image image;
+
         public Button button;
 
-        [Header("Diagnostics")]
-        [ReadOnly, SerializeField] internal NetworkIdentity playerIdentity;
+        [Header("Diagnostics")] [ReadOnly] [SerializeField]
+        internal NetworkIdentity playerIdentity;
 
         public void Awake()
         {

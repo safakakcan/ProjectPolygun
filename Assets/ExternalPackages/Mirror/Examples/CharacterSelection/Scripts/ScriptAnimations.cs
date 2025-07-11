@@ -9,19 +9,19 @@ namespace Mirror.Examples.CharacterSelection
     {
         public float minimum = 0.1f;
         public float maximum = 0.5f;
+        public float bounceSpeed = 3;
 
         private float yPos;
-        public float bounceSpeed = 3;
         private float yStartPosition;
 
         private void Start()
         {
-            yStartPosition = this.transform.localPosition.y;
+            yStartPosition = transform.localPosition.y;
         }
 
-        void Update()
+        private void Update()
         {
-            float sinValue = Mathf.Sin(Time.time * bounceSpeed);
+            var sinValue = Mathf.Sin(Time.time * bounceSpeed);
 
             yPos = Mathf.Lerp(maximum, minimum, Mathf.Abs((1.0f + sinValue) / 2.0f));
             transform.localPosition = new Vector3(transform.localPosition.x, yStartPosition + yPos, transform.localPosition.z);
@@ -29,5 +29,4 @@ namespace Mirror.Examples.CharacterSelection
     }
 
     //credits https://stackoverflow.com/questions/67322860/how-do-i-make-a-simple-idle-bobbing-motion-animation
-
 }

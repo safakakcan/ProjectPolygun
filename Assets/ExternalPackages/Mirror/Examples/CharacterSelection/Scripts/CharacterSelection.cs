@@ -1,5 +1,4 @@
 using UnityEngine;
-using Mirror;
 
 namespace Mirror.Examples.CharacterSelection
 {
@@ -7,25 +6,29 @@ namespace Mirror.Examples.CharacterSelection
     {
         public Transform floatingInfo;
 
-        [SyncVar]
-        public int characterNumber = 0;
+        [SyncVar] public int characterNumber;
 
         public TextMesh textMeshName;
-        [SyncVar(hook = nameof(HookSetName))]
-        public string playerName = "";
 
-        void HookSetName(string _old, string _new)
+        [SyncVar(hook = nameof(HookSetName))] public string playerName = "";
+
+        [SyncVar(hook = nameof(HookSetColor))] public Color characterColour;
+
+        public MeshRenderer[] characterRenderers;
+        private Material cachedMaterial;
+
+        private void OnDestroy()
+        {
+            if (cachedMaterial) Destroy(cachedMaterial);
+        }
+
+        private void HookSetName(string _old, string _new)
         {
             //Debug.Log("HookSetName");
             AssignName();
         }
-        
-        [SyncVar(hook = nameof(HookSetColor))]
-        public Color characterColour;
-        private Material cachedMaterial;
-        public MeshRenderer[] characterRenderers;
 
-        void HookSetColor(Color _old, Color _new)
+        private void HookSetColor(Color _old, Color _new)
         {
             //Debug.Log("HookSetColor");
             AssignColours();
@@ -33,16 +36,11 @@ namespace Mirror.Examples.CharacterSelection
 
         public void AssignColours()
         {
-            foreach (MeshRenderer meshRenderer in characterRenderers)
+            foreach (var meshRenderer in characterRenderers)
             {
                 cachedMaterial = meshRenderer.material;
                 cachedMaterial.color = characterColour;
             }
-        }
-
-        void OnDestroy()
-        {
-            if (cachedMaterial) { Destroy(cachedMaterial); }
         }
 
         public void AssignName()

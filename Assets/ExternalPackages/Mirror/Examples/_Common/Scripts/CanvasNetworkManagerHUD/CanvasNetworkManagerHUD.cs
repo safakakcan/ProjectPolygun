@@ -1,8 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using Mirror;
 
 namespace Mirror.Examples.Common
 {
@@ -24,6 +21,29 @@ namespace Mirror.Examples.Common
         [SerializeField] private InputField inputNetworkAddress;
         [SerializeField] private InputField inputPort;
 
+        /* This does not work because we can't register the handler.
+        void OnClientConnect() {}
+
+        private void OnClientDisconnect()
+        {
+            RefreshHUD();
+        }
+        */
+
+        // Do a check for the presence of a Network Manager component when
+        // you first add this script to a gameobject.
+        private void Reset()
+        {
+#if UNITY_2022_2_OR_NEWER
+            if (!FindAnyObjectByType<NetworkManager>())
+                Debug.LogError("This component requires a NetworkManager component to be present in the scene. Please add!");
+#else
+            // Deprecated in Unity 2023.1
+            if (!FindObjectOfType<NetworkManager>())
+                Debug.LogError("This component requires a NetworkManager component to be present in the scene. Please add!");
+#endif
+        }
+
         private void Start()
         {
             // Init the input field with Network Manager's network address.
@@ -35,6 +55,11 @@ namespace Mirror.Examples.Common
             //RegisterClientEvents();
 
             CheckWebGLPlayer();
+        }
+
+        private void Update()
+        {
+            RefreshHUD();
         }
 
         private void RegisterListeners()
@@ -72,13 +97,9 @@ namespace Mirror.Examples.Common
         private void RefreshHUD()
         {
             if (!NetworkServer.active && !NetworkClient.isConnected)
-            {
                 StartButtons();
-            }
             else
-            {
                 StatusLabelsAndStopButtons();
-            }
         }
 
         private void StartButtons()
@@ -155,13 +176,9 @@ namespace Mirror.Examples.Common
         private void OnClickMainStopButton()
         {
             if (NetworkClient.active)
-            {
                 NetworkManager.singleton.StopClient();
-            }
             else
-            {
                 NetworkManager.singleton.StopServer();
-            }
         }
 
         private void OnClickSecondaryStopButton()
@@ -187,47 +204,14 @@ namespace Mirror.Examples.Common
             // for IPV6:PORT it would be misleading since IPV6 contains ":":
             // 2001:0db8:0000:0000:0000:ff00:0042:8329
             if (Transport.active is PortTransport portTransport)
-            {
                 // use TryParse in case someone tries to enter non-numeric characters
-                if (ushort.TryParse(_port, out ushort port))
+                if (ushort.TryParse(_port, out var port))
                     portTransport.Port = port;
-            }
         }
 
         private void GetPort()
         {
-            if (Transport.active is PortTransport portTransport)
-            {
-                inputPort.text = portTransport.Port.ToString();
-            }
-        }
-
-        private void Update()
-        {
-            RefreshHUD();
-        }
-
-        /* This does not work because we can't register the handler.
-        void OnClientConnect() {}
-
-        private void OnClientDisconnect()
-        {
-            RefreshHUD();
-        }
-        */
-
-        // Do a check for the presence of a Network Manager component when
-        // you first add this script to a gameobject.
-        private void Reset()
-        {
-#if UNITY_2022_2_OR_NEWER
-            if (!FindAnyObjectByType<NetworkManager>())
-                Debug.LogError("This component requires a NetworkManager component to be present in the scene. Please add!");
-#else
-            // Deprecated in Unity 2023.1
-            if (!FindObjectOfType<NetworkManager>())
-                Debug.LogError("This component requires a NetworkManager component to be present in the scene. Please add!");
-#endif
+            if (Transport.active is PortTransport portTransport) inputPort.text = portTransport.Port.ToString();
         }
     }
 }

@@ -16,16 +16,13 @@ namespace Mirror.SimpleWeb
         [Tooltip("Protect against allocation attacks by keeping the max message size small. Otherwise an attacker might send multiple fake packets with 2GB headers, causing the server to run out of memory after allocating multiple large packets.")]
         public int maxMessageSize = 16 * 1024;
 
-        [FormerlySerializedAs("handshakeMaxSize")]
-        [Tooltip("Max size for http header send as handshake for websockets")]
+        [FormerlySerializedAs("handshakeMaxSize")] [Tooltip("Max size for http header send as handshake for websockets")]
         public int maxHandshakeSize = 16 * 1024;
 
-        [FormerlySerializedAs("serverMaxMessagesPerTick")]
-        [Tooltip("Caps the number of messages the server will process per tick. Allows LateUpdate to finish to let the reset of unity continue in case more messages arrive before they are processed")]
+        [FormerlySerializedAs("serverMaxMessagesPerTick")] [Tooltip("Caps the number of messages the server will process per tick. Allows LateUpdate to finish to let the reset of unity continue in case more messages arrive before they are processed")]
         public int serverMaxMsgsPerTick = 10000;
 
-        [FormerlySerializedAs("clientMaxMessagesPerTick")]
-        [Tooltip("Caps the number of messages the client will process per tick. Allows LateUpdate to finish to let the reset of unity continue in case more messages arrive before they are processed")]
+        [FormerlySerializedAs("clientMaxMessagesPerTick")] [Tooltip("Caps the number of messages the client will process per tick. Allows LateUpdate to finish to let the reset of unity continue in case more messages arrive before they are processed")]
         public int clientMaxMsgsPerTick = 1000;
 
         [Tooltip("Send would stall forever if the network is cut off during a send, so we need a timeout (in milliseconds)")]
@@ -37,9 +34,7 @@ namespace Mirror.SimpleWeb
         [Tooltip("disables nagle algorithm. lowers CPU% and latency but increases bandwidth")]
         public bool noDelay = true;
 
-        [Header("Obsolete SSL settings")]
-
-        [Tooltip("Requires wss connections on server, only to be used with SSL cert.json, never with reverse proxy.\nNOTE: if sslEnabled is true clientUseWss is forced true, even if not checked.")]
+        [Header("Obsolete SSL settings")] [Tooltip("Requires wss connections on server, only to be used with SSL cert.json, never with reverse proxy.\nNOTE: if sslEnabled is true clientUseWss is forced true, even if not checked.")]
         public bool sslEnabled;
 
         [Tooltip("Protocols that SSL certificate is created to support.")]
@@ -48,10 +43,54 @@ namespace Mirror.SimpleWeb
         [Tooltip("Path to json file that contains path to cert and its password\nUse Json file so that cert password is not included in client builds\nSee Assets/Mirror/Transports/.cert.example.Json")]
         public string sslCertJson = "./cert.json";
 
-        [Header("Server settings")]
-
-        [Tooltip("Port to use for server")]
+        [Header("Server settings")] [Tooltip("Port to use for server")]
         public ushort port = 27777;
+
+        [Tooltip("Groups messages in queue before calling Stream.Send")]
+        public bool batchSend = true;
+
+        [Tooltip("Waits for 1ms before grouping and sending messages.\n" +
+                 "This gives time for mirror to finish adding message to queue so that less groups need to be made.\n" +
+                 "If WaitBeforeSend is true then BatchSend Will also be set to true")]
+        public bool waitBeforeSend = true;
+
+        [Header("Client settings")] [Tooltip("Sets connect scheme to wss. Useful when client needs to connect using wss when TLS is outside of transport.\nNOTE: if sslEnabled is true clientUseWss is also true")]
+        public bool clientUseWss;
+
+        public ClientWebsocketSettings clientWebsocketSettings = new() { ClientPortOption = WebsocketPortOption.DefaultSameAsServer, CustomClientPort = 7777 };
+
+        [Header("Logging")] [Tooltip("Choose minimum severity level for logging\nFlood level requires Debug build")] [SerializeField]
+        private Log.Levels minimumLogLevel = Log.Levels.Warn;
+
+        private SimpleWebClient client;
+        private SimpleWebServer server;
+
+        /// <summary>
+        ///     <para>Gets _logLevels field</para>
+        ///     <para>Sets _logLevels and Log.level fields</para>
+        /// </summary>
+        public Log.Levels LogLevels
+        {
+            get => minimumLogLevel;
+            set
+            {
+                minimumLogLevel = value;
+                Log.minLogLevel = minimumLogLevel;
+            }
+        }
+
+        private TcpConfig TcpConfig => new(noDelay, sendTimeout, receiveTimeout);
+
+        private void Awake()
+        {
+            Log.minLogLevel = minimumLogLevel;
+        }
+
+        private void OnValidate()
+        {
+            Log.minLogLevel = minimumLogLevel;
+        }
+
         public ushort Port
         {
             get
@@ -78,59 +117,20 @@ namespace Mirror.SimpleWeb
             }
         }
 
-        [Tooltip("Groups messages in queue before calling Stream.Send")]
-        public bool batchSend = true;
-
-        [Tooltip("Waits for 1ms before grouping and sending messages.\n" +
-            "This gives time for mirror to finish adding message to queue so that less groups need to be made.\n" +
-            "If WaitBeforeSend is true then BatchSend Will also be set to true")]
-        public bool waitBeforeSend = true;
-
-        [Header("Client settings")]
-
-        [Tooltip("Sets connect scheme to wss. Useful when client needs to connect using wss when TLS is outside of transport.\nNOTE: if sslEnabled is true clientUseWss is also true")]
-        public bool clientUseWss;
-        public ClientWebsocketSettings clientWebsocketSettings = new ClientWebsocketSettings { ClientPortOption = WebsocketPortOption.DefaultSameAsServer, CustomClientPort = 7777 };
-
-        [Header("Logging")]
-
-        [Tooltip("Choose minimum severity level for logging\nFlood level requires Debug build")]
-        [SerializeField] Log.Levels minimumLogLevel = Log.Levels.Warn;
-
-        /// <summary>
-        /// <para>Gets _logLevels field</para>
-        /// <para>Sets _logLevels and Log.level fields</para>
-        /// </summary>
-        public Log.Levels LogLevels
+        public override string ToString()
         {
-            get => minimumLogLevel;
-            set
-            {
-                minimumLogLevel = value;
-                Log.minLogLevel = minimumLogLevel;
-            }
+            return $"SWT [{port}]";
         }
 
-        SimpleWebClient client;
-        SimpleWebServer server;
-
-        TcpConfig TcpConfig => new TcpConfig(noDelay, sendTimeout, receiveTimeout);
-
-        void Awake()
+        public override bool Available()
         {
-            Log.minLogLevel = minimumLogLevel;
+            return true;
         }
 
-        public override string ToString() => $"SWT [{port}]";
-
-        void OnValidate()
+        public override int GetMaxPacketSize(int channelId = 0)
         {
-            Log.minLogLevel = minimumLogLevel;
+            return maxMessageSize;
         }
-
-        public override bool Available() => true;
-
-        public override int GetMaxPacketSize(int channelId = 0) => maxMessageSize;
 
         public override void Shutdown()
         {
@@ -142,9 +142,12 @@ namespace Mirror.SimpleWeb
 
         #region Client
 
-        string GetClientScheme() => (sslEnabled || clientUseWss) ? SecureScheme : NormalScheme;
+        private string GetClientScheme()
+        {
+            return sslEnabled || clientUseWss ? SecureScheme : NormalScheme;
+        }
 
-        public override bool IsEncrypted => ClientConnected() && (clientUseWss || sslEnabled) || ServerActive() && sslEnabled;
+        public override bool IsEncrypted => (ClientConnected() && (clientUseWss || sslEnabled)) || (ServerActive() && sslEnabled);
 
         // Not technically correct, but there's no good way to get the actual cipher, especially in browser
         // When using reverse proxy, connection between proxy and server is not encrypted.
@@ -158,10 +161,10 @@ namespace Mirror.SimpleWeb
 
         public override void ClientConnect(string hostname)
         {
-            UriBuilder builder = new UriBuilder
+            var builder = new UriBuilder
             {
                 Scheme = GetClientScheme(),
-                Host = hostname,
+                Host = hostname
             };
 
             switch (clientWebsocketSettings.ClientPortOption)
@@ -204,7 +207,7 @@ namespace Mirror.SimpleWeb
                 client = null;
             };
 
-            client.onData += (ArraySegment<byte> data) => OnClientDataReceived.Invoke(data, Channels.Reliable);
+            client.onData += data => OnClientDataReceived.Invoke(data, Channels.Reliable);
 
             // We will not invoke OnClientError if minLogLevel is set to None
             // We only send the full exception if minLogLevel is set to Verbose
@@ -212,7 +215,7 @@ namespace Mirror.SimpleWeb
             {
                 case Log.Levels.Flood:
                 case Log.Levels.Verbose:
-                    client.onError += (Exception e) =>
+                    client.onError += e =>
                     {
                         OnClientError.Invoke(TransportError.Unexpected, e.ToString());
                         ClientDisconnect();
@@ -221,7 +224,7 @@ namespace Mirror.SimpleWeb
                 case Log.Levels.Info:
                 case Log.Levels.Warn:
                 case Log.Levels.Error:
-                    client.onError += (Exception e) =>
+                    client.onError += e =>
                     {
                         OnClientError.Invoke(TransportError.Unexpected, e.Message);
                         ClientDisconnect();
@@ -274,11 +277,14 @@ namespace Mirror.SimpleWeb
 
         #region Server
 
-        string GetServerScheme() => sslEnabled ? SecureScheme : NormalScheme;
+        private string GetServerScheme()
+        {
+            return sslEnabled ? SecureScheme : NormalScheme;
+        }
 
         public override Uri ServerUri()
         {
-            UriBuilder builder = new UriBuilder
+            var builder = new UriBuilder
             {
                 Scheme = GetServerScheme(),
                 Host = Dns.GetHostName(),
@@ -297,12 +303,12 @@ namespace Mirror.SimpleWeb
             if (ServerActive())
                 Log.Warn("[SWT-ServerStart]: Server Already Started");
 
-            SslConfig config = SslConfigLoader.Load(sslEnabled, sslCertJson, sslProtocols);
+            var config = SslConfigLoader.Load(sslEnabled, sslCertJson, sslProtocols);
             server = new SimpleWebServer(serverMaxMsgsPerTick, TcpConfig, maxMessageSize, maxHandshakeSize, config);
 
             server.onConnect += OnServerConnectedWithAddress.Invoke;
             server.onDisconnect += OnServerDisconnected.Invoke;
-            server.onData += (int connId, ArraySegment<byte> data) => OnServerDataReceived.Invoke(connId, data, Channels.Reliable);
+            server.onData += (connId, data) => OnServerDataReceived.Invoke(connId, data, Channels.Reliable);
 
             // We will not invoke OnServerError if minLogLevel is set to None
             // We only send the full exception if minLogLevel is set to Verbose
@@ -374,9 +380,15 @@ namespace Mirror.SimpleWeb
             OnServerDataSent?.Invoke(connectionId, segment, Channels.Reliable);
         }
 
-        public override string ServerGetClientAddress(int connectionId) => server.GetClientAddress(connectionId);
+        public override string ServerGetClientAddress(int connectionId)
+        {
+            return server.GetClientAddress(connectionId);
+        }
 
-        public Request ServerGetClientRequest(int connectionId) => server.GetClientRequest(connectionId);
+        public Request ServerGetClientRequest(int connectionId)
+        {
+            return server.GetClientRequest(connectionId);
+        }
 
         // messages should always be processed in early update
         public override void ServerEarlyUpdate()

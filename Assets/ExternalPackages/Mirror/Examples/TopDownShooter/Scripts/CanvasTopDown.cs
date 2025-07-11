@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -62,13 +61,9 @@ namespace Mirror.Examples.TopDownShooter
         {
 #if !UNITY_SERVER
             if (NetworkServer.active)
-            {
                 buttonSpawnEnemy.gameObject.SetActive(true);
-            }
             else
-            {
                 buttonSpawnEnemy.gameObject.SetActive(false);
-            }
 
             buttonRespawnPlayer.gameObject.SetActive(false);
             shotMarker.SetActive(false);
@@ -78,12 +73,11 @@ namespace Mirror.Examples.TopDownShooter
         }
 
 #if !UNITY_SERVER
-        IEnumerator BGSound()
+        private IEnumerator BGSound()
         {
             soundGameIntro.Play();
             yield return new WaitForSeconds(4.1f);
             soundGameLoop.Play();
-
         }
 #endif
 

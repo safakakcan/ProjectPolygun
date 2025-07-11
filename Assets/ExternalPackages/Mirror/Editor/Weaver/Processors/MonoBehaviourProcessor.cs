@@ -3,7 +3,7 @@ using Mono.CecilX;
 namespace Mirror.Weaver
 {
     // only shows warnings in case we use SyncVars etc. for MonoBehaviour.
-    static class MonoBehaviourProcessor
+    internal static class MonoBehaviourProcessor
     {
         public static void Process(Logger Log, TypeDefinition td, ref bool WeavingFailed)
         {
@@ -11,10 +11,10 @@ namespace Mirror.Weaver
             ProcessMethods(Log, td, ref WeavingFailed);
         }
 
-        static void ProcessSyncVars(Logger Log, TypeDefinition td, ref bool WeavingFailed)
+        private static void ProcessSyncVars(Logger Log, TypeDefinition td, ref bool WeavingFailed)
         {
             // find syncvars
-            foreach (FieldDefinition fd in td.Fields)
+            foreach (var fd in td.Fields)
             {
                 if (fd.HasCustomAttribute<SyncVarAttribute>())
                 {
@@ -30,21 +30,23 @@ namespace Mirror.Weaver
             }
         }
 
-        static void ProcessMethods(Logger Log, TypeDefinition td, ref bool WeavingFailed)
+        private static void ProcessMethods(Logger Log, TypeDefinition td, ref bool WeavingFailed)
         {
             // find command and RPC functions
-            foreach (MethodDefinition md in td.Methods)
+            foreach (var md in td.Methods)
             {
                 if (md.HasCustomAttribute<CommandAttribute>())
                 {
                     Log.Error($"Command {md.Name} must be declared inside a NetworkBehaviour", md);
                     WeavingFailed = true;
                 }
+
                 if (md.HasCustomAttribute<ClientRpcAttribute>())
                 {
                     Log.Error($"ClientRpc {md.Name} must be declared inside a NetworkBehaviour", md);
                     WeavingFailed = true;
                 }
+
                 if (md.HasCustomAttribute<TargetRpcAttribute>())
                 {
                     Log.Error($"TargetRpc {md.Name} must be declared inside a NetworkBehaviour", md);

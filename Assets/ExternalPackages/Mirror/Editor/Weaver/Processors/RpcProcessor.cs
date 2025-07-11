@@ -1,3 +1,4 @@
+using Mirror.RemoteCalls;
 using Mono.CecilX;
 using Mono.CecilX.Cil;
 
@@ -8,13 +9,13 @@ namespace Mirror.Weaver
     {
         public static MethodDefinition ProcessRpcInvoke(WeaverTypes weaverTypes, Writers writers, Readers readers, Logger Log, TypeDefinition td, MethodDefinition md, MethodDefinition rpcCallFunc, ref bool WeavingFailed)
         {
-            string rpcName = Weaver.GenerateMethodName(RemoteCalls.RemoteProcedureCalls.InvokeRpcPrefix, md);
+            var rpcName = Weaver.GenerateMethodName(RemoteProcedureCalls.InvokeRpcPrefix, md);
 
-            MethodDefinition rpc = new MethodDefinition(rpcName, MethodAttributes.Family | MethodAttributes.Static | MethodAttributes.HideBySig,
-                                                        weaverTypes.Import(typeof(void)));
+            var rpc = new MethodDefinition(rpcName, MethodAttributes.Family | MethodAttributes.Static | MethodAttributes.HideBySig,
+                weaverTypes.Import(typeof(void)));
 
-            ILProcessor worker = rpc.Body.GetILProcessor();
-            Instruction label = worker.Create(OpCodes.Nop);
+            var worker = rpc.Body.GetILProcessor();
+            var label = worker.Create(OpCodes.Nop);
 
             NetworkBehaviourProcessor.WriteClientActiveCheck(worker, weaverTypes, md.Name, label, "RPC");
 
@@ -58,9 +59,9 @@ namespace Mirror.Weaver
         */
         public static MethodDefinition ProcessRpcCall(WeaverTypes weaverTypes, Writers writers, Logger Log, TypeDefinition td, MethodDefinition md, CustomAttribute clientRpcAttr, ref bool WeavingFailed)
         {
-            MethodDefinition rpc = MethodProcessor.SubstituteMethod(Log, td, md, ref WeavingFailed);
+            var rpc = MethodProcessor.SubstituteMethod(Log, td, md, ref WeavingFailed);
 
-            ILProcessor worker = md.Body.GetILProcessor();
+            var worker = md.Body.GetILProcessor();
 
             NetworkBehaviourProcessor.WriteSetupLocals(worker, weaverTypes);
 
@@ -74,8 +75,8 @@ namespace Mirror.Weaver
             if (!NetworkBehaviourProcessor.WriteArguments(worker, writers, Log, md, RemoteCallType.ClientRpc, ref WeavingFailed))
                 return null;
 
-            int channel = clientRpcAttr.GetField("channel", 0);
-            bool includeOwner = clientRpcAttr.GetField("includeOwner", true);
+            var channel = clientRpcAttr.GetField("channel", 0);
+            var includeOwner = clientRpcAttr.GetField("includeOwner", true);
 
             // invoke SendInternal and return
             // this

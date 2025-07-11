@@ -7,59 +7,27 @@ namespace Mirror
     [AddComponentMenu("Network/ Interest Management/ Scene/Scene Interest Management")]
     public class SceneInterestManagement : InterestManagement
     {
+        private readonly HashSet<Scene> dirtyScenes = new();
+
+        private readonly Dictionary<NetworkIdentity, Scene> lastObjectScene = new();
+
         // Use Scene instead of string scene.name because when additively
         // loading multiples of a subscene the name won't be unique
-        readonly Dictionary<Scene, HashSet<NetworkIdentity>> sceneObjects =
-            new Dictionary<Scene, HashSet<NetworkIdentity>>();
-
-        readonly Dictionary<NetworkIdentity, Scene> lastObjectScene =
-            new Dictionary<NetworkIdentity, Scene>();
-
-        HashSet<Scene> dirtyScenes = new HashSet<Scene>();
+        private readonly Dictionary<Scene, HashSet<NetworkIdentity>> sceneObjects = new();
 
         [ServerCallback]
-        public override void OnSpawned(NetworkIdentity identity)
-        {
-            Scene currentScene = identity.gameObject.scene;
-            lastObjectScene[identity] = currentScene;
-            // Debug.Log($"SceneInterestManagement.OnSpawned({identity.name}) currentScene: {currentScene}");
-            if (!sceneObjects.TryGetValue(currentScene, out HashSet<NetworkIdentity> objects))
-            {
-                objects = new HashSet<NetworkIdentity>();
-                sceneObjects.Add(currentScene, objects);
-            }
-
-            objects.Add(identity);
-        }
-
-        [ServerCallback]
-        public override void OnDestroyed(NetworkIdentity identity)
-        {
-            // Don't RebuildSceneObservers here - that will happen in LateUpdate.
-            // Multiple objects could be destroyed in same frame and we don't
-            // want to rebuild for each one...let LateUpdate do it once.
-            // We must add the current scene to dirtyScenes for LateUpdate to rebuild it.
-            if (lastObjectScene.TryGetValue(identity, out Scene currentScene))
-            {
-                lastObjectScene.Remove(identity);
-                if (sceneObjects.TryGetValue(currentScene, out HashSet<NetworkIdentity> objects) && objects.Remove(identity))
-                    dirtyScenes.Add(currentScene);
-            }
-        }
-
-        [ServerCallback]
-        void LateUpdate()
+        private void LateUpdate()
         {
             // for each spawned:
             //   if scene changed:
             //     add previous to dirty
             //     add new to dirty
-            foreach (NetworkIdentity identity in NetworkServer.spawned.Values)
+            foreach (var identity in NetworkServer.spawned.Values)
             {
-                if (!lastObjectScene.TryGetValue(identity, out Scene currentScene))
+                if (!lastObjectScene.TryGetValue(identity, out var currentScene))
                     continue;
 
-                Scene newScene = identity.gameObject.scene;
+                var newScene = identity.gameObject.scene;
                 if (newScene == currentScene)
                     continue;
 
@@ -85,15 +53,45 @@ namespace Mirror
             }
 
             // rebuild all dirty scenes
-            foreach (Scene dirtyScene in dirtyScenes)
+            foreach (var dirtyScene in dirtyScenes)
                 RebuildSceneObservers(dirtyScene);
 
             dirtyScenes.Clear();
         }
 
-        void RebuildSceneObservers(Scene scene)
+        [ServerCallback]
+        public override void OnSpawned(NetworkIdentity identity)
         {
-            foreach (NetworkIdentity netIdentity in sceneObjects[scene])
+            var currentScene = identity.gameObject.scene;
+            lastObjectScene[identity] = currentScene;
+            // Debug.Log($"SceneInterestManagement.OnSpawned({identity.name}) currentScene: {currentScene}");
+            if (!sceneObjects.TryGetValue(currentScene, out var objects))
+            {
+                objects = new HashSet<NetworkIdentity>();
+                sceneObjects.Add(currentScene, objects);
+            }
+
+            objects.Add(identity);
+        }
+
+        [ServerCallback]
+        public override void OnDestroyed(NetworkIdentity identity)
+        {
+            // Don't RebuildSceneObservers here - that will happen in LateUpdate.
+            // Multiple objects could be destroyed in same frame and we don't
+            // want to rebuild for each one...let LateUpdate do it once.
+            // We must add the current scene to dirtyScenes for LateUpdate to rebuild it.
+            if (lastObjectScene.TryGetValue(identity, out var currentScene))
+            {
+                lastObjectScene.Remove(identity);
+                if (sceneObjects.TryGetValue(currentScene, out var objects) && objects.Remove(identity))
+                    dirtyScenes.Add(currentScene);
+            }
+        }
+
+        private void RebuildSceneObservers(Scene scene)
+        {
+            foreach (var netIdentity in sceneObjects[scene])
                 if (netIdentity != null)
                     NetworkServer.RebuildObservers(netIdentity, false);
         }
@@ -105,11 +103,11 @@ namespace Mirror
 
         public override void OnRebuildObservers(NetworkIdentity identity, HashSet<NetworkConnectionToClient> newObservers)
         {
-            if (!sceneObjects.TryGetValue(identity.gameObject.scene, out HashSet<NetworkIdentity> objects))
+            if (!sceneObjects.TryGetValue(identity.gameObject.scene, out var objects))
                 return;
 
             // Add everything in the hashset for this object's current scene
-            foreach (NetworkIdentity networkIdentity in objects)
+            foreach (var networkIdentity in objects)
                 if (networkIdentity != null && networkIdentity.connectionToClient != null)
                     newObservers.Add(networkIdentity.connectionToClient);
         }

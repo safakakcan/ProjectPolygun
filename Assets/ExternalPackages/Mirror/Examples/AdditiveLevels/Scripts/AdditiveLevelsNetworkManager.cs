@@ -7,28 +7,24 @@ namespace Mirror.Examples.AdditiveLevels
     [AddComponentMenu("")]
     public class AdditiveLevelsNetworkManager : NetworkManager
     {
-        public static new AdditiveLevelsNetworkManager singleton => (AdditiveLevelsNetworkManager)NetworkManager.singleton;
-
-        [Header("Additive Scenes - First is start scene")]
-
-        [Scene, Tooltip("Add additive scenes here.\nFirst entry will be players' start scene")]
+        [Header("Additive Scenes - First is start scene")] [Scene] [Tooltip("Add additive scenes here.\nFirst entry will be players' start scene")]
         public string[] additiveScenes;
 
-        [Header("Fade Control - See child FadeCanvas")]
-
-        [Tooltip("Reference to FadeInOut script on child FadeCanvas")]
+        [Header("Fade Control - See child FadeCanvas")] [Tooltip("Reference to FadeInOut script on child FadeCanvas")]
         public FadeInOut fadeInOut;
 
-        // This is set true after server loads all subscene instances
-        bool subscenesLoaded;
-
         // This is managed in LoadAdditive, UnloadAdditive, and checked in OnClientSceneChanged
-        bool isInTransition;
+        private bool isInTransition;
+
+        // This is set true after server loads all subscene instances
+        private bool subscenesLoaded;
+        public new static AdditiveLevelsNetworkManager singleton => (AdditiveLevelsNetworkManager)NetworkManager.singleton;
 
         #region Scene Management
 
         /// <summary>
-        /// Called on the server when a scene is completed loaded, when the scene load was initiated by the server with ServerChangeScene().
+        ///     Called on the server when a scene is completed loaded, when the scene load was initiated by the server with
+        ///     ServerChangeScene().
         /// </summary>
         /// <param name="sceneName">The name of the new scene.</param>
         public override void OnServerSceneChanged(string sceneName)
@@ -39,9 +35,9 @@ namespace Mirror.Examples.AdditiveLevels
                 StartCoroutine(ServerLoadSubScenes());
         }
 
-        IEnumerator ServerLoadSubScenes()
+        private IEnumerator ServerLoadSubScenes()
         {
-            foreach (string additiveScene in additiveScenes)
+            foreach (var additiveScene in additiveScenes)
                 yield return SceneManager.LoadSceneAsync(additiveScene, new LoadSceneParameters
                 {
                     loadSceneMode = LoadSceneMode.Additive,
@@ -52,8 +48,8 @@ namespace Mirror.Examples.AdditiveLevels
         }
 
         /// <summary>
-        /// Called from ClientChangeScene immediately before SceneManager.LoadSceneAsync is executed
-        /// <para>This allows client to do work / cleanup / prep before the scene changes.</para>
+        ///     Called from ClientChangeScene immediately before SceneManager.LoadSceneAsync is executed
+        ///     <para>This allows client to do work / cleanup / prep before the scene changes.</para>
         /// </summary>
         /// <param name="sceneName">Name of the scene that's about to be loaded</param>
         /// <param name="sceneOperation">Scene operation that's about to happen</param>
@@ -69,7 +65,7 @@ namespace Mirror.Examples.AdditiveLevels
                 StartCoroutine(LoadAdditive(sceneName));
         }
 
-        IEnumerator LoadAdditive(string sceneName)
+        private IEnumerator LoadAdditive(string sceneName)
         {
             isInTransition = true;
 
@@ -97,7 +93,7 @@ namespace Mirror.Examples.AdditiveLevels
             yield return fadeInOut.FadeOut();
         }
 
-        IEnumerator UnloadAdditive(string sceneName)
+        private IEnumerator UnloadAdditive(string sceneName)
         {
             isInTransition = true;
 
@@ -124,8 +120,11 @@ namespace Mirror.Examples.AdditiveLevels
         }
 
         /// <summary>
-        /// Called on clients when a scene has completed loaded, when the scene load was initiated by the server.
-        /// <para>Scene changes can cause player objects to be destroyed. The default implementation of OnClientSceneChanged in the NetworkManager is to add a player object for the connection if no player object exists.</para>
+        ///     Called on clients when a scene has completed loaded, when the scene load was initiated by the server.
+        ///     <para>
+        ///         Scene changes can cause player objects to be destroyed. The default implementation of OnClientSceneChanged in
+        ///         the NetworkManager is to add a player object for the connection if no player object exists.
+        ///     </para>
         /// </summary>
         /// <param name="conn">The network connection that the scene change message arrived on.</param>
         public override void OnClientSceneChanged()
@@ -142,8 +141,11 @@ namespace Mirror.Examples.AdditiveLevels
         #region Server System Callbacks
 
         /// <summary>
-        /// Called on the server when a client is ready.
-        /// <para>The default implementation of this function calls NetworkServer.SetClientReady() to continue the network setup process.</para>
+        ///     Called on the server when a client is ready.
+        ///     <para>
+        ///         The default implementation of this function calls NetworkServer.SetClientReady() to continue the network
+        ///         setup process.
+        ///     </para>
         /// </summary>
         /// <param name="conn">Connection from client.</param>
         public override void OnServerReady(NetworkConnectionToClient conn)
@@ -157,7 +159,7 @@ namespace Mirror.Examples.AdditiveLevels
 
         // This delay is mostly for the host player that loads too fast for the
         // server to have subscenes async loaded from OnServerSceneChanged ahead of it.
-        IEnumerator AddPlayerDelayed(NetworkConnectionToClient conn)
+        private IEnumerator AddPlayerDelayed(NetworkConnectionToClient conn)
         {
             // Wait for server to async load all subscenes for game instances
             while (!subscenesLoaded)
@@ -167,11 +169,11 @@ namespace Mirror.Examples.AdditiveLevels
             conn.Send(new SceneMessage { sceneName = additiveScenes[0], sceneOperation = SceneOperation.LoadAdditive, customHandling = true });
 
             // We have Network Start Positions in first additive scene...pick one
-            Transform start = GetStartPosition();
+            var start = GetStartPosition();
 
             // Instantiate player as child of start position - this will place it in the additive scene
             // This also lets player object "inherit" pos and rot from start position transform
-            GameObject player = Instantiate(playerPrefab, start);
+            var player = Instantiate(playerPrefab, start);
             // now set parent null to get it out from under the Start Position object
             player.transform.SetParent(null);
 

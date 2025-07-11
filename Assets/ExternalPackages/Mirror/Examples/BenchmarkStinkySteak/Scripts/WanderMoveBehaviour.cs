@@ -3,11 +3,18 @@ using StinkySteak.NetcodeBenchmark;
 using UnityEngine;
 
 namespace StinkySteak.MirrorBenchmark
-{ 
+{
     public class WanderMoveBehaviour : NetworkBehaviour
     {
         [SerializeField] private BehaviourConfig _config;
         private WanderMoveWrapper _wrapper;
+
+        private void FixedUpdate()
+        {
+            if (isClient) return;
+
+            _wrapper.NetworkUpdate(transform);
+        }
 
         public override void OnStartServer()
         {
@@ -15,13 +22,6 @@ namespace StinkySteak.MirrorBenchmark
 
             _config.ApplyConfig(ref _wrapper);
             _wrapper.NetworkStart(transform);
-        }
-
-        private void FixedUpdate()
-        {
-            if (isClient) return;
-
-            _wrapper.NetworkUpdate(transform);
         }
     }
 }

@@ -1,4 +1,5 @@
 // standalone, easy to test algorithms for prediction
+
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -35,38 +36,34 @@ namespace Mirror
             out T before,
             out T after,
             out int afterIndex,
-            out double t)     // interpolation factor
+            out double t) // interpolation factor
         {
             before = default;
-            after  = default;
+            after = default;
             t = 0;
             afterIndex = -1;
 
             // can't sample an empty history
             // interpolation needs at least two entries.
             //   can't Lerp(A, A, 1.5). dist(A, A) * 1.5 is always 0.
-            if (history.Count < 2) {
-                return false;
-            }
+            if (history.Count < 2) return false;
 
             // older than oldest
-            if (timestamp < history.Keys[0]) {
-                return false;
-            }
+            if (timestamp < history.Keys[0]) return false;
 
             // iterate through the history
             // TODO this needs to be faster than O(N)
             //      search around that area.
             //      should be O(1) most of the time, unless sampling was off.
-            int index = 0; // manually count when iterating. easier than for-int loop.
-            KeyValuePair<double, T> prev = new KeyValuePair<double, T>();
+            var index = 0; // manually count when iterating. easier than for-int loop.
+            var prev = new KeyValuePair<double, T>();
 
             // SortedList foreach iteration allocates a LOT. use for-int instead.
             // foreach (KeyValuePair<double, T> entry in history) {
-            for (int i = 0; i < history.Count; ++i)
+            for (var i = 0; i < history.Count; ++i)
             {
-                double key = history.Keys[i];
-                T value = history.Values[i];
+                var key = history.Keys[i];
+                var value = history.Values[i];
 
                 // exact match?
                 if (timestamp == key)
@@ -103,11 +100,11 @@ namespace Mirror
         public static T CorrectHistory<T>(
             SortedList<double, T> history,
             int stateHistoryLimit,
-            T corrected,     // corrected state with timestamp
-            T before,        // state in history before the correction
-            T after,         // state in history after the correction
-            int afterIndex)  // index of the 'after' value so we don't need to find it again here
-            where T: PredictedState
+            T corrected, // corrected state with timestamp
+            T before, // state in history before the correction
+            T after, // state in history after the correction
+            int afterIndex) // index of the 'after' value so we don't need to find it again here
+            where T : PredictedState
         {
             // respect the limit
             // TODO unit test to check if it respects max size
@@ -150,36 +147,36 @@ namespace Mirror
             // so when we apply the correction, the new after.position would be:
             //   corrected.position(25) + after.delta(5) = 30
             //
-            double previousDeltaTime = after.timestamp - before.timestamp;     // 3.0 - 1.0 = 2.0
-            double correctedDeltaTime = after.timestamp - corrected.timestamp; // 3.0 - 2.5 = 0.5
+            var previousDeltaTime = after.timestamp - before.timestamp; // 3.0 - 1.0 = 2.0
+            var correctedDeltaTime = after.timestamp - corrected.timestamp; // 3.0 - 2.5 = 0.5
 
             // fix multiplier becoming NaN if previousDeltaTime is 0:
             // double multiplier = correctedDeltaTime / previousDeltaTime;
-            double multiplier = previousDeltaTime != 0 ? correctedDeltaTime / previousDeltaTime : 0; // 0.5 / 2.0 = 0.25
+            var multiplier = previousDeltaTime != 0 ? correctedDeltaTime / previousDeltaTime : 0; // 0.5 / 2.0 = 0.25
 
             // recalculate 'after.delta' with the multiplier
-            after.positionDelta        = Vector3.Lerp(Vector3.zero, after.positionDelta, (float)multiplier);
-            after.velocityDelta        = Vector3.Lerp(Vector3.zero, after.velocityDelta, (float)multiplier);
+            after.positionDelta = Vector3.Lerp(Vector3.zero, after.positionDelta, (float)multiplier);
+            after.velocityDelta = Vector3.Lerp(Vector3.zero, after.velocityDelta, (float)multiplier);
             after.angularVelocityDelta = Vector3.Lerp(Vector3.zero, after.angularVelocityDelta, (float)multiplier);
             // Quaternions always need to be normalized in order to be a valid rotation after operations
-            after.rotationDelta        = Quaternion.Slerp(Quaternion.identity, after.rotationDelta, (float)multiplier).normalized;
+            after.rotationDelta = Quaternion.Slerp(Quaternion.identity, after.rotationDelta, (float)multiplier).normalized;
 
             // changes aren't saved until we overwrite them in the history
             history[after.timestamp] = after;
 
             // second step: readjust all absolute values by rewinding client's delta moves on top of it.
-            T last = corrected;
-            for (int i = afterIndex; i < history.Count; ++i)
+            var last = corrected;
+            for (var i = afterIndex; i < history.Count; ++i)
             {
-                double key = history.Keys[i];
-                T value = history.Values[i];
+                var key = history.Keys[i];
+                var value = history.Values[i];
 
                 // correct absolute position based on last + delta.
-                value.position        = last.position + value.positionDelta;
-                value.velocity        = last.velocity + value.velocityDelta;
+                value.position = last.position + value.positionDelta;
+                value.velocity = last.velocity + value.velocityDelta;
                 value.angularVelocity = last.angularVelocity + value.angularVelocityDelta;
                 // Quaternions always need to be normalized in order to be a valid rotation after operations
-                value.rotation        = (value.rotationDelta * last.rotation).normalized; // quaternions add delta by multiplying in this order
+                value.rotation = (value.rotationDelta * last.rotation).normalized; // quaternions add delta by multiplying in this order
 
                 // save the corrected entry into history.
                 history[key] = value;

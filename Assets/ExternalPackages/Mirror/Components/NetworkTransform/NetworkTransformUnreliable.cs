@@ -1,4 +1,5 @@
 // NetworkTransform V2 by mischa (2021-07)
+
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,29 +8,30 @@ namespace Mirror
     [AddComponentMenu("Network/Network Transform (Unreliable)")]
     public class NetworkTransformUnreliable : NetworkTransformBase
     {
-        uint sendIntervalCounter = 0;
-        double lastSendIntervalTime = double.MinValue;
-        TransformSnapshot? pendingSnapshot;
-
         [Header("Additional Settings")]
         // Testing under really bad network conditions, 2%-5% packet loss and 250-1200ms ping, 5 proved to eliminate any twitching, however this should not be the default as it is a rare case Developers may want to cover.
         [Tooltip("How much time, as a multiple of send interval, has passed before clearing buffers.\nA larger buffer means more delay, but results in smoother movement.\nExample: 1 for faster responses minimal smoothing, 5 covers bad pings but has noticable delay, 3 is recommended for balanced results.")]
         public float bufferResetMultiplier = 3;
+
         public bool useFixedUpdate;
 
-        [Header("Sensitivity"), Tooltip("Sensitivity of changes needed before an updated state is sent over the network")]
+        [Header("Sensitivity")] [Tooltip("Sensitivity of changes needed before an updated state is sent over the network")]
         public float positionSensitivity = 0.01f;
+
         public float rotationSensitivity = 0.01f;
         public float scaleSensitivity = 0.01f;
+        protected Changed cachedChangedComparison;
+        protected bool hasSentUnchangedPosition;
+        private double lastSendIntervalTime = double.MinValue;
 
         // Used to store last sent snapshots
         protected TransformSnapshot lastSnapshot;
-        protected Changed cachedChangedComparison;
-        protected bool hasSentUnchangedPosition;
+        private TransformSnapshot? pendingSnapshot;
+        private uint sendIntervalCounter;
 
         // update //////////////////////////////////////////////////////////////
         // Update applies interpolation
-        void Update()
+        private void Update()
         {
             if (isServer) UpdateServerInterpolation();
             // for all other clients (and for local player if !authority),
@@ -38,7 +40,7 @@ namespace Mirror
             else if (isClient && !IsClientWithAuthority) UpdateClientInterpolation();
         }
 
-        void FixedUpdate()
+        private void FixedUpdate()
         {
             if (!useFixedUpdate) return;
 
@@ -54,7 +56,7 @@ namespace Mirror
         // use LateUpdate to ensure changes are detected in the same frame.
         // otherwise this may run before user update, delaying detection until next frame.
         // this could cause visible jitter.
-        void LateUpdate()
+        private void LateUpdate()
         {
             // if server then always sync to others.
             if (isServer) UpdateServerBroadcast();
@@ -82,7 +84,7 @@ namespace Mirror
                 sendIntervalCounter++;
         }
 
-        void UpdateServerBroadcast()
+        private void UpdateServerBroadcast()
         {
             // broadcast to all clients each 'sendInterval'
             // (client with authority will drop the rpc)
@@ -121,13 +123,13 @@ namespace Mirror
             {
                 // send snapshot without timestamp.
                 // receiver gets it from batch timestamp to save bandwidth.
-                TransformSnapshot snapshot = Construct();
+                var snapshot = Construct();
 
                 cachedChangedComparison = CompareChangedSnapshots(snapshot);
 
-                if ((cachedChangedComparison == Changed.None || cachedChangedComparison == Changed.CompressRot) && hasSentUnchangedPosition && onlySyncOnChange) { return; }
+                if ((cachedChangedComparison == Changed.None || cachedChangedComparison == Changed.CompressRot) && hasSentUnchangedPosition && onlySyncOnChange) return;
 
-                SyncData syncData = new SyncData(cachedChangedComparison, snapshot);
+                var syncData = new SyncData(cachedChangedComparison, snapshot);
 
                 RpcServerToClientSync(syncData);
 
@@ -143,7 +145,7 @@ namespace Mirror
             }
         }
 
-        void UpdateServerInterpolation()
+        private void UpdateServerInterpolation()
         {
             // apply buffered snapshots IF client authority
             // -> in server authority, server moves the object
@@ -164,12 +166,12 @@ namespace Mirror
                 SnapshotInterpolation.StepInterpolation(
                     serverSnapshots,
                     connectionToClient.remoteTimeline,
-                    out TransformSnapshot from,
-                    out TransformSnapshot to,
-                    out double t);
+                    out var from,
+                    out var to,
+                    out var t);
 
                 // interpolate & apply
-                TransformSnapshot computed = TransformSnapshot.Interpolate(from, to, t);
+                var computed = TransformSnapshot.Interpolate(from, to, t);
                 if (useFixedUpdate)
                     pendingSnapshot = computed;
                 else
@@ -177,7 +179,7 @@ namespace Mirror
             }
         }
 
-        void UpdateClientBroadcast()
+        private void UpdateClientBroadcast()
         {
             // https://github.com/vis2k/Mirror/pull/2992/
             if (!NetworkClient.ready) return;
@@ -207,13 +209,13 @@ namespace Mirror
             {
                 // send snapshot without timestamp.
                 // receiver gets it from batch timestamp to save bandwidth.
-                TransformSnapshot snapshot = Construct();
+                var snapshot = Construct();
 
                 cachedChangedComparison = CompareChangedSnapshots(snapshot);
 
-                if ((cachedChangedComparison == Changed.None || cachedChangedComparison == Changed.CompressRot) && hasSentUnchangedPosition && onlySyncOnChange) { return; }
+                if ((cachedChangedComparison == Changed.None || cachedChangedComparison == Changed.CompressRot) && hasSentUnchangedPosition && onlySyncOnChange) return;
 
-                SyncData syncData = new SyncData(cachedChangedComparison, snapshot);
+                var syncData = new SyncData(cachedChangedComparison, snapshot);
 
                 CmdClientToServerSync(syncData);
 
@@ -229,7 +231,7 @@ namespace Mirror
             }
         }
 
-        void UpdateClientInterpolation()
+        private void UpdateClientInterpolation()
         {
             // only while we have snapshots
             if (clientSnapshots.Count == 0) return;
@@ -239,12 +241,12 @@ namespace Mirror
             SnapshotInterpolation.StepInterpolation(
                 clientSnapshots,
                 NetworkTime.time, // == NetworkClient.localTimeline from snapshot interpolation
-                out TransformSnapshot from,
-                out TransformSnapshot to,
-                out double t);
+                out var from,
+                out var to,
+                out var t);
 
             // interpolate & apply
-            TransformSnapshot computed = TransformSnapshot.Interpolate(from, to, t);
+            var computed = TransformSnapshot.Interpolate(from, to, t);
             if (useFixedUpdate)
                 pendingSnapshot = computed;
             else
@@ -306,11 +308,11 @@ namespace Mirror
         // Note the sensitivity comparison are different for pos, rot and scale.
         protected virtual Changed CompareChangedSnapshots(TransformSnapshot currentSnapshot)
         {
-            Changed change = Changed.None;
+            var change = Changed.None;
 
             if (syncPosition)
             {
-                bool positionChanged = Vector3.SqrMagnitude(lastSnapshot.position - currentSnapshot.position) > positionSensitivity * positionSensitivity;
+                var positionChanged = Vector3.SqrMagnitude(lastSnapshot.position - currentSnapshot.position) > positionSensitivity * positionSensitivity;
                 if (positionChanged)
                 {
                     if (Mathf.Abs(lastSnapshot.position.x - currentSnapshot.position.x) > positionSensitivity) change |= Changed.PosX;
@@ -323,7 +325,7 @@ namespace Mirror
             {
                 if (compressRotation)
                 {
-                    bool rotationChanged = Quaternion.Angle(lastSnapshot.rotation, currentSnapshot.rotation) > rotationSensitivity;
+                    var rotationChanged = Quaternion.Angle(lastSnapshot.rotation, currentSnapshot.rotation) > rotationSensitivity;
                     if (rotationChanged)
                     {
                         // Here we set all Rot enum flags, to tell us if there was a change in rotation
@@ -345,15 +347,14 @@ namespace Mirror
             }
 
             if (syncScale)
-            {
-                if (Vector3.SqrMagnitude(lastSnapshot.scale - currentSnapshot.scale) > scaleSensitivity * scaleSensitivity) change |= Changed.Scale;
-            }
+                if (Vector3.SqrMagnitude(lastSnapshot.scale - currentSnapshot.scale) > scaleSensitivity * scaleSensitivity)
+                    change |= Changed.Scale;
 
             return change;
         }
 
         [Command(channel = Channels.Unreliable)]
-        void CmdClientToServerSync(SyncData syncData)
+        private void CmdClientToServerSync(SyncData syncData)
         {
             OnClientToServerSync(syncData);
             //For client authority, immediately pass on the client snapshot to all other
@@ -372,7 +373,7 @@ namespace Mirror
 
             // only player owned objects (with a connection) can send to
             // server. we can get the timestamp from the connection.
-            double timestamp = connectionToClient.remoteTimeStamp;
+            var timestamp = connectionToClient.remoteTimeStamp;
 
             if (onlySyncOnChange)
             {
@@ -388,8 +389,10 @@ namespace Mirror
         }
 
         [ClientRpc(channel = Channels.Unreliable)]
-        void RpcServerToClientSync(SyncData syncData) =>
+        private void RpcServerToClientSync(SyncData syncData)
+        {
             OnServerToClientSync(syncData);
+        }
 
         protected virtual void OnServerToClientSync(SyncData syncData)
         {
@@ -408,7 +411,7 @@ namespace Mirror
             // not all of them have a connectionToServer.
             // but all of them go through NetworkClient.connection.
             // we can get the timestamp from there.
-            double timestamp = NetworkClient.connection.remoteTimeStamp;
+            var timestamp = NetworkClient.connection.remoteTimeStamp;
 
             if (onlySyncOnChange)
             {
@@ -437,25 +440,26 @@ namespace Mirror
                 // because if not syncing position, NT will not apply any position data
                 // to the target during Apply().
 
-                syncData.position.x = (syncData.changedDataByte & Changed.PosX) > 0 ? syncData.position.x : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].position.x : GetPosition().x);
-                syncData.position.y = (syncData.changedDataByte & Changed.PosY) > 0 ? syncData.position.y : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].position.y : GetPosition().y);
-                syncData.position.z = (syncData.changedDataByte & Changed.PosZ) > 0 ? syncData.position.z : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].position.z : GetPosition().z);
+                syncData.position.x = (syncData.changedDataByte & Changed.PosX) > 0 ? syncData.position.x : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].position.x : GetPosition().x;
+                syncData.position.y = (syncData.changedDataByte & Changed.PosY) > 0 ? syncData.position.y : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].position.y : GetPosition().y;
+                syncData.position.z = (syncData.changedDataByte & Changed.PosZ) > 0 ? syncData.position.z : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].position.z : GetPosition().z;
 
                 // If compressRot is true, we already have the Quat in syncdata.
                 if ((syncData.changedDataByte & Changed.CompressRot) == 0)
                 {
-                    syncData.vecRotation.x = (syncData.changedDataByte & Changed.RotX) > 0 ? syncData.vecRotation.x : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation.eulerAngles.x : GetRotation().eulerAngles.x);
-                    syncData.vecRotation.y = (syncData.changedDataByte & Changed.RotY) > 0 ? syncData.vecRotation.y : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation.eulerAngles.y : GetRotation().eulerAngles.y); ;
-                    syncData.vecRotation.z = (syncData.changedDataByte & Changed.RotZ) > 0 ? syncData.vecRotation.z : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation.eulerAngles.z : GetRotation().eulerAngles.z);
+                    syncData.vecRotation.x = (syncData.changedDataByte & Changed.RotX) > 0 ? syncData.vecRotation.x : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation.eulerAngles.x : GetRotation().eulerAngles.x;
+                    syncData.vecRotation.y = (syncData.changedDataByte & Changed.RotY) > 0 ? syncData.vecRotation.y : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation.eulerAngles.y : GetRotation().eulerAngles.y;
+                    ;
+                    syncData.vecRotation.z = (syncData.changedDataByte & Changed.RotZ) > 0 ? syncData.vecRotation.z : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation.eulerAngles.z : GetRotation().eulerAngles.z;
 
                     syncData.quatRotation = Quaternion.Euler(syncData.vecRotation);
                 }
                 else
                 {
-                    syncData.quatRotation = (syncData.changedDataByte & Changed.Rot) > 0 ? syncData.quatRotation : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation : GetRotation());
+                    syncData.quatRotation = (syncData.changedDataByte & Changed.Rot) > 0 ? syncData.quatRotation : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].rotation : GetRotation();
                 }
 
-                syncData.scale = (syncData.changedDataByte & Changed.Scale) > 0 ? syncData.scale : (snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].scale : GetScale());
+                syncData.scale = (syncData.changedDataByte & Changed.Scale) > 0 ? syncData.scale : snapshots.Count > 0 ? snapshots.Values[snapshots.Count - 1].scale : GetScale();
             }
         }
     }

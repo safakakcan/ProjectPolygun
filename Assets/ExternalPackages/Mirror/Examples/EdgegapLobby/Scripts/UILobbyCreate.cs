@@ -18,19 +18,13 @@ namespace Mirror.Examples.EdgegapLobby
         private void Awake()
         {
             ValidateName();
-            LobbyName.onValueChanged.AddListener(_ =>
-            {
-                ValidateName();
-            });
+            LobbyName.onValueChanged.AddListener(_ => { ValidateName(); });
             CancelButton.onClick.AddListener(() =>
             {
                 List.gameObject.SetActive(true);
                 gameObject.SetActive(false);
             });
-            SlotSlider.onValueChanged.AddListener(arg0 =>
-            {
-                SlotCount.text = ((int)arg0).ToString();
-            });
+            SlotSlider.onValueChanged.AddListener(arg0 => { SlotCount.text = ((int)arg0).ToString(); });
             HostButton.onClick.AddListener(() =>
             {
                 gameObject.SetActive(false);
@@ -44,9 +38,10 @@ namespace Mirror.Examples.EdgegapLobby
                 NetworkManager.singleton.StartServer();
             });
         }
-        void ValidateName()
+
+        private void ValidateName()
         {
-            bool valid = !string.IsNullOrWhiteSpace(LobbyName.text);
+            var valid = !string.IsNullOrWhiteSpace(LobbyName.text);
             HostButton.interactable = valid;
             ServerButton.interactable = valid;
         }

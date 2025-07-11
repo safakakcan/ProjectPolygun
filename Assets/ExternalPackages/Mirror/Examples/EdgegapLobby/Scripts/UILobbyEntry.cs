@@ -1,6 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using Edgegap;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,15 +9,13 @@ namespace Mirror.Examples.EdgegapLobby
         public Button JoinButton;
         public Text Name;
         public Text PlayerCount;
+        private UILobbyList _list;
 
         private LobbyBrief _lobby;
-        private UILobbyList _list;
+
         private void Awake()
         {
-            JoinButton.onClick.AddListener(() =>
-            {
-                _list.Join(_lobby);
-            });
+            JoinButton.onClick.AddListener(() => { _list.Join(_lobby); });
         }
 
         public void Init(UILobbyList list, LobbyBrief lobby, bool active = true)
@@ -33,5 +28,4 @@ namespace Mirror.Examples.EdgegapLobby
             PlayerCount.text = $"{lobby.player_count}/{lobby.capacity}";
         }
     }
-
 }

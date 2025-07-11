@@ -2,17 +2,18 @@ using System;
 using System.Threading;
 using UnityEditor;
 using UnityEngine;
+
 #if UNITY_EDITOR
 namespace Edgegap
 {
     public class LobbyServiceCreateDialogue : EditorWindow
     {
-        public Action<string> onLobby;
         public bool waitingCreate;
         public bool waitingStatus;
-        private string _name;
         private string _key;
         private string _lastStatus;
+        private string _name;
+        public Action<string> onLobby;
 
         private void Awake()
         {
@@ -27,19 +28,18 @@ namespace Edgegap
                 EditorGUILayout.LabelField("Waiting for lobby to create . . . ");
                 return;
             }
+
             if (waitingStatus)
             {
                 EditorGUILayout.LabelField("Waiting for lobby to deploy . . . ");
                 EditorGUILayout.LabelField($"Latest status: {_lastStatus}");
                 return;
             }
+
             _key = EditorGUILayout.TextField("Edgegap API key", _key);
             LobbyApi.TrimApiKey(ref _key);
             EditorGUILayout.HelpBox(new GUIContent("Your API key won't be saved."));
-            if (GUILayout.Button("I have no api key?"))
-            {
-                Application.OpenURL("https://app.edgegap.com/user-settings?tab=tokens");
-            }
+            if (GUILayout.Button("I have no api key?")) Application.OpenURL("https://app.edgegap.com/user-settings?tab=tokens");
             EditorGUILayout.Separator();
             EditorGUILayout.HelpBox("There's currently a bug where lobby names longer than 5 characters can fail to deploy correctly and will return a \"503 Service Temporarily Unavailable\"\nIt's recommended to limit your lobby names to 4-5 characters for now", UnityEditor.MessageType.Warning);
             _name = EditorGUILayout.TextField("Lobby Name", _name);
@@ -70,7 +70,6 @@ namespace Edgegap
                     });
                     return;
                 }
-
             }
 
             if (GUILayout.Button("Cancel"))
@@ -83,46 +82,36 @@ namespace Edgegap
 
             if (GUILayout.Button("Terminate existing deploy"))
             {
-
                 if (string.IsNullOrWhiteSpace(_key) || string.IsNullOrWhiteSpace(_name))
-                {
                     EditorUtility.DisplayDialog("Error", "Key and Name can't be empty.", "Ok");
-                }
                 else
-                {
-                    LobbyApi.TerminateLobbyService(_key.Trim(), _name.Trim(), res =>
-                    {
-                        EditorUtility.DisplayDialog("Success", $"The lobby service will start terminating (shutting down the deploy) now", "Ok");
-                    }, error =>
-                    {
-                        EditorUtility.DisplayDialog("Failed to terminate lobby", $"The following error happened while trying to terminate the lobby service:\n\n{error}", "Ok");
-                    });
-                }
+                    LobbyApi.TerminateLobbyService(_key.Trim(), _name.Trim(), res => { EditorUtility.DisplayDialog("Success", "The lobby service will start terminating (shutting down the deploy) now", "Ok"); }, error => { EditorUtility.DisplayDialog("Failed to terminate lobby", $"The following error happened while trying to terminate the lobby service:\n\n{error}", "Ok"); });
             }
+
             EditorGUILayout.HelpBox(new GUIContent("Done with your lobby?\nEnter the same name as creation to shut it down"));
         }
+
         private void RefreshStatus()
         {
             // Stop if window is closed
-            if (!this)
-            {
-                return;
-            }
+            if (!this) return;
             LobbyApi.GetLobbyService(_key, _name, res =>
             {
                 if (!res.HasValue)
                 {
-                    EditorUtility.DisplayDialog("Failed to create lobby", $"The lobby seems to have vanished while waiting for it to deploy.", "Ok");
+                    EditorUtility.DisplayDialog("Failed to create lobby", "The lobby seems to have vanished while waiting for it to deploy.", "Ok");
                     waitingStatus = false;
                     Repaint();
                     return;
                 }
+
                 if (!string.IsNullOrEmpty(res.Value.url))
                 {
                     onLobby(res.Value.url);
                     Close();
                     return;
                 }
+
                 _lastStatus = res.Value.status;
                 Repaint();
                 Thread.Sleep(100); // :( but this is a lazy editor script, its fiiine

@@ -8,6 +8,33 @@ namespace Mirror.Examples.Common.Controllers.Flyer
     [DisallowMultipleComponent]
     public class FlyerControllerUI : ControllerUIBase
     {
+        [SerializeField] private MoveTexts moveTexts;
+        [SerializeField] private FlightTexts flightTexts;
+        [SerializeField] private OptionsTexts optionsTexts;
+
+        public void Refresh(FlyerControllerBase.MoveKeys moveKeys, FlyerControllerBase.FlightKeys flightKeys, FlyerControllerBase.OptionsKeys optionsKeys)
+        {
+            // Movement Keys
+            moveTexts.keyTextTurnLeft.text = GetKeyText(moveKeys.TurnLeft);
+            moveTexts.keyTextForward.text = GetKeyText(moveKeys.Forward);
+            moveTexts.keyTextTurnRight.text = GetKeyText(moveKeys.TurnRight);
+            moveTexts.keyTextStrafeLeft.text = GetKeyText(moveKeys.StrafeLeft);
+            moveTexts.keyTextBack.text = GetKeyText(moveKeys.Back);
+            moveTexts.keyTextStrafeRight.text = GetKeyText(moveKeys.StrafeRight);
+
+            // Flight Keys
+            flightTexts.keyTextPitchDown.text = GetKeyText(flightKeys.PitchDown);
+            flightTexts.keyTextPitchUp.text = GetKeyText(flightKeys.PitchUp);
+            flightTexts.keyTextRollLeft.text = GetKeyText(flightKeys.RollLeft);
+            flightTexts.keyTextRollRight.text = GetKeyText(flightKeys.RollRight);
+            flightTexts.keyTextAutoLevel.text = GetKeyText(flightKeys.AutoLevel);
+
+            // Options Keys
+            optionsTexts.keyTextMouseSteer.text = GetKeyText(optionsKeys.MouseSteer);
+            optionsTexts.keyTextAutoRun.text = GetKeyText(optionsKeys.AutoRun);
+            optionsTexts.keyTextToggleUI.text = GetKeyText(optionsKeys.ToggleUI);
+        }
+
         [Serializable]
         public struct MoveTexts
         {
@@ -35,33 +62,6 @@ namespace Mirror.Examples.Common.Controllers.Flyer
             public Text keyTextMouseSteer;
             public Text keyTextAutoRun;
             public Text keyTextToggleUI;
-        }
-
-        [SerializeField] MoveTexts moveTexts;
-        [SerializeField] FlightTexts flightTexts;
-        [SerializeField] OptionsTexts optionsTexts;
-
-        public void Refresh(FlyerControllerBase.MoveKeys moveKeys, FlyerControllerBase.FlightKeys flightKeys, FlyerControllerBase.OptionsKeys optionsKeys)
-        {
-            // Movement Keys
-            moveTexts.keyTextTurnLeft.text = GetKeyText(moveKeys.TurnLeft);
-            moveTexts.keyTextForward.text = GetKeyText(moveKeys.Forward);
-            moveTexts.keyTextTurnRight.text = GetKeyText(moveKeys.TurnRight);
-            moveTexts.keyTextStrafeLeft.text = GetKeyText(moveKeys.StrafeLeft);
-            moveTexts.keyTextBack.text = GetKeyText(moveKeys.Back);
-            moveTexts.keyTextStrafeRight.text = GetKeyText(moveKeys.StrafeRight);
-
-            // Flight Keys
-            flightTexts.keyTextPitchDown.text = GetKeyText(flightKeys.PitchDown);
-            flightTexts.keyTextPitchUp.text = GetKeyText(flightKeys.PitchUp);
-            flightTexts.keyTextRollLeft.text = GetKeyText(flightKeys.RollLeft);
-            flightTexts.keyTextRollRight.text = GetKeyText(flightKeys.RollRight);
-            flightTexts.keyTextAutoLevel.text = GetKeyText(flightKeys.AutoLevel);
-
-            // Options Keys
-            optionsTexts.keyTextMouseSteer.text = GetKeyText(optionsKeys.MouseSteer);
-            optionsTexts.keyTextAutoRun.text = GetKeyText(optionsKeys.AutoRun);
-            optionsTexts.keyTextToggleUI.text = GetKeyText(optionsKeys.ToggleUI);
         }
     }
 }

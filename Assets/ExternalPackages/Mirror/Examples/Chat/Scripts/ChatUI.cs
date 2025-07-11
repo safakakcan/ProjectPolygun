@@ -7,17 +7,18 @@ namespace Mirror.Examples.Chat
 {
     public class ChatUI : NetworkBehaviour
     {
-        [Header("UI Elements")]
-        [SerializeField] Text chatHistory;
-        [SerializeField] Scrollbar scrollbar;
-        [SerializeField] InputField chatMessage;
-        [SerializeField] Button sendButton;
-
         // This is only set on client to the name of the local player
         internal static string localPlayerName;
 
         // Server-only cross-reference of connections to player names
-        internal static readonly Dictionary<NetworkConnectionToClient, string> connNames = new Dictionary<NetworkConnectionToClient, string>();
+        internal static readonly Dictionary<NetworkConnectionToClient, string> connNames = new();
+
+        [Header("UI Elements")] [SerializeField]
+        private Text chatHistory;
+
+        [SerializeField] private Scrollbar scrollbar;
+        [SerializeField] private InputField chatMessage;
+        [SerializeField] private Button sendButton;
 
         public override void OnStartServer()
         {
@@ -30,7 +31,7 @@ namespace Mirror.Examples.Chat
         }
 
         [Command(requiresAuthority = false)]
-        void CmdSend(string message, NetworkConnectionToClient sender = null)
+        private void CmdSend(string message, NetworkConnectionToClient sender = null)
         {
             if (!connNames.ContainsKey(sender))
                 connNames.Add(sender, sender.identity.GetComponent<Player>().playerName);
@@ -40,20 +41,18 @@ namespace Mirror.Examples.Chat
         }
 
         [ClientRpc]
-        void RpcReceive(string playerName, string message)
+        private void RpcReceive(string playerName, string message)
         {
-            string prettyMessage = playerName == localPlayerName ?
-                $"<color=red>{playerName}:</color> {message}" :
-                $"<color=blue>{playerName}:</color> {message}";
+            var prettyMessage = playerName == localPlayerName ? $"<color=red>{playerName}:</color> {message}" : $"<color=blue>{playerName}:</color> {message}";
             AppendMessage(prettyMessage);
         }
 
-        void AppendMessage(string message)
+        private void AppendMessage(string message)
         {
             StartCoroutine(AppendAndScroll(message));
         }
 
-        IEnumerator AppendAndScroll(string message)
+        private IEnumerator AppendAndScroll(string message)
         {
             chatHistory.text += message + "\n";
 

@@ -1,6 +1,7 @@
 // base class for "Hybrid" sync components.
 // inspired by the Quake networking model, but made to scale.
 // https://www.jfedor.org/quake3/
+
 using System;
 using UnityEngine;
 
@@ -8,25 +9,16 @@ namespace Mirror
 {
     public abstract class NetworkBehaviourHybrid : NetworkBehaviour
     {
-        // Is this a client with authority over this transform?
-        // This component could be on the player object or any object that has been assigned authority to this client.
-        protected bool IsClientWithAuthority => isClient && authority;
-
         [Tooltip("Occasionally send a full reliable state to delta compress against. This only applies to Components with SyncMethod=Unreliable.")]
         public int baselineRate = 1;
-        public float baselineInterval => baselineRate < int.MaxValue ? 1f / baselineRate : 0; // for 1 Hz, that's 1000ms
-        protected double lastBaselineTime;
-        protected double lastDeltaTime;
-
-        // delta compression needs to remember 'last' to compress against.
-        byte lastSerializedBaselineTick = 0;
-        byte lastDeserializedBaselineTick = 0;
 
         [Tooltip("Enable to send all unreliable messages twice. Only useful for extremely fast-paced games since it doubles bandwidth costs.")]
-        public bool unreliableRedundancy = false;
+        public bool unreliableRedundancy;
 
         [Tooltip("When sending a reliable baseline, should we also send an unreliable delta or rely on the reliable baseline to arrive in a similar time?")]
         public bool baselineIsDelta = true;
+
+        [Header("Debug")] public bool debugLog;
 
         // change detection: we need to do this carefully in order to get it right.
         //
@@ -40,10 +32,28 @@ namespace Mirror
         //   UpdateDelta() keeps sending only if changed since _baseline_
         //   UpdateBaseline() resends if there was any change in the period since last baseline.
         //   => this avoids the A1->A2->A1 grid issue above
-        bool changedSinceBaseline = false;
+        private bool changedSinceBaseline;
+        protected double lastBaselineTime;
+        protected double lastDeltaTime;
+        private byte lastDeserializedBaselineTick;
 
-        [Header("Debug")]
-        public bool debugLog = false;
+        // delta compression needs to remember 'last' to compress against.
+        private byte lastSerializedBaselineTick;
+
+        // Is this a client with authority over this transform?
+        // This component could be on the player object or any object that has been assigned authority to this client.
+        protected bool IsClientWithAuthority => isClient && authority;
+        public float baselineInterval => baselineRate < int.MaxValue ? 1f / baselineRate : 0; // for 1 Hz, that's 1000ms
+
+        // Update() without LateUpdate() split: otherwise perf. is cut in half!
+        protected virtual void Update()
+        {
+            // if server then always sync to others.
+            if (isServer) UpdateServerSync();
+            // 'else if' because host mode shouldn't send anything to server.
+            // it is the server. don't overwrite anything there.
+            else if (isClient) UpdateClientSync();
+        }
 
         public virtual void ResetState()
         {
@@ -72,13 +82,15 @@ namespace Mirror
         protected abstract bool StateChanged();
 
         // user callback in case drops due to baseline mismatch need to be logged/visualized/debugged.
-        protected virtual void OnDrop(byte lastBaselineTick, byte baselineTick, NetworkReader reader) {}
+        protected virtual void OnDrop(byte lastBaselineTick, byte baselineTick, NetworkReader reader)
+        {
+        }
 
         // rpcs / cmds /////////////////////////////////////////////////////////
         // reliable baseline.
         // include owner in case of server authority.
         [ClientRpc(channel = Channels.Reliable)]
-        void RpcServerToClientBaseline(ArraySegment<byte> data)
+        private void RpcServerToClientBaseline(ArraySegment<byte> data)
         {
             // baseline is broadcast to all clients.
             // ignore if this object is owned by this client.
@@ -89,7 +101,7 @@ namespace Mirror
             // in other words: never apply the rpcs in host mode.
             if (isServer) return;
 
-            using (NetworkReaderPooled reader = NetworkReaderPool.Get(data))
+            using (var reader = NetworkReaderPool.Get(data))
             {
                 // deserialize
                 // save last deserialized baseline tick number to compare deltas against
@@ -101,7 +113,7 @@ namespace Mirror
         // unreliable delta.
         // include owner in case of server authority.
         [ClientRpc(channel = Channels.Unreliable)]
-        void RpcServerToClientDelta(ArraySegment<byte> data)
+        private void RpcServerToClientDelta(ArraySegment<byte> data)
         {
             // delta is broadcast to all clients.
             // ignore if this object is owned by this client.
@@ -113,10 +125,10 @@ namespace Mirror
             if (isServer) return;
 
             // deserialize
-            using (NetworkReaderPooled reader = NetworkReaderPool.Get(data))
+            using (var reader = NetworkReaderPool.Get(data))
             {
                 // deserialize
-                byte baselineTick = reader.ReadByte();
+                var baselineTick = reader.ReadByte();
 
                 // ensure this delta is for our last known baseline.
                 // we should never apply a delta on top of a wrong baseline.
@@ -135,10 +147,10 @@ namespace Mirror
         }
 
         [Command(channel = Channels.Reliable)] // reliable baseline
-        void CmdClientToServerBaseline(ArraySegment<byte> data)
+        private void CmdClientToServerBaseline(ArraySegment<byte> data)
         {
             // deserialize
-            using (NetworkReaderPooled reader = NetworkReaderPool.Get(data))
+            using (var reader = NetworkReaderPool.Get(data))
             {
                 // deserialize
                 lastDeserializedBaselineTick = reader.ReadByte();
@@ -147,12 +159,12 @@ namespace Mirror
         }
 
         [Command(channel = Channels.Unreliable)] // unreliable delta
-        void CmdClientToServerDelta(ArraySegment<byte> data)
+        private void CmdClientToServerDelta(ArraySegment<byte> data)
         {
-            using (NetworkReaderPooled reader = NetworkReaderPool.Get(data))
+            using (var reader = NetworkReaderPool.Get(data))
             {
                 // deserialize
-                byte baselineTick = reader.ReadByte();
+                var baselineTick = reader.ReadByte();
 
                 // ensure this delta is for our last known baseline.
                 // we should never apply a delta on top of a wrong baseline.
@@ -182,9 +194,9 @@ namespace Mirror
             // save bandwidth by only transmitting what is needed.
             // -> ArraySegment with random data is slower since byte[] copying
             // -> Vector3? and Quaternion? nullables takes more bandwidth
-            byte frameCount = (byte)Time.frameCount; // perf: only access Time.frameCount once!
+            var frameCount = (byte)Time.frameCount; // perf: only access Time.frameCount once!
 
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 // serialize
                 writer.WriteByte(frameCount);
@@ -269,7 +281,7 @@ namespace Mirror
             // unreliable isn't guaranteed to be delivered so this depends on reliable baseline.
             if (!changedSinceBaseline) return;
 
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 // serialize
                 writer.WriteByte(lastSerializedBaselineTick);
@@ -292,7 +304,7 @@ namespace Mirror
             // -> not just ServerToClient: ClientToServer need to be broadcast to others too
 
             // perf: only grab NetworkTime.localTime property once.
-            double localTime = NetworkTime.localTime;
+            var localTime = NetworkTime.localTime;
 
             // broadcast
             UpdateServerBaseline(localTime);
@@ -311,9 +323,9 @@ namespace Mirror
             // save bandwidth by only transmitting what is needed.
             // -> ArraySegment with random data is slower since byte[] copying
             // -> Vector3? and Quaternion? nullables takes more bandwidth
-            byte frameCount = (byte)Time.frameCount; // perf: only access Time.frameCount once!
+            var frameCount = (byte)Time.frameCount; // perf: only access Time.frameCount once!
 
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 // serialize
                 writer.WriteByte(frameCount);
@@ -398,7 +410,7 @@ namespace Mirror
             // unreliable isn't guaranteed to be delivered so this depends on reliable baseline.
             if (!changedSinceBaseline) return;
 
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 // serialize
                 writer.WriteByte(lastSerializedBaselineTick);
@@ -424,21 +436,11 @@ namespace Mirror
                 if (!NetworkClient.ready) return;
 
                 // perf: only grab NetworkTime.localTime property once.
-                double localTime = NetworkTime.localTime;
+                var localTime = NetworkTime.localTime;
 
                 UpdateClientBaseline(localTime);
                 UpdateClientDelta(localTime);
             }
-        }
-
-        // Update() without LateUpdate() split: otherwise perf. is cut in half!
-        protected virtual void Update()
-        {
-            // if server then always sync to others.
-            if (isServer) UpdateServerSync();
-            // 'else if' because host mode shouldn't send anything to server.
-            // it is the server. don't overwrite anything there.
-            else if (isClient) UpdateClientSync();
         }
 
         // OnSerialize(initial) is called every time when a player starts observing us.
@@ -449,7 +451,7 @@ namespace Mirror
             if (initialState)
             {
                 // always include the tick for deltas to compare against.
-                byte frameCount = (byte)Time.frameCount; // perf: only access Time.frameCount once!
+                var frameCount = (byte)Time.frameCount; // perf: only access Time.frameCount once!
                 writer.WriteByte(frameCount);
 
                 // IMPORTANT
@@ -474,10 +476,8 @@ namespace Mirror
         public override void OnDeserialize(NetworkReader reader, bool initialState)
         {
             if (initialState)
-            {
                 // save last deserialized baseline tick number to compare deltas against
                 lastDeserializedBaselineTick = reader.ReadByte();
-            }
         }
     }
 }

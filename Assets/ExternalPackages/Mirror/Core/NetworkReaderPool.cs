@@ -1,4 +1,5 @@
 // API consistent with Microsoft's ObjectPool<T>.
+
 using System;
 using System.Runtime.CompilerServices;
 
@@ -10,9 +11,9 @@ namespace Mirror
         // reuse Pool<T>
         // we still wrap it in NetworkReaderPool.Get/Recyle so we can reset the
         // position and array before reusing.
-        static readonly Pool<NetworkReaderPooled> Pool = new Pool<NetworkReaderPooled>(
+        private static readonly Pool<NetworkReaderPooled> Pool = new(
             // byte[] will be assigned in GetReader
-            () => new NetworkReaderPooled(new byte[]{}),
+            () => new NetworkReaderPooled(new byte[] { }),
             // initial capacity to avoid allocations in the first few frames
             1000
         );
@@ -24,7 +25,7 @@ namespace Mirror
         public static NetworkReaderPooled Get(byte[] bytes)
         {
             // grab from pool & set buffer
-            NetworkReaderPooled reader = Pool.Get();
+            var reader = Pool.Get();
             reader.SetBuffer(bytes);
             return reader;
         }
@@ -33,7 +34,7 @@ namespace Mirror
         public static NetworkReaderPooled Get(ArraySegment<byte> segment)
         {
             // grab from pool & set buffer
-            NetworkReaderPooled reader = Pool.Get();
+            var reader = Pool.Get();
             reader.SetBuffer(segment);
             return reader;
         }

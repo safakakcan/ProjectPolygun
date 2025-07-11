@@ -1,4 +1,5 @@
 // standalone utility functions for PredictedRigidbody component.
+
 using System;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ namespace Mirror
             // create a new Rigidbody component on destination.
             // note that adding a Joint automatically adds a Rigidbody.
             // so first check if one was added yet.
-            Rigidbody original = source.GetComponent<Rigidbody>();
+            var original = source.GetComponent<Rigidbody>();
             if (original == null) throw new Exception($"Prediction: attempted to move {source}'s Rigidbody to the predicted copy, but there was no component.");
             Rigidbody rigidbodyCopy;
             if (!destination.TryGetComponent(out rigidbodyCopy))
@@ -69,7 +70,7 @@ namespace Mirror
             // is this on a child? then create the same child with the same transform on destination.
             // note this is technically only correct for the immediate child since
             // .localPosition is relative to parent, but this is good enough.
-            GameObject child = new GameObject(sourceChild.name);
+            var child = new GameObject(sourceChild.name);
             child.transform.SetParent(destination.transform, true);
             child.transform.localPosition = sourceChild.localPosition;
             child.transform.localRotation = sourceChild.localRotation;
@@ -87,14 +88,14 @@ namespace Mirror
         public static void MoveBoxColliders(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            BoxCollider[] sourceColliders = source.GetComponentsInChildren<BoxCollider>();
-            foreach (BoxCollider sourceCollider in sourceColliders)
+            var sourceColliders = source.GetComponentsInChildren<BoxCollider>();
+            foreach (var sourceCollider in sourceColliders)
             {
                 // copy the relative transform:
                 // if collider is on root, it returns destination root.
                 // if collider is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceCollider.transform, destination);
-                BoxCollider colliderCopy = target.AddComponent<BoxCollider>();
+                var target = CopyRelativeTransform(source, sourceCollider.transform, destination);
+                var colliderCopy = target.AddComponent<BoxCollider>();
                 colliderCopy.center = sourceCollider.center;
                 colliderCopy.size = sourceCollider.size;
                 colliderCopy.isTrigger = sourceCollider.isTrigger;
@@ -107,14 +108,14 @@ namespace Mirror
         public static void MoveSphereColliders(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            SphereCollider[] sourceColliders = source.GetComponentsInChildren<SphereCollider>();
-            foreach (SphereCollider sourceCollider in sourceColliders)
+            var sourceColliders = source.GetComponentsInChildren<SphereCollider>();
+            foreach (var sourceCollider in sourceColliders)
             {
                 // copy the relative transform:
                 // if collider is on root, it returns destination root.
                 // if collider is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceCollider.transform, destination);
-                SphereCollider colliderCopy = target.AddComponent<SphereCollider>();
+                var target = CopyRelativeTransform(source, sourceCollider.transform, destination);
+                var colliderCopy = target.AddComponent<SphereCollider>();
                 colliderCopy.center = sourceCollider.center;
                 colliderCopy.radius = sourceCollider.radius;
                 colliderCopy.isTrigger = sourceCollider.isTrigger;
@@ -127,14 +128,14 @@ namespace Mirror
         public static void MoveCapsuleColliders(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            CapsuleCollider[] sourceColliders = source.GetComponentsInChildren<CapsuleCollider>();
-            foreach (CapsuleCollider sourceCollider in sourceColliders)
+            var sourceColliders = source.GetComponentsInChildren<CapsuleCollider>();
+            foreach (var sourceCollider in sourceColliders)
             {
                 // copy the relative transform:
                 // if collider is on root, it returns destination root.
                 // if collider is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceCollider.transform, destination);
-                CapsuleCollider colliderCopy = target.AddComponent<CapsuleCollider>();
+                var target = CopyRelativeTransform(source, sourceCollider.transform, destination);
+                var colliderCopy = target.AddComponent<CapsuleCollider>();
                 colliderCopy.center = sourceCollider.center;
                 colliderCopy.radius = sourceCollider.radius;
                 colliderCopy.height = sourceCollider.height;
@@ -149,8 +150,8 @@ namespace Mirror
         public static void MoveMeshColliders(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            MeshCollider[] sourceColliders = source.GetComponentsInChildren<MeshCollider>();
-            foreach (MeshCollider sourceCollider in sourceColliders)
+            var sourceColliders = source.GetComponentsInChildren<MeshCollider>();
+            foreach (var sourceCollider in sourceColliders)
             {
                 // when Models have Mesh->Read/Write disabled, it means that Unity
                 // uploads the mesh directly to the GPU and erases it on the CPU.
@@ -161,17 +162,13 @@ namespace Mirror
                 // on other platforms, this works fine.
                 // let's show an explicit log message so in case collisions don't
                 // work at runtime, it's obvious why it happens and how to fix it.
-                if (!sourceCollider.sharedMesh.isReadable)
-                {
-                    Debug.Log($"[Prediction]: MeshCollider on {sourceCollider.name} isn't readable, which may indicate that the Mesh only exists on the GPU. If {sourceCollider.name} is missing collisions, then please select the model in the Project Area, and enable Mesh->Read/Write so it's also available on the CPU!");
-                    // don't early return. keep trying, it may work.
-                }
-
+                if (!sourceCollider.sharedMesh.isReadable) Debug.Log($"[Prediction]: MeshCollider on {sourceCollider.name} isn't readable, which may indicate that the Mesh only exists on the GPU. If {sourceCollider.name} is missing collisions, then please select the model in the Project Area, and enable Mesh->Read/Write so it's also available on the CPU!");
+                // don't early return. keep trying, it may work.
                 // copy the relative transform:
                 // if collider is on root, it returns destination root.
                 // if collider is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceCollider.transform, destination);
-                MeshCollider colliderCopy = target.AddComponent<MeshCollider>();
+                var target = CopyRelativeTransform(source, sourceCollider.transform, destination);
+                var colliderCopy = target.AddComponent<MeshCollider>();
                 colliderCopy.sharedMesh = sourceCollider.sharedMesh;
                 colliderCopy.convex = sourceCollider.convex;
                 colliderCopy.isTrigger = sourceCollider.isTrigger;
@@ -194,14 +191,14 @@ namespace Mirror
         public static void MoveCharacterJoints(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            CharacterJoint[] sourceJoints = source.GetComponentsInChildren<CharacterJoint>();
-            foreach (CharacterJoint sourceJoint in sourceJoints)
+            var sourceJoints = source.GetComponentsInChildren<CharacterJoint>();
+            foreach (var sourceJoint in sourceJoints)
             {
-            // copy the relative transform:
+                // copy the relative transform:
                 // if joint is on root, it returns destination root.
                 // if joint is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceJoint.transform, destination);
-                CharacterJoint jointCopy = target.AddComponent<CharacterJoint>();
+                var target = CopyRelativeTransform(source, sourceJoint.transform, destination);
+                var jointCopy = target.AddComponent<CharacterJoint>();
                 // apply settings, in alphabetical order
                 jointCopy.anchor = sourceJoint.anchor;
                 jointCopy.autoConfigureConnectedAnchor = sourceJoint.autoConfigureConnectedAnchor;
@@ -236,14 +233,14 @@ namespace Mirror
         public static void MoveConfigurableJoints(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            ConfigurableJoint[] sourceJoints = source.GetComponentsInChildren<ConfigurableJoint>();
-            foreach (ConfigurableJoint sourceJoint in sourceJoints)
+            var sourceJoints = source.GetComponentsInChildren<ConfigurableJoint>();
+            foreach (var sourceJoint in sourceJoints)
             {
                 // copy the relative transform:
                 // if joint is on root, it returns destination root.
                 // if joint is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceJoint.transform, destination);
-                ConfigurableJoint jointCopy = target.AddComponent<ConfigurableJoint>();
+                var target = CopyRelativeTransform(source, sourceJoint.transform, destination);
+                var jointCopy = target.AddComponent<ConfigurableJoint>();
                 // apply settings, in alphabetical order
                 jointCopy.anchor = sourceJoint.anchor;
                 jointCopy.angularXLimitSpring = sourceJoint.angularXLimitSpring;
@@ -268,7 +265,7 @@ namespace Mirror
                 jointCopy.highAngularXLimit = sourceJoint.highAngularXLimit; // moving this only works if the object is at initial position/rotation/scale, see PredictedRigidbody.cs
                 jointCopy.linearLimitSpring = sourceJoint.linearLimitSpring;
                 jointCopy.linearLimit = sourceJoint.linearLimit;
-                jointCopy.lowAngularXLimit = sourceJoint.lowAngularXLimit;   // moving this only works if the object is at initial position/rotation/scale, see PredictedRigidbody.cs
+                jointCopy.lowAngularXLimit = sourceJoint.lowAngularXLimit; // moving this only works if the object is at initial position/rotation/scale, see PredictedRigidbody.cs
                 jointCopy.massScale = sourceJoint.massScale;
                 jointCopy.projectionAngle = sourceJoint.projectionAngle;
                 jointCopy.projectionDistance = sourceJoint.projectionDistance;
@@ -299,14 +296,14 @@ namespace Mirror
         public static void MoveFixedJoints(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            FixedJoint[] sourceJoints = source.GetComponentsInChildren<FixedJoint>();
-            foreach (FixedJoint sourceJoint in sourceJoints)
+            var sourceJoints = source.GetComponentsInChildren<FixedJoint>();
+            foreach (var sourceJoint in sourceJoints)
             {
                 // copy the relative transform:
                 // if joint is on root, it returns destination root.
                 // if joint is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceJoint.transform, destination);
-                FixedJoint jointCopy = target.AddComponent<FixedJoint>();
+                var target = CopyRelativeTransform(source, sourceJoint.transform, destination);
+                var jointCopy = target.AddComponent<FixedJoint>();
                 // apply settings, in alphabetical order
                 jointCopy.anchor = sourceJoint.anchor;
                 jointCopy.autoConfigureConnectedAnchor = sourceJoint.autoConfigureConnectedAnchor;
@@ -331,14 +328,14 @@ namespace Mirror
         public static void MoveHingeJoints(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            HingeJoint[] sourceJoints = source.GetComponentsInChildren<HingeJoint>();
-            foreach (HingeJoint sourceJoint in sourceJoints)
+            var sourceJoints = source.GetComponentsInChildren<HingeJoint>();
+            foreach (var sourceJoint in sourceJoints)
             {
                 // copy the relative transform:
                 // if joint is on root, it returns destination root.
                 // if joint is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceJoint.transform, destination);
-                HingeJoint jointCopy = target.AddComponent<HingeJoint>();
+                var target = CopyRelativeTransform(source, sourceJoint.transform, destination);
+                var jointCopy = target.AddComponent<HingeJoint>();
                 // apply settings, in alphabetical order
                 jointCopy.anchor = sourceJoint.anchor;
                 jointCopy.autoConfigureConnectedAnchor = sourceJoint.autoConfigureConnectedAnchor;
@@ -373,14 +370,14 @@ namespace Mirror
         public static void MoveSpringJoints(GameObject source, GameObject destination, bool destroySource = true)
         {
             // colliders may be on children
-            SpringJoint[] sourceJoints = source.GetComponentsInChildren<SpringJoint>();
-            foreach (SpringJoint sourceJoint in sourceJoints)
+            var sourceJoints = source.GetComponentsInChildren<SpringJoint>();
+            foreach (var sourceJoint in sourceJoints)
             {
                 // copy the relative transform:
                 // if joint is on root, it returns destination root.
                 // if joint is on a child, it creates and returns a child on destination.
-                GameObject target = CopyRelativeTransform(source, sourceJoint.transform, destination);
-                SpringJoint jointCopy = target.AddComponent<SpringJoint>();
+                var target = CopyRelativeTransform(source, sourceJoint.transform, destination);
+                var jointCopy = target.AddComponent<SpringJoint>();
                 // apply settings, in alphabetical order
                 jointCopy.anchor = sourceJoint.anchor;
                 jointCopy.autoConfigureConnectedAnchor = sourceJoint.autoConfigureConnectedAnchor;

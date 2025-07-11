@@ -1,61 +1,62 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Mirror.Examples.Basic
 {
     [AddComponentMenu("")]
     public class Player : NetworkBehaviour
     {
-        // Events that the PlayerUI will subscribe to
-        public event System.Action<byte> OnPlayerNumberChanged;
-        public event System.Action<Color32> OnPlayerColorChanged;
-        public event System.Action<ushort> OnPlayerDataChanged;
-
         // Players List to manage playerNumber
-        static readonly List<Player> playersList = new List<Player>();
+        private static readonly List<Player> playersList = new();
 
-        [Header("Player UI")]
-        public GameObject playerUIPrefab;
+        [Header("Player UI")] public GameObject playerUIPrefab;
 
-        GameObject playerUIObject;
-        PlayerUI playerUI = null;
+        private PlayerUI playerUI;
+
+        private GameObject playerUIObject;
+
+        // Events that the PlayerUI will subscribe to
+        public event Action<byte> OnPlayerNumberChanged;
+        public event Action<Color32> OnPlayerColorChanged;
+        public event Action<ushort> OnPlayerDataChanged;
 
         #region SyncVars
 
         [Header("SyncVars")]
-
         /// <summary>
         /// This is appended to the player name text, e.g. "Player 01"
         /// </summary>
         [SyncVar(hook = nameof(PlayerNumberChanged))]
-        public byte playerNumber = 0;
+        public byte playerNumber;
 
         /// <summary>
-        /// Random color for the playerData text, assigned in OnStartServer
+        ///     Random color for the playerData text, assigned in OnStartServer
         /// </summary>
         [SyncVar(hook = nameof(PlayerColorChanged))]
         public Color32 playerColor = Color.white;
 
         /// <summary>
-        /// This is updated by UpdateData which is called from OnStartServer via InvokeRepeating
+        ///     This is updated by UpdateData which is called from OnStartServer via InvokeRepeating
         /// </summary>
         [SyncVar(hook = nameof(PlayerDataChanged))]
-        public ushort playerData = 0;
+        public ushort playerData;
 
         // This is called by the hook of playerNumber SyncVar above
-        void PlayerNumberChanged(byte _, byte newPlayerNumber)
+        private void PlayerNumberChanged(byte _, byte newPlayerNumber)
         {
             OnPlayerNumberChanged?.Invoke(newPlayerNumber);
         }
 
         // This is called by the hook of playerColor SyncVar above
-        void PlayerColorChanged(Color32 _, Color32 newPlayerColor)
+        private void PlayerColorChanged(Color32 _, Color32 newPlayerColor)
         {
             OnPlayerColorChanged?.Invoke(newPlayerColor);
         }
 
         // This is called by the hook of playerData SyncVar above
-        void PlayerDataChanged(ushort _, ushort newPlayerData)
+        private void PlayerDataChanged(ushort _, ushort newPlayerData)
         {
             OnPlayerDataChanged?.Invoke(newPlayerData);
         }
@@ -65,9 +66,12 @@ namespace Mirror.Examples.Basic
         #region Server
 
         /// <summary>
-        /// This is invoked for NetworkBehaviour objects when they become active on the server.
-        /// <para>This could be triggered by NetworkServer.Listen() for objects in the scene, or by NetworkServer.Spawn() for objects that are dynamically created.</para>
-        /// <para>This will be called for objects on a "host" as well as for object on a dedicated server.</para>
+        ///     This is invoked for NetworkBehaviour objects when they become active on the server.
+        ///     <para>
+        ///         This could be triggered by NetworkServer.Listen() for objects in the scene, or by NetworkServer.Spawn() for
+        ///         objects that are dynamically created.
+        ///     </para>
+        ///     <para>This will be called for objects on a "host" as well as for object on a dedicated server.</para>
         /// </summary>
         public override void OnStartServer()
         {
@@ -92,20 +96,20 @@ namespace Mirror.Examples.Basic
         internal static void ResetPlayerNumbers()
         {
             byte playerNumber = 0;
-            foreach (Player player in playersList)
+            foreach (var player in playersList)
                 player.playerNumber = playerNumber++;
         }
 
         // This only runs on the server, called from OnStartServer via InvokeRepeating
         [ServerCallback]
-        void UpdateData()
+        private void UpdateData()
         {
             playerData = (ushort)Random.Range(100, 1000);
         }
 
         /// <summary>
-        /// Invoked on the server when the object is unspawned
-        /// <para>Useful for saving object data in persistent storage</para>
+        ///     Invoked on the server when the object is unspawned
+        ///     <para>Useful for saving object data in persistent storage</para>
         /// </summary>
         public override void OnStopServer()
         {
@@ -118,8 +122,12 @@ namespace Mirror.Examples.Basic
         #region Client
 
         /// <summary>
-        /// Called on every NetworkBehaviour when it is activated on a client.
-        /// <para>Objects on the host have this function called, as there is a local client on the host. The values of SyncVars on object are guaranteed to be initialized correctly with the latest state from the server when this function is called on the client.</para>
+        ///     Called on every NetworkBehaviour when it is activated on a client.
+        ///     <para>
+        ///         Objects on the host have this function called, as there is a local client on the host. The values of SyncVars
+        ///         on object are guaranteed to be initialized correctly with the latest state from the server when this function
+        ///         is called on the client.
+        ///     </para>
         /// </summary>
         public override void OnStartClient()
         {
@@ -139,8 +147,12 @@ namespace Mirror.Examples.Basic
         }
 
         /// <summary>
-        /// Called when the local player object has been set up.
-        /// <para>This happens after OnStartClient(), as it is triggered by an ownership message from the server. This is an appropriate place to activate components or functionality that should only be active for the local player, such as cameras and input.</para>
+        ///     Called when the local player object has been set up.
+        ///     <para>
+        ///         This happens after OnStartClient(), as it is triggered by an ownership message from the server. This is an
+        ///         appropriate place to activate components or functionality that should only be active for the local player, such
+        ///         as cameras and input.
+        ///     </para>
         /// </summary>
         public override void OnStartLocalPlayer()
         {
@@ -152,8 +164,12 @@ namespace Mirror.Examples.Basic
         }
 
         /// <summary>
-        /// Called when the local player object is being stopped.
-        /// <para>This happens before OnStopClient(), as it may be triggered by an ownership message from the server, or because the player object is being destroyed. This is an appropriate place to deactivate components or functionality that should only be active for the local player, such as cameras and input.</para>
+        ///     Called when the local player object is being stopped.
+        ///     <para>
+        ///         This happens before OnStopClient(), as it may be triggered by an ownership message from the server, or
+        ///         because the player object is being destroyed. This is an appropriate place to deactivate components or
+        ///         functionality that should only be active for the local player, such as cameras and input.
+        ///     </para>
         /// </summary>
         public override void OnStopLocalPlayer()
         {
@@ -162,8 +178,8 @@ namespace Mirror.Examples.Basic
         }
 
         /// <summary>
-        /// This is invoked on clients when the server has caused this object to be destroyed.
-        /// <para>This can be used as a hook to invoke effects or do client specific cleanup.</para>
+        ///     This is invoked on clients when the server has caused this object to be destroyed.
+        ///     <para>This can be used as a hook to invoke effects or do client specific cleanup.</para>
         /// </summary>
         public override void OnStopClient()
         {

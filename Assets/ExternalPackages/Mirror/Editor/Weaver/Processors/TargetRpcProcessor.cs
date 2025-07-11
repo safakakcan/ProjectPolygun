@@ -1,3 +1,4 @@
+using Mirror.RemoteCalls;
 using Mono.CecilX;
 using Mono.CecilX.Cil;
 
@@ -14,24 +15,25 @@ namespace Mirror.Weaver
                 // we need to allow both NetworkConnection, and inheriting types.
                 // NetworkBehaviour.SendTargetRpc takes a NetworkConnection parameter.
                 // fixes https://github.com/vis2k/Mirror/issues/3290
-                TypeReference type = md.Parameters[0].ParameterType;
+                var type = md.Parameters[0].ParameterType;
                 return type.Is<NetworkConnection>() ||
                        type.IsDerivedFrom<NetworkConnection>();
             }
+
             return false;
         }
 
         public static MethodDefinition ProcessTargetRpcInvoke(WeaverTypes weaverTypes, Readers readers, Logger Log, TypeDefinition td, MethodDefinition md, MethodDefinition rpcCallFunc, ref bool WeavingFailed)
         {
-            string trgName = Weaver.GenerateMethodName(RemoteCalls.RemoteProcedureCalls.InvokeRpcPrefix, md);
+            var trgName = Weaver.GenerateMethodName(RemoteProcedureCalls.InvokeRpcPrefix, md);
 
-            MethodDefinition rpc = new MethodDefinition(trgName, MethodAttributes.Family |
-                    MethodAttributes.Static |
-                    MethodAttributes.HideBySig,
+            var rpc = new MethodDefinition(trgName, MethodAttributes.Family |
+                                                    MethodAttributes.Static |
+                                                    MethodAttributes.HideBySig,
                 weaverTypes.Import(typeof(void)));
 
-            ILProcessor worker = rpc.Body.GetILProcessor();
-            Instruction label = worker.Create(OpCodes.Nop);
+            var worker = rpc.Body.GetILProcessor();
+            var label = worker.Create(OpCodes.Nop);
 
             NetworkBehaviourProcessor.WriteClientActiveCheck(worker, weaverTypes, md.Name, label, "TargetRPC");
 
@@ -41,7 +43,6 @@ namespace Mirror.Weaver
 
             // NetworkConnection parameter is optional
             if (HasNetworkConnectionParameter(md))
-            {
                 // TargetRpcs are sent from server to client.
                 // on server, we currently support two types:
                 //   TargetRpc(NetworkConnection)
@@ -61,7 +62,6 @@ namespace Mirror.Weaver
                 // a client's connection never fits into a NetworkConnectionToClient.
                 // we need to always pass null here.
                 worker.Emit(OpCodes.Ldnull);
-            }
 
             // process reader parameters and skip first one if first one is NetworkConnection
             if (!NetworkBehaviourProcessor.ReadArguments(md, readers, Log, worker, RemoteCallType.TargetRpc, ref WeavingFailed))
@@ -111,9 +111,9 @@ namespace Mirror.Weaver
         */
         public static MethodDefinition ProcessTargetRpcCall(WeaverTypes weaverTypes, Writers writers, Logger Log, TypeDefinition td, MethodDefinition md, CustomAttribute targetRpcAttr, ref bool WeavingFailed)
         {
-            MethodDefinition rpc = MethodProcessor.SubstituteMethod(Log, td, md, ref WeavingFailed);
+            var rpc = MethodProcessor.SubstituteMethod(Log, td, md, ref WeavingFailed);
 
-            ILProcessor worker = md.Body.GetILProcessor();
+            var worker = md.Body.GetILProcessor();
 
             NetworkBehaviourProcessor.WriteSetupLocals(worker, weaverTypes);
 
@@ -128,15 +128,11 @@ namespace Mirror.Weaver
             // this
             worker.Emit(OpCodes.Ldarg_0);
             if (HasNetworkConnectionParameter(md))
-            {
                 // connection
                 worker.Emit(OpCodes.Ldarg_1);
-            }
             else
-            {
                 // null
                 worker.Emit(OpCodes.Ldnull);
-            }
             // pass full function name to avoid ClassA.Func <-> ClassB.Func collisions
             worker.Emit(OpCodes.Ldstr, md.FullName);
             // pass the function hash so we don't have to compute it at runtime

@@ -8,16 +8,7 @@ namespace Mirror.Examples.Common.Controllers.Tank
     [DisallowMultipleComponent]
     public class TurretUI : ControllerUIBase
     {
-        [Serializable]
-        public struct MoveTexts
-        {
-            public Text keyTextPitchUp;
-            public Text keyTextPitchDown;
-            public Text keyTextTurnLeft;
-            public Text keyTextTurnRight;
-        }
-
-        [SerializeField] MoveTexts moveTexts;
+        [SerializeField] private MoveTexts moveTexts;
 
         public void Refresh(TankTurretBase.MoveKeys moveKeys, TankTurretBase.OptionsKeys optionsKeys)
         {
@@ -26,6 +17,15 @@ namespace Mirror.Examples.Common.Controllers.Tank
             moveTexts.keyTextPitchDown.text = GetKeyText(moveKeys.PitchDown);
             moveTexts.keyTextTurnLeft.text = GetKeyText(moveKeys.TurnLeft);
             moveTexts.keyTextTurnRight.text = GetKeyText(moveKeys.TurnRight);
+        }
+
+        [Serializable]
+        public struct MoveTexts
+        {
+            public Text keyTextPitchUp;
+            public Text keyTextPitchDown;
+            public Text keyTextTurnLeft;
+            public Text keyTextTurnRight;
         }
     }
 }

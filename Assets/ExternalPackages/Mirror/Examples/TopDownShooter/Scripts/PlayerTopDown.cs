@@ -1,63 +1,47 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Mirror;
 
 namespace Mirror.Examples.TopDownShooter
 {
     public class PlayerTopDown : NetworkBehaviour
     {
-        public readonly static List<PlayerTopDown> playerList = new List<PlayerTopDown>();
-
-        private Camera mainCamera;
-        private CameraTopDown cameraTopDown;
-        private CanvasTopDown canvasTopDown;
+        public static readonly List<PlayerTopDown> playerList = new();
 
         public float moveSpeed = 5f;
         public CharacterController characterController;
 
         public GameObject leftFoot, rightFoot;
-        private Vector3 previousPosition;
-        private Quaternion previousRotation;
 
         [SyncVar(hook = nameof(OnFlashLightChanged))]
         public bool flashLightStatus = true;
+
         public Light flashLight;
 
         [SyncVar(hook = nameof(OnKillsChanged))]
-        public int kills = 0;
+        public int kills;
 
         [SyncVar(hook = nameof(OnPlayerStatusChanged))]
-        public int playerStatus = 0;
+        public int playerStatus;
+
         public GameObject[] objectsToHideOnDeath;
 
         public float shootDistance = 100f;
         public LayerMask hitLayers;
         public GameObject muzzleFlash;
         public AudioSource soundGunShot, soundDeath, soundFlashLight, soundLeftFoot, soundRightFoot;
+        private CameraTopDown cameraTopDown;
+        private CanvasTopDown canvasTopDown;
 
-#if !UNITY_SERVER
-        public override void OnStartLocalPlayer()
-        {
-            // Grab and setup camera for local player only
-            mainCamera = Camera.main;
-            cameraTopDown = mainCamera.GetComponent<CameraTopDown>();
-            cameraTopDown.playerTransform = this.transform;
-            cameraTopDown.offset.y = 20.0f; // dramatic zoom out once players setup
-            canvasTopDown.playerTopDown = this;
+        private Camera mainCamera;
+        private Vector3 previousPosition;
+        private Quaternion previousRotation;
 
-            // We want 3D audio effects to be around the player, not the camera 50 meters in the air
-            // Otherwise it looks weird in-game, trust me
-            mainCamera.GetComponent<AudioListener>().enabled = false;
-            this.gameObject.AddComponent<AudioListener>();
-        }
-#endif
-
-        void Awake()
+        private void Awake()
         {
             // Allow all players to run this, they may need it for reference
 #if UNITY_2022_2_OR_NEWER
-            canvasTopDown = GameObject.FindAnyObjectByType<CanvasTopDown>();
+            canvasTopDown = FindAnyObjectByType<CanvasTopDown>();
 #else
             canvasTopDown = GameObject.FindObjectOfType<CanvasTopDown>();
 #endif
@@ -70,64 +54,73 @@ namespace Mirror.Examples.TopDownShooter
             print("Player joined, total players: " + playerList.Count);
 
 #if !UNITY_SERVER
-            if (isClient)
-            {
-                InvokeRepeating("AnimatePlayer", 0.2f, 0.2f);
-            }
+            if (isClient) InvokeRepeating("AnimatePlayer", 0.2f, 0.2f);
 #endif
         }
+
+#if !UNITY_SERVER
+        [ClientCallback]
+        private void Update()
+        {
+            if (!Application.isFocused) return;
+            if (isOwned == false) return;
+            if (playerStatus != 0) return; // make sure we are alive
+
+            // Handle movement
+            var moveHorizontal = Input.GetAxis("Horizontal");
+            var moveVertical = Input.GetAxis("Vertical");
+
+            var movement = new Vector3(moveHorizontal, 0f, moveVertical);
+            if (movement.magnitude > 1f) movement.Normalize(); // Normalize to prevent faster diagonal movement
+            characterController.Move(movement * moveSpeed * Time.deltaTime);
+
+            RotatePlayerToMouse();
+
+            if (Input.GetKeyUp(KeyCode.F))
+                // We could optionally call this locally too, to avoid minor delay in the command->sync var hook result
+                CmdFlashLight();
+
+            // We currently have no shoot limiter, ideally thats a feature you would need to add.
+            if (Input.GetMouseButtonDown(0)) Shoot();
+        }
+#endif
 
         public void OnDestroy()
         {
             playerList.Remove(this);
             print("Player removed, total players: " + playerList.Count);
 
-            if (mainCamera) { mainCamera.GetComponent<AudioListener>().enabled = true; }
+            if (mainCamera) mainCamera.GetComponent<AudioListener>().enabled = true;
         }
 
 #if !UNITY_SERVER
-        [ClientCallback]
-        void Update()
+        public override void OnStartLocalPlayer()
         {
-            if (!Application.isFocused) return;
-            if (isOwned == false) { return; }
-            if (playerStatus != 0) { return; } // make sure we are alive
+            // Grab and setup camera for local player only
+            mainCamera = Camera.main;
+            cameraTopDown = mainCamera.GetComponent<CameraTopDown>();
+            cameraTopDown.playerTransform = transform;
+            cameraTopDown.offset.y = 20.0f; // dramatic zoom out once players setup
+            canvasTopDown.playerTopDown = this;
 
-            // Handle movement
-            float moveHorizontal = Input.GetAxis("Horizontal");
-            float moveVertical = Input.GetAxis("Vertical");
-
-            Vector3 movement = new Vector3(moveHorizontal, 0f, moveVertical);
-            if (movement.magnitude > 1f) movement.Normalize();  // Normalize to prevent faster diagonal movement
-            characterController.Move(movement * moveSpeed * Time.deltaTime);
-
-            RotatePlayerToMouse();
-
-            if (Input.GetKeyUp(KeyCode.F))
-            {
-                // We could optionally call this locally too, to avoid minor delay in the command->sync var hook result
-                CmdFlashLight();
-            }
-
-            // We currently have no shoot limiter, ideally thats a feature you would need to add.
-            if (Input.GetMouseButtonDown(0))
-            {
-                Shoot();
-            }
+            // We want 3D audio effects to be around the player, not the camera 50 meters in the air
+            // Otherwise it looks weird in-game, trust me
+            mainCamera.GetComponent<AudioListener>().enabled = false;
+            gameObject.AddComponent<AudioListener>();
         }
 #endif
 
 #if !UNITY_SERVER
         [ClientCallback]
-        void RotatePlayerToMouse()
+        private void RotatePlayerToMouse()
         {
-            Plane playerPlane = new Plane(Vector3.up, transform.position);
-            Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+            var playerPlane = new Plane(Vector3.up, transform.position);
+            var ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
-            if (playerPlane.Raycast(ray, out float hitDist))
+            if (playerPlane.Raycast(ray, out var hitDist))
             {
-                Vector3 targetPoint = ray.GetPoint(hitDist);
-                Quaternion targetRotation = Quaternion.LookRotation(targetPoint - transform.position);
+                var targetPoint = ray.GetPoint(hitDist);
+                var targetRotation = Quaternion.LookRotation(targetPoint - transform.position);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, moveSpeed * Time.deltaTime);
             }
         }
@@ -135,9 +128,9 @@ namespace Mirror.Examples.TopDownShooter
 
 #if !UNITY_SERVER
         [ClientCallback]
-        void Shoot()
+        private void Shoot()
         {
-            Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+            var ray = mainCamera.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
 
             if (Physics.Raycast(ray, out hit, shootDistance, hitLayers))
@@ -147,36 +140,23 @@ namespace Mirror.Examples.TopDownShooter
                 canvasTopDown.shotMarker.transform.position = hit.point;
 
                 if (hit.collider.gameObject.GetComponent<NetworkIdentity>() != null)
-                {
                     CmdShoot(hit.collider.gameObject);
-                }
                 else
-                {
                     CmdShoot(null);
-                }
             }
-            else
-            {
-                //print("Missed");
-            }
+            //print("Missed");
         }
 #endif
 
 #if !UNITY_SERVER
-        IEnumerator GunShotEffect()
+        private IEnumerator GunShotEffect()
         {
             soundGunShot.Play();
             muzzleFlash.SetActive(true);
-            if (isLocalPlayer)
-            {
-                canvasTopDown.shotMarker.SetActive(true);
-            }
+            if (isLocalPlayer) canvasTopDown.shotMarker.SetActive(true);
             yield return new WaitForSeconds(0.1f);
             muzzleFlash.SetActive(false);
-            if (isLocalPlayer)
-            {
-                canvasTopDown.shotMarker.SetActive(false);
-            }
+            if (isLocalPlayer) canvasTopDown.shotMarker.SetActive(false);
         }
 #endif
 
@@ -187,7 +167,7 @@ namespace Mirror.Examples.TopDownShooter
         }
 
         // our sync var hook, which sets flashlight status to the same on all clients for this player
-        void OnFlashLightChanged(bool _Old, bool _New)
+        private void OnFlashLightChanged(bool _Old, bool _New)
         {
 #if !UNITY_SERVER
             Debug.Log($"OnFlashLightChanged: {_New}");
@@ -208,18 +188,19 @@ namespace Mirror.Examples.TopDownShooter
                 {
                     target.GetComponent<EnemyTopDown>().Kill();
                 }
-                else if (CompareTag("Player") == true) // Player tag exists in unity by default, so we should be good to use it here
+                else if (CompareTag("Player")) // Player tag exists in unity by default, so we should be good to use it here
                 {
                     // Make sure they are alive/dont shoot themself
-                    if (target.GetComponent<PlayerTopDown>().playerStatus != 0 || target == this.gameObject) { return; }
+                    if (target.GetComponent<PlayerTopDown>().playerStatus != 0 || target == gameObject) return;
                     target.GetComponent<PlayerTopDown>().Kill();
                 }
+
                 kills += 1; // update user kills sync var
             }
         }
 
         [ClientRpc]
-        void RpcShoot()
+        private void RpcShoot()
         {
 #if !UNITY_SERVER
             StartCoroutine(GunShotEffect());
@@ -227,24 +208,21 @@ namespace Mirror.Examples.TopDownShooter
         }
 
         // hook for sync var kills
-        void OnKillsChanged(int _Old, int _New)
+        private void OnKillsChanged(int _Old, int _New)
         {
 #if !UNITY_SERVER
             // all players get your latest kill data, however only local player updates their UI
-            if (isLocalPlayer)
-            {
-                canvasTopDown.UpdateKillsUI(kills);
-            }
+            if (isLocalPlayer) canvasTopDown.UpdateKillsUI(kills);
 #endif
         }
 
         [ClientCallback]
-        void AnimatePlayer()
+        private void AnimatePlayer()
         {
 #if !UNITY_SERVER
             // A simple way to change sprite animation, without networking it
             // If not moving or rotating, show no feet animation or sound, if moving, flick through footstep animations and sound effects.
-            if (this.transform.position == previousPosition && Quaternion.Angle(this.transform.rotation, previousRotation) < 20.0f)
+            if (transform.position == previousPosition && Quaternion.Angle(transform.rotation, previousRotation) < 20.0f)
             {
                 rightFoot.SetActive(false);
                 leftFoot.SetActive(false);
@@ -263,8 +241,9 @@ namespace Mirror.Examples.TopDownShooter
                     rightFoot.SetActive(true);
                     soundRightFoot.Play();
                 }
-                previousPosition = this.transform.position;
-                previousRotation = this.transform.rotation;
+
+                previousPosition = transform.position;
+                previousRotation = transform.rotation;
             }
 #endif
         }
@@ -274,44 +253,31 @@ namespace Mirror.Examples.TopDownShooter
         {
             // We use a number playerStatus here, rather than bool, as you can use it for other things such as delayed respawn, respawn armour, spectating etc
             if (playerStatus == 0)
-            {
                 playerStatus = 1;
-            }
             else
-            {
                 playerStatus = 0;
-            }
         }
 
         // Our sync var hook for death and alive
-        void OnPlayerStatusChanged(int _Old, int _New)
+        private void OnPlayerStatusChanged(int _Old, int _New)
         {
 #if !UNITY_SERVER
             if (playerStatus == 0) // default/show
             {
-                foreach (var obj in objectsToHideOnDeath)
-                {
-                    obj.SetActive(true);
-                }
+                foreach (var obj in objectsToHideOnDeath) obj.SetActive(true);
                 characterController.enabled = true;
                 if (isLocalPlayer)
                 {
-                    this.transform.position = NetworkManager.startPositions[Random.Range(0, NetworkManager.startPositions.Count)].position;
+                    transform.position = NetworkManager.startPositions[Random.Range(0, NetworkManager.startPositions.Count)].position;
                     canvasTopDown.buttonRespawnPlayer.gameObject.SetActive(false);
                 }
             }
             else if (playerStatus == 1) // death
             {
                 // have meshes hidden, disable movement and show respawn button
-                foreach (var obj in objectsToHideOnDeath)
-                {
-                    obj.SetActive(false);
-                }
+                foreach (var obj in objectsToHideOnDeath) obj.SetActive(false);
                 characterController.enabled = false;
-                if (isLocalPlayer)
-                {
-                    canvasTopDown.buttonRespawnPlayer.gameObject.SetActive(true);
-                }
+                if (isLocalPlayer) canvasTopDown.buttonRespawnPlayer.gameObject.SetActive(true);
             }
             // else if (playerStatus == 2) // can be used for other features, such as spectator, make local camera follow another player 
 #endif
@@ -326,11 +292,11 @@ namespace Mirror.Examples.TopDownShooter
         }
 
         [ClientRpc]
-        void RpcKill()
+        private void RpcKill()
         {
 #if !UNITY_SERVER
             soundDeath.Play();
-            GameObject splatter = Instantiate(canvasTopDown.deathSplatter, this.transform.position, this.transform.rotation);
+            var splatter = Instantiate(canvasTopDown.deathSplatter, transform.position, transform.rotation);
             Destroy(splatter, 5.0f);
 #endif
         }

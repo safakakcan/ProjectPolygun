@@ -5,11 +5,10 @@ namespace Mirror.Examples.PickupsDropsChilds
 {
     public class PickupsDropsChilds : NetworkBehaviour
     {
-        [Header("Player Components")]
-        public GameObject rightHand;
+        [Header("Player Components")] public GameObject rightHand;
 
-        [Header("Prefabs")]
-        public GameObject ballPrefab;
+        [Header("Prefabs")] public GameObject ballPrefab;
+
         public GameObject batPrefab;
         public GameObject boxPrefab;
         public GameObject sceneObjectPrefab;
@@ -18,19 +17,18 @@ namespace Mirror.Examples.PickupsDropsChilds
         // ChangeEquipment coroutine depends on equippedItemConfig being set first
         // but equippedItemConfig can also be changed independent of equippedItem
         // changing, e.g. reloading usages.
-        [Header("SyncVars in Specific Order")]
-        [SyncVar(hook = nameof(OnChangeEquippedItemConfig))]
-        public EquippedItemConfig equippedItemConfig = default;
+        [Header("SyncVars in Specific Order")] [SyncVar(hook = nameof(OnChangeEquippedItemConfig))]
+        public EquippedItemConfig equippedItemConfig;
+
         [SyncVar(hook = nameof(OnChangeEquipment))]
         public EquippedItem equippedItem;
 
-        [Header("Diagnostics")]
-        [ReadOnly] public GameObject equippedObject;
+        [Header("Diagnostics")] [ReadOnly] public GameObject equippedObject;
 
         // Cached reference to IEquipped component on the child object
-        IEquipped iEquipped;
+        private IEquipped iEquipped;
 
-        void Update()
+        private void Update()
         {
             if (!isLocalPlayer) return;
 
@@ -59,7 +57,7 @@ namespace Mirror.Examples.PickupsDropsChilds
                 CmdDropItem();
         }
 
-        void OnChangeEquippedItemConfig(EquippedItemConfig _, EquippedItemConfig newEquippedItemConfig)
+        private void OnChangeEquippedItemConfig(EquippedItemConfig _, EquippedItemConfig newEquippedItemConfig)
         {
             // equippedItem may be EquippedItem.nothing so check for not null
             // before getting reference to the IEquipped interface component
@@ -69,14 +67,14 @@ namespace Mirror.Examples.PickupsDropsChilds
                     iEquipped.equippedItemConfig = equippedItemConfig;
         }
 
-        void OnChangeEquipment(EquippedItem _, EquippedItem newEquippedItem)
+        private void OnChangeEquipment(EquippedItem _, EquippedItem newEquippedItem)
         {
             StartCoroutine(ChangeEquipment());
         }
 
         // Since Destroy is delayed to the end of the current frame, we use a coroutine
         // to clear out any child objects before instantiating the new one
-        IEnumerator ChangeEquipment()
+        private IEnumerator ChangeEquipment()
         {
             while (rightHand.transform.childCount > 0)
             {
@@ -108,7 +106,7 @@ namespace Mirror.Examples.PickupsDropsChilds
         }
 
         [Command]
-        void CmdChangeEquippedItem(EquippedItem selectedItem)
+        private void CmdChangeEquippedItem(EquippedItem selectedItem)
         {
             switch (selectedItem)
             {
@@ -137,7 +135,7 @@ namespace Mirror.Examples.PickupsDropsChilds
         {
             // equippedItemConfig is a struct SyncVar so this
             // is how to update it correctly on the server.
-            EquippedItemConfig config = equippedItemConfig;
+            var config = equippedItemConfig;
             config.Use();
             equippedItemConfig = config;
 
@@ -150,7 +148,7 @@ namespace Mirror.Examples.PickupsDropsChilds
         {
             // equippedItemConfig is a struct SyncVar so this
             // is how to update it correctly on the server.
-            EquippedItemConfig config = equippedItemConfig;
+            var config = equippedItemConfig;
             config.AddUsages(usages);
             equippedItemConfig = config;
             // tell clients to invoke the AddUsages method on the IEquipped object
@@ -162,7 +160,7 @@ namespace Mirror.Examples.PickupsDropsChilds
         {
             // equippedItemConfig is a struct SyncVar so this
             // is how to update it correctly on the server.
-            EquippedItemConfig config = equippedItemConfig;
+            var config = equippedItemConfig;
             config.ResetUsages();
             equippedItemConfig = config;
             // tell clients to invoke the ResetUsages method on the IEquipped object
@@ -174,7 +172,7 @@ namespace Mirror.Examples.PickupsDropsChilds
         {
             // equippedItemConfig is a struct SyncVar so this
             // is how to update it correctly on the server.
-            EquippedItemConfig config = equippedItemConfig;
+            var config = equippedItemConfig;
             config.ResetUsages(usages);
             equippedItemConfig = config;
             // tell clients to invoke the ResetUsages method on the IEquipped object
@@ -182,17 +180,17 @@ namespace Mirror.Examples.PickupsDropsChilds
         }
 
         [Command]
-        void CmdDropItem()
+        private void CmdDropItem()
         {
             // Instantiate the scene object on the server
-            Vector3 pos = rightHand.transform.position;
-            Quaternion rot = rightHand.transform.rotation;
+            var pos = rightHand.transform.position;
+            var rot = rightHand.transform.rotation;
             equippedObject = Instantiate(sceneObjectPrefab, pos, rot);
 
             // set the RigidBody as non-kinematic on the server only (isKinematic = true in prefab)
             equippedObject.GetComponent<Rigidbody>().isKinematic = false;
 
-            SceneObject sceneObject = equippedObject.GetComponent<SceneObject>();
+            var sceneObject = equippedObject.GetComponent<SceneObject>();
 
             // set the SyncVar on the scene object for clients to instantiate
             sceneObject.equippedItem = equippedItem;

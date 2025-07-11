@@ -4,52 +4,19 @@ using Edgegap.Editor.Api.Models;
 namespace Edgegap.Editor
 {
     /// <summary>
-    /// Contains static metadata / options for the EdgegapWindowV2 UI.
-    /// - Notable:
-    ///   * SHOW_DEBUG_BTN
-    ///   * LOG_LEVEL
-    ///   * DEFAULT_VERSION_TAG
-    ///   * SKIP_SERVER_BUILD_WHEN_PUSHING
-    ///   * SKIP_DOCKER_IMAGE_BUILD_WHEN_PUSHING
+    ///     Contains static metadata / options for the EdgegapWindowV2 UI.
+    ///     - Notable:
+    ///     * SHOW_DEBUG_BTN
+    ///     * LOG_LEVEL
+    ///     * DEFAULT_VERSION_TAG
+    ///     * SKIP_SERVER_BUILD_WHEN_PUSHING
+    ///     * SKIP_DOCKER_IMAGE_BUILD_WHEN_PUSHING
     /// </summary>
     public static class EdgegapWindowMetadata
     {
-        #region Debug
-        /// <summary>Log Debug+, or Errors only?</summary>
-        public enum LogLevel
-        {
-            Debug,
-            Error,
-        }
-
-        /// <summary>
-        /// Set to Debug to show more logs. Default `Error`.
-        /// - Error level includes "potentially-intentional" (!fatal) errors logged with Debug.Log
-        /// - TODO: Move opt to UI?
-        /// </summary>
-        public const LogLevel LOG_LEVEL = LogLevel.Error;
-
-        /// <summary>
-        /// Set to show a debug button at the top-right for arbitrary testing.
-        /// Default enables groups. Default `false`.
-        /// </summary>
-        public const bool SHOW_DEBUG_BTN = false;
-
-        /// <summary>
-        /// When running a Docker-based "Build & Push" flow, skip building the Unity server binary
-        /// (great for testing push flow). Default false.
-        /// </summary>
-        public static readonly bool SKIP_SERVER_BUILD_WHEN_PUSHING = false; // MIRROR CHANGE: 'const' changed to 'static readonly' to avoid 'unreachable code detected' warning
-
-        /// <summary>
-        /// When running a Docker-based "Build & Push" flow, skip building the Docker image
-        /// (great for testing registry login mechanics). Default false.
-        /// </summary>
-        public static readonly bool SKIP_DOCKER_IMAGE_BUILD_WHEN_PUSHING = false; // MIRROR CHANGE: 'const' changed to 'static readonly' to avoid 'unreachable code detected' warning
-        #endregion // Debug
-
         /// <summary>Interval at which the server status is updated</summary>
         public const int SERVER_STATUS_CRON_JOB_INTERVAL_MS = 10000;
+
         public const int PORT_DEFAULT = 7770;
         public const int PORT_MIN = 1024;
         public const int PORT_MAX = 49151;
@@ -62,22 +29,31 @@ namespace Edgegap.Editor
         public const string EDGEGAP_GET_A_TOKEN_URL = "https://app.edgegap.com/?oneClick=true";
         public const string EDGEGAP_DISCORD_URL = "https://discord.com/invite/MmJf8fWjnt";
         public const string EDGEGAP_DOC_BASE_URL = "https://docs.edgegap.com/";
+
         public const string EDGEGAP_DOC_PLUGIN_GUIDE_PATH =
             "learn/unity-games/developer-tools#usage-requirements";
+
         public const string EDGEGAP_DOC_USAGE_REQUIREMENTS_PATH =
             "learn/unity-games/developer-tools#usage-requirements";
+
         public const string LOCAL_TEST_CONNECT_INFO_PATH =
             "learn/unity-games/getting-started-with-servers#4-test-your-server-locally";
+
         public const string EDGEGAP_DOC_APP_INFO_PATH =
             "learn/unity-games/getting-started-with-servers#5-create-an-edgegap-application";
+
         public const string EDGEGAP_CREATE_APP_BASE_URL =
             "https://app.edgegap.com/application-management/applications/";
+
         public const string EDGEGAP_DOC_DEPLOY_GUIDE_PATH =
             "learn/unity-games/getting-started-with-servers#6-deploy-a-server-on-edgegap";
+
         public const string EDGEGAP_DEPLOY_APP_URL =
             "https://app.edgegap.com/deployment-management/deployments/list";
+
         public const string EDGEGAP_FREE_TIER_INFO_URL =
             "https://app.edgegap.com/user-settings?tab=memberships";
+
         public const string CONNECT_TO_DEPLOYMENT_INFO_URL = "docs/category/unity-netcodes";
         public const string EDGEGAP_DOC_LOBBY_PATH = "docs/lobby/service";
         public const string EDGEGAP_DOC_MANAGED_MATCHMAKER_PATH = "docs/gen2-matchmaker";
@@ -87,6 +63,7 @@ namespace Edgegap.Editor
         private const string DEFAULT_UTM_SOURCE_TAG = "partner_mirror_source_unity";
         private const string DEFAULT_UTM_MEDIUM_TAG = "servers_quickstart_plugin";
         private const string DEFAULT_UTM_CONTENT_TAG = "plugin_button";
+
         public const string DEFAULT_UTM_TAGS =
             "utm_source="
             + DEFAULT_UTM_SOURCE_TAG
@@ -94,6 +71,7 @@ namespace Edgegap.Editor
             + DEFAULT_UTM_MEDIUM_TAG
             + "&utm_content="
             + DEFAULT_UTM_CONTENT_TAG;
+
         public const string DEFAULT_NEW_APPLICATION_LABEL = "Create New Application";
         public const string DEFAULT_DEPLOYMENT_TAG = "quickstart";
         public const string DEFAULT_VERSION_TAG = "{yy.MM.DD-HH.mm.ss}-UTC";
@@ -102,7 +80,55 @@ namespace Edgegap.Editor
         public const string DEPLOY_REQUEST_RICH_STR = "Requesting Deploy...";
         public const string KEY_COMPILER_MACRO = "EDGEGAP_PLUGIN_SERVERS";
 
+        #region Player Pref Key Ids for persistence
+
+        /// <summary>Cached as base64</summary>
+        public const string API_TOKEN_KEY_STR = "ApiToken";
+
+        #endregion // Editor Pref Key Ids for persistence
+
+
+        //[Obsolete("Hard-coded; not from UI. TODO: Get from UI")] // MIRROR CHANGE: comment this out to avoid import warnings
+        public const ApiEnvironment API_ENVIRONMENT = ApiEnvironment.Console;
+
+        #region Debug
+
+        /// <summary>Log Debug+, or Errors only?</summary>
+        public enum LogLevel
+        {
+            Debug,
+            Error
+        }
+
+        /// <summary>
+        ///     Set to Debug to show more logs. Default `Error`.
+        ///     - Error level includes "potentially-intentional" (!fatal) errors logged with Debug.Log
+        ///     - TODO: Move opt to UI?
+        /// </summary>
+        public const LogLevel LOG_LEVEL = LogLevel.Error;
+
+        /// <summary>
+        ///     Set to show a debug button at the top-right for arbitrary testing.
+        ///     Default enables groups. Default `false`.
+        /// </summary>
+        public const bool SHOW_DEBUG_BTN = false;
+
+        /// <summary>
+        ///     When running a Docker-based "Build & Push" flow, skip building the Unity server binary
+        ///     (great for testing push flow). Default false.
+        /// </summary>
+        public static readonly bool SKIP_SERVER_BUILD_WHEN_PUSHING = false; // MIRROR CHANGE: 'const' changed to 'static readonly' to avoid 'unreachable code detected' warning
+
+        /// <summary>
+        ///     When running a Docker-based "Build & Push" flow, skip building the Docker image
+        ///     (great for testing registry login mechanics). Default false.
+        /// </summary>
+        public static readonly bool SKIP_DOCKER_IMAGE_BUILD_WHEN_PUSHING = false; // MIRROR CHANGE: 'const' changed to 'static readonly' to avoid 'unreachable code detected' warning
+
+        #endregion // Debug
+
         #region Colors
+
         /// <summary>Earthy lime green</summary>
         public const string SUCCESS_COLOR_HEX = "#8AEE8C";
 
@@ -127,7 +153,7 @@ namespace Edgegap.Editor
             Warn,
 
             /// <summary>VividBloodOrange</summary>
-            Error,
+            Error
         }
 
         /// <returns>Wraps string in color rich text</returns>
@@ -147,14 +173,11 @@ namespace Edgegap.Editor
                     throw new ArgumentOutOfRangeException(nameof(statusColor), statusColor, null);
             }
         }
+
         #endregion // Colors
 
-        #region Player Pref Key Ids for persistence
-        /// <summary>Cached as base64</summary>
-        public const string API_TOKEN_KEY_STR = "ApiToken";
-        #endregion // Editor Pref Key Ids for persistence
-
         #region UI Element Ids
+
         //1. Connect your Edgegap account
         public const string DEBUG_BTN_ID = "DebugBtn";
         public const string API_TOKEN_TXT_ID = "ApiTokenMaskedTxt";
@@ -233,11 +256,7 @@ namespace Edgegap.Editor
         public const string NEXT_STEPS_MANAGED_MATCHMAKER_LABEL_LINK_ID = "ManagedMMLinkTxt";
         public const string NEXT_STEPS_ADV_MATCHMAKER_LABEL_LINK_ID = "AdvMMLinkTxt";
         public const string NEXT_STEPS_LIFECYCLE_LABEL_LINK_ID = "LifecycleManageTxt";
+
         #endregion // UI Element Ids
-
-
-
-        //[Obsolete("Hard-coded; not from UI. TODO: Get from UI")] // MIRROR CHANGE: comment this out to avoid import warnings
-        public const ApiEnvironment API_ENVIRONMENT = ApiEnvironment.Console;
     }
 }

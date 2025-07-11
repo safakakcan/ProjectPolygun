@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.IO;
 using System.Text.RegularExpressions;
+using Mirror.Examples.Common.Controllers.Player;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -8,7 +9,7 @@ namespace Mirror.Examples.AdditiveLevels
 {
     public class Portal : NetworkBehaviour
     {
-        [Scene, Tooltip("Which scene to send player from here")]
+        [Scene] [Tooltip("Which scene to send player from here")]
         public string destinationScene;
 
         [Tooltip("Where to spawn player in Destination Scene")]
@@ -19,6 +20,24 @@ namespace Mirror.Examples.AdditiveLevels
 
         [SyncVar(hook = nameof(OnLabelTextChanged))]
         public string labelText;
+
+        // Note that I have created layers called Player(6) and Portal(7) and set them
+        // up in the Physics collision matrix so only Player collides with Portal.
+        private void OnTriggerEnter(Collider other)
+        {
+            if (!(other is CapsuleCollider)) return; // ignore CharacterController colliders
+
+            //Debug.Log($"Portal.OnTriggerEnter {other}");
+            // tag check in case you didn't set up the layers and matrix as noted above
+            if (!other.CompareTag("Player")) return;
+
+            // applies to host client on server and remote clients
+            if (other.TryGetComponent(out PlayerControllerBase playerController))
+                playerController.enabled = false;
+
+            if (isServer)
+                StartCoroutine(SendPlayerToNewScene(other.gameObject));
+        }
 
         public void OnLabelTextChanged(string _, string newValue)
         {
@@ -39,30 +58,12 @@ namespace Mirror.Examples.AdditiveLevels
                 lookAtMainCamera.enabled = true;
         }
 
-        // Note that I have created layers called Player(6) and Portal(7) and set them
-        // up in the Physics collision matrix so only Player collides with Portal.
-        void OnTriggerEnter(Collider other)
-        {
-            if (!(other is CapsuleCollider)) return; // ignore CharacterController colliders
-
-            //Debug.Log($"Portal.OnTriggerEnter {other}");
-            // tag check in case you didn't set up the layers and matrix as noted above
-            if (!other.CompareTag("Player")) return;
-
-            // applies to host client on server and remote clients
-            if (other.TryGetComponent(out Common.Controllers.Player.PlayerControllerBase playerController))
-                playerController.enabled = false;
-
-            if (isServer)
-                StartCoroutine(SendPlayerToNewScene(other.gameObject));
-        }
-
         [ServerCallback]
-        IEnumerator SendPlayerToNewScene(GameObject player)
+        private IEnumerator SendPlayerToNewScene(GameObject player)
         {
             if (!player.TryGetComponent(out NetworkIdentity identity)) yield break;
 
-            NetworkConnectionToClient conn = identity.connectionToClient;
+            var conn = identity.connectionToClient;
             if (conn == null) yield break;
 
             // Tell client to unload previous subscene with custom handling (see NetworkManager::OnClientChangeScene).
@@ -97,7 +98,7 @@ namespace Mirror.Examples.AdditiveLevels
 
             // host client playerController would have been disabled by OnTriggerEnter above
             // Remote client players are respawned with playerController already enabled
-            if (NetworkClient.localPlayer != null && NetworkClient.localPlayer.TryGetComponent(out Common.Controllers.Player.PlayerControllerBase playerController))
+            if (NetworkClient.localPlayer != null && NetworkClient.localPlayer.TryGetComponent(out PlayerControllerBase playerController))
                 playerController.enabled = true;
         }
     }

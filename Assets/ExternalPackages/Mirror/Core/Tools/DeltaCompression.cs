@@ -1,6 +1,7 @@
 // manual delta compression for some types.
 //    varint(b-a)
 // Mirror can't use Mirror II's bit-tree delta compression.
+
 using System.Runtime.CompilerServices;
 
 namespace Mirror
@@ -10,12 +11,16 @@ namespace Mirror
         // delta (usually small), then zigzag varint to support +- changes
         // parameter order: (last, current) makes most sense (Q3 does this too).
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Compress(NetworkWriter writer, long last, long current) =>
+        public static void Compress(NetworkWriter writer, long last, long current)
+        {
             Compression.CompressVarInt(writer, current - last);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long Decompress(NetworkReader reader, long last) =>
-            last + Compression.DecompressVarInt(reader);
+        public static long Decompress(NetworkReader reader, long last)
+        {
+            return last + Compression.DecompressVarInt(reader);
+        }
 
         // delta (usually small), then zigzag varint to support +- changes
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -39,19 +44,19 @@ namespace Mirror
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3Long Decompress(NetworkReader reader, Vector3Long last)
         {
-            long x = Decompress(reader, last.x);
-            long y = Decompress(reader, last.y);
-            long z = Decompress(reader, last.z);
+            var x = Decompress(reader, last.x);
+            var y = Decompress(reader, last.y);
+            var z = Decompress(reader, last.z);
             return new Vector3Long(x, y, z);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector4Long Decompress(NetworkReader reader, Vector4Long last)
         {
-            long x = Decompress(reader, last.x);
-            long y = Decompress(reader, last.y);
-            long z = Decompress(reader, last.z);
-            long w = Decompress(reader, last.w);
+            var x = Decompress(reader, last.x);
+            var y = Decompress(reader, last.y);
+            var z = Decompress(reader, last.z);
+            var w = Decompress(reader, last.w);
             return new Vector4Long(x, y, z, w);
         }
     }

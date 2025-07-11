@@ -6,21 +6,21 @@ namespace Mirror.Examples.MultipleMatch
 {
     public class MatchGUI : MonoBehaviour
     {
-        Guid matchId;
+        [Header("GUI Elements")] public Image image;
 
-        [Header("GUI Elements")]
-        public Image image;
         public Toggle toggleButton;
         public Text matchName;
         public Text playerCount;
 
-        [Header("Diagnostics")]
-        [ReadOnly, SerializeField] internal CanvasController canvasController;
+        [Header("Diagnostics")] [ReadOnly] [SerializeField]
+        internal CanvasController canvasController;
+
+        private Guid matchId;
 
         public void Awake()
         {
 #if UNITY_2022_2_OR_NEWER
-            canvasController = GameObject.FindAnyObjectByType<CanvasController>();
+            canvasController = FindAnyObjectByType<CanvasController>();
 #else
             // Deprecated in Unity 2023.1
             canvasController = GameObject.FindObjectOfType<CanvasController>();
@@ -35,7 +35,10 @@ namespace Mirror.Examples.MultipleMatch
         }
 
         [ClientCallback]
-        public Guid GetMatchId() => matchId;
+        public Guid GetMatchId()
+        {
+            return matchId;
+        }
 
         [ClientCallback]
         public void SetMatchInfo(MatchInfo infos)

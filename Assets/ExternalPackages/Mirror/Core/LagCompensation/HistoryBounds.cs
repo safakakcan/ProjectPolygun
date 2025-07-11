@@ -25,43 +25,44 @@ namespace Mirror
     public class HistoryBounds
     {
         // mischa: use MinMaxBounds to avoid Unity Bounds.Encapsulate conversions.
-        readonly int boundsPerBucket;
-        readonly Queue<MinMaxBounds> fullBuckets;
+        private readonly int boundsPerBucket;
 
         // full bucket limit. older ones will be removed.
-        readonly int bucketLimit;
+        private readonly int bucketLimit;
+        private readonly Queue<MinMaxBounds> fullBuckets;
 
         // bucket in progress, contains 0..boundsPerBucket bounds encapsulated.
-        MinMaxBounds? currentBucket;
-        int currentBucketSize;
-
-        // amount of total bounds, including bounds in full buckets + current
-        public int boundsCount { get; private set; }
+        private MinMaxBounds? currentBucket;
+        private int currentBucketSize;
 
         // total bounds encapsulating all of the bounds history.
         // totalMinMax is used for internal calculations.
         // public total is used for Unity representation.
-        MinMaxBounds totalMinMax;
-        public Bounds total
-        {
-            get
-            {
-                Bounds bounds = new Bounds();
-                bounds.SetMinMax(totalMinMax.min, totalMinMax.max);
-                return bounds;
-            }
-        }
+        private MinMaxBounds totalMinMax;
 
         public HistoryBounds(int boundsLimit, int boundsPerBucket)
         {
             // bucketLimit via '/' cuts off remainder.
             // that's what we want, since we always have a 'currentBucket'.
             this.boundsPerBucket = boundsPerBucket;
-            this.bucketLimit = (boundsLimit / boundsPerBucket);
+            bucketLimit = boundsLimit / boundsPerBucket;
 
             // initialize queue with maximum capacity to avoid runtime resizing
             // capacity +1 because it makes the code easier if we insert first, and then remove.
             fullBuckets = new Queue<MinMaxBounds>(bucketLimit + 1);
+        }
+
+        // amount of total bounds, including bounds in full buckets + current
+        public int boundsCount { get; private set; }
+
+        public Bounds total
+        {
+            get
+            {
+                var bounds = new Bounds();
+                bounds.SetMinMax(totalMinMax.min, totalMinMax.max);
+                return bounds;
+            }
         }
 
         // insert new bounds into history. calculates new total bounds.
@@ -69,7 +70,7 @@ namespace Mirror
         public void Insert(Bounds bounds)
         {
             // convert to MinMax representation for faster .Encapsulate()
-            MinMaxBounds minmax = new MinMaxBounds
+            var minmax = new MinMaxBounds
             {
                 min = bounds.min,
                 max = bounds.max
@@ -77,21 +78,14 @@ namespace Mirror
 
             // initialize 'total' if not initialized yet.
             // we don't want to call (0,0).Encapsulate(bounds).
-            if (boundsCount == 0)
-            {
-                totalMinMax = minmax;
-            }
+            if (boundsCount == 0) totalMinMax = minmax;
 
             // add to current bucket:
             // either initialize new one, or encapsulate into existing one
             if (currentBucket == null)
-            {
                 currentBucket = minmax;
-            }
             else
-            {
                 currentBucket.Value.Encapsulate(minmax);
-            }
 
             // current bucket has one more bounds.
             // total bounds increased as well.
@@ -121,7 +115,7 @@ namespace Mirror
                     // instead of iterating N buckets, we iterate N / boundsPerBucket buckets.
                     // TODO technically we could reuse 'currentBucket' before clearing instead of encapsulating again
                     totalMinMax = minmax;
-                    foreach (MinMaxBounds bucket in fullBuckets)
+                    foreach (var bucket in fullBuckets)
                         totalMinMax.Encapsulate(bucket);
                 }
             }

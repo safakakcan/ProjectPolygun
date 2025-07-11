@@ -4,6 +4,8 @@
 //       value for null otherwise.
 //       (original FieldType.Resolve returns null if not found too, so
 //        exceptions would be a bit inconsistent here)
+
+using System;
 using Mono.CecilX;
 
 namespace Mirror.Weaver
@@ -18,24 +20,22 @@ namespace Mirror.Weaver
                 WeavingFailed = true;
                 return null;
             }
-            MethodReference method = ResolveMethod(tr, assembly, Log, m => m.Name == name, ref WeavingFailed);
+
+            var method = ResolveMethod(tr, assembly, Log, m => m.Name == name, ref WeavingFailed);
             if (method == null)
             {
                 Log.Error($"Method not found with name {name} in type {tr.Name}", tr);
                 WeavingFailed = true;
             }
+
             return method;
         }
 
-        public static MethodReference ResolveMethod(TypeReference t, AssemblyDefinition assembly, Logger Log, System.Func<MethodDefinition, bool> predicate, ref bool WeavingFailed)
+        public static MethodReference ResolveMethod(TypeReference t, AssemblyDefinition assembly, Logger Log, Func<MethodDefinition, bool> predicate, ref bool WeavingFailed)
         {
-            foreach (MethodDefinition methodRef in t.Resolve().Methods)
-            {
+            foreach (var methodRef in t.Resolve().Methods)
                 if (predicate(methodRef))
-                {
                     return assembly.MainModule.ImportReference(methodRef);
-                }
-            }
 
             Log.Error($"Method not found in type {t.Name}", t);
             WeavingFailed = true;
@@ -50,24 +50,22 @@ namespace Mirror.Weaver
                 WeavingFailed = true;
                 return null;
             }
-            FieldReference field = ResolveField(tr, assembly, Log, m => m.Name == name, ref WeavingFailed);
+
+            var field = ResolveField(tr, assembly, Log, m => m.Name == name, ref WeavingFailed);
             if (field == null)
             {
                 Log.Error($"Field not found with name {name} in type {tr.Name}", tr);
                 WeavingFailed = true;
             }
+
             return field;
         }
 
-        public static FieldReference ResolveField(TypeReference t, AssemblyDefinition assembly, Logger Log, System.Func<FieldDefinition, bool> predicate, ref bool WeavingFailed)
+        public static FieldReference ResolveField(TypeReference t, AssemblyDefinition assembly, Logger Log, Func<FieldDefinition, bool> predicate, ref bool WeavingFailed)
         {
-            foreach (FieldDefinition fieldRef in t.Resolve().Fields)
-            {
+            foreach (var fieldRef in t.Resolve().Fields)
                 if (predicate(fieldRef))
-                {
                     return assembly.MainModule.ImportReference(fieldRef);
-                }
-            }
 
             Log.Error($"Field not found in type {t.Name}", t);
             WeavingFailed = true;
@@ -76,22 +74,14 @@ namespace Mirror.Weaver
 
         public static MethodReference TryResolveMethodInParents(TypeReference tr, AssemblyDefinition assembly, string name)
         {
-            if (tr == null)
-            {
-                return null;
-            }
-            foreach (MethodDefinition methodDef in tr.Resolve().Methods)
-            {
+            if (tr == null) return null;
+            foreach (var methodDef in tr.Resolve().Methods)
                 if (methodDef.Name == name)
                 {
                     MethodReference methodRef = methodDef;
-                    if (tr.IsGenericInstance)
-                    {
-                        methodRef = methodRef.MakeHostInstanceGeneric(tr.Module, (GenericInstanceType)tr);
-                    }
+                    if (tr.IsGenericInstance) methodRef = methodRef.MakeHostInstanceGeneric(tr.Module, (GenericInstanceType)tr);
                     return assembly.MainModule.ImportReference(methodRef);
                 }
-            }
 
             // Could not find the method in this class,  try the parent
             return TryResolveMethodInParents(tr.Resolve().BaseType.ApplyGenericParameters(tr), assembly, name);
@@ -99,27 +89,21 @@ namespace Mirror.Weaver
 
         public static MethodDefinition ResolveDefaultPublicCtor(TypeReference variable)
         {
-            foreach (MethodDefinition methodRef in variable.Resolve().Methods)
-            {
+            foreach (var methodRef in variable.Resolve().Methods)
                 if (methodRef.Name == ".ctor" &&
                     methodRef.Resolve().IsPublic &&
                     methodRef.Parameters.Count == 0)
-                {
                     return methodRef;
-                }
-            }
+
             return null;
         }
 
         public static MethodReference ResolveProperty(TypeReference tr, AssemblyDefinition assembly, string name)
         {
-            foreach (PropertyDefinition pd in tr.Resolve().Properties)
-            {
+            foreach (var pd in tr.Resolve().Properties)
                 if (pd.Name == name)
-                {
                     return assembly.MainModule.ImportReference(pd.GetMethod);
-                }
-            }
+
             return null;
         }
     }

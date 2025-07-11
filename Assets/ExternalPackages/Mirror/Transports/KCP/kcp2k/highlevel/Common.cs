@@ -7,6 +7,13 @@ namespace kcp2k
 {
     public static class Common
     {
+        // cookies need to be generated with a secure random generator.
+        // we don't want them to be deterministic / predictable.
+        // RNG is cached to avoid runtime allocations.
+        private static readonly RNGCryptoServiceProvider cryptoRandom = new();
+
+        private static readonly byte[] cryptoRandomBuffer = new byte[4];
+
         // helper function to resolve host to IPAddress
         public static bool ResolveHostname(string hostname, out IPAddress[] addresses)
         {
@@ -30,14 +37,14 @@ namespace kcp2k
         {
             // log initial size for comparison.
             // remember initial size for log comparison
-            int initialReceive = socket.ReceiveBufferSize;
-            int initialSend    = socket.SendBufferSize;
+            var initialReceive = socket.ReceiveBufferSize;
+            var initialSend = socket.SendBufferSize;
 
             // set to configured size
             try
             {
                 socket.ReceiveBufferSize = recvBufferSize;
-                socket.SendBufferSize    = sendBufferSize;
+                socket.SendBufferSize = sendBufferSize;
             }
             catch (SocketException)
             {
@@ -45,7 +52,7 @@ namespace kcp2k
             }
 
 
-            Log.Info($"[KCP] RecvBuf = {initialReceive}=>{socket.ReceiveBufferSize} ({socket.ReceiveBufferSize/initialReceive}x) SendBuf = {initialSend}=>{socket.SendBufferSize} ({socket.SendBufferSize/initialSend}x)");
+            Log.Info($"[KCP] RecvBuf = {initialReceive}=>{socket.ReceiveBufferSize} ({socket.ReceiveBufferSize / initialReceive}x) SendBuf = {initialSend}=>{socket.SendBufferSize} ({socket.SendBufferSize / initialSend}x)");
         }
 
         // generate a connection hash from IP+Port.
@@ -58,14 +65,11 @@ namespace kcp2k
         //
         // => using only newClientEP.Port wouldn't work, because
         //    different connections can have the same port.
-        public static int ConnectionHash(EndPoint endPoint) =>
-            endPoint.GetHashCode();
+        public static int ConnectionHash(EndPoint endPoint)
+        {
+            return endPoint.GetHashCode();
+        }
 
-        // cookies need to be generated with a secure random generator.
-        // we don't want them to be deterministic / predictable.
-        // RNG is cached to avoid runtime allocations.
-        static readonly RNGCryptoServiceProvider cryptoRandom = new RNGCryptoServiceProvider();
-        static readonly byte[] cryptoRandomBuffer = new byte[4];
         public static uint GenerateCookie()
         {
             cryptoRandom.GetBytes(cryptoRandomBuffer);

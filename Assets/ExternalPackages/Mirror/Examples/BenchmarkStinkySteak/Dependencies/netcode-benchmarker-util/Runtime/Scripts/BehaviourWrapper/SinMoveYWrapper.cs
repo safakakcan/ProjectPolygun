@@ -1,8 +1,10 @@
+using System;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace StinkySteak.NetcodeBenchmark
 {
-    [System.Serializable]
+    [Serializable]
     public struct SinMoveYWrapper : IMoveWrapper
     {
         [SerializeField] private float _minSpeed;
@@ -18,7 +20,7 @@ namespace StinkySteak.NetcodeBenchmark
 
         public static SinMoveYWrapper CreateDefault()
         {
-            SinMoveYWrapper wrapper = new SinMoveYWrapper();
+            var wrapper = new SinMoveYWrapper();
             wrapper._minSpeed = 0.5f;
             wrapper._maxSpeed = 1f;
             wrapper._minAmplitude = 0.5f;
@@ -37,9 +39,9 @@ namespace StinkySteak.NetcodeBenchmark
 
         public void NetworkUpdate(Transform transform)
         {
-            float sin = Mathf.Sin(Time.time * _speed) * _amplitude;
+            var sin = Mathf.Sin(Time.time * _speed) * _amplitude;
 
-            transform.position = _initialPosition + (Vector3.up * sin);
+            transform.position = _initialPosition + Vector3.up * sin;
         }
     }
 }

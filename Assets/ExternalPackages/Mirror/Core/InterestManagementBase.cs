@@ -1,6 +1,7 @@
 // interest management component for custom solutions like
 // distance based, spatial hashing, raycast based, etc.
 // low level base class allows for low level spatial hashing etc., which is 3-5x faster.
+
 using UnityEngine;
 
 namespace Mirror
@@ -23,7 +24,9 @@ namespace Mirror
         }
 
         [ServerCallback]
-        public virtual void ResetState() {}
+        public virtual void ResetState()
+        {
+        }
 
         // Callback used by the visibility system to determine if an observer
         // (player) can see the NetworkIdentity. If this function returns true,
@@ -44,7 +47,7 @@ namespace Mirror
         [ServerCallback]
         public virtual void SetHostVisibility(NetworkIdentity identity, bool visible)
         {
-            foreach (Renderer rend in identity.GetComponentsInChildren<Renderer>())
+            foreach (var rend in identity.GetComponentsInChildren<Renderer>())
                 rend.enabled = visible;
 
             // reason to also set lights/audio/terrain/etc.:
@@ -55,21 +58,21 @@ namespace Mirror
             // be a child of a networked object. Same idea for cars with lights and sounds in other subscenes 
             // that host client shouldn't see or hear...host client wouldn't see the car itself, but sees the 
             // lights moving around and hears all of their engines / horns / etc.
-            foreach (Light light in identity.GetComponentsInChildren<Light>())
+            foreach (var light in identity.GetComponentsInChildren<Light>())
                 light.enabled = visible;
 
-            foreach (AudioSource audio in identity.GetComponentsInChildren<AudioSource>())
+            foreach (var audio in identity.GetComponentsInChildren<AudioSource>())
                 audio.enabled = visible;
 
-            foreach (Terrain terrain in identity.GetComponentsInChildren<Terrain>())
+            foreach (var terrain in identity.GetComponentsInChildren<Terrain>())
             {
                 terrain.drawHeightmap = visible;
                 terrain.drawTreesAndFoliage = visible;
             }
 
-            foreach (ParticleSystem particle in identity.GetComponentsInChildren<ParticleSystem>())
+            foreach (var particle in identity.GetComponentsInChildren<ParticleSystem>())
             {
-                ParticleSystem.EmissionModule emission = particle.emission;
+                var emission = particle.emission;
                 emission.enabled = visible;
             }
         }
@@ -77,12 +80,16 @@ namespace Mirror
         /// <summary>Called on the server when a new networked object is spawned.</summary>
         // (useful for 'only rebuild if changed' interest management algorithms)
         [ServerCallback]
-        public virtual void OnSpawned(NetworkIdentity identity) {}
+        public virtual void OnSpawned(NetworkIdentity identity)
+        {
+        }
 
         /// <summary>Called on the server when a networked object is destroyed.</summary>
         // (useful for 'only rebuild if changed' interest management algorithms)
         [ServerCallback]
-        public virtual void OnDestroyed(NetworkIdentity identity) {}
+        public virtual void OnDestroyed(NetworkIdentity identity)
+        {
+        }
 
         public abstract void Rebuild(NetworkIdentity identity, bool initialize);
 

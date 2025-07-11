@@ -4,26 +4,20 @@ using UnityEngine;
 
 namespace Mirror.SimpleWeb
 {
-
     public class SslConfigLoader
     {
-        internal struct Cert
-        {
-            public string path;
-            public string password;
-        }
         public static SslConfig Load(bool sslEnabled, string sslCertJson, SslProtocols sslProtocols)
         {
             // don't need to load anything if ssl is not enabled
             if (!sslEnabled)
                 return default;
 
-            string certJsonPath = sslCertJson;
+            var certJsonPath = sslCertJson;
 
-            Cert cert = LoadCertJson(certJsonPath);
+            var cert = LoadCertJson(certJsonPath);
 
             return new SslConfig(
-                enabled: sslEnabled,
+                sslEnabled,
                 sslProtocols: sslProtocols,
                 certPath: cert.path,
                 certPassword: cert.password
@@ -32,8 +26,8 @@ namespace Mirror.SimpleWeb
 
         internal static Cert LoadCertJson(string certJsonPath)
         {
-            string json = File.ReadAllText(certJsonPath);
-            Cert cert = JsonUtility.FromJson<Cert>(json);
+            var json = File.ReadAllText(certJsonPath);
+            var cert = JsonUtility.FromJson<Cert>(json);
 
             if (string.IsNullOrWhiteSpace(cert.path))
                 throw new InvalidDataException("Cert Json didn't not contain \"path\"");
@@ -44,6 +38,12 @@ namespace Mirror.SimpleWeb
                 cert.password = string.Empty;
 
             return cert;
+        }
+
+        internal struct Cert
+        {
+            public string path;
+            public string password;
         }
     }
 }

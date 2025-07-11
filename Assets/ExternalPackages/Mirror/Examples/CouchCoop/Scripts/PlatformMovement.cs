@@ -1,25 +1,20 @@
 using UnityEngine;
-using Mirror;
 
 namespace Mirror.Examples.CouchCoop
 {
     public class PlatformMovement : NetworkBehaviour
     {
+        private Vector3 lastPlatformPosition;
+
         // A separate script to handle platform behaviour, see its partner script, MovingPlatform.cs
         private bool onPlatform;
         private Transform platformTransform;
-        private Vector3 lastPlatformPosition;
 
-        public override void OnStartAuthority()
-        {
-            this.enabled = true;
-        }
-
-        void FixedUpdate()
+        private void FixedUpdate()
         {
             if (onPlatform)
             {
-                Vector3 deltaPosition = platformTransform.position - lastPlatformPosition;
+                var deltaPosition = platformTransform.position - lastPlatformPosition;
                 transform.position += deltaPosition;
                 lastPlatformPosition = platformTransform.position;
             }
@@ -27,7 +22,6 @@ namespace Mirror.Examples.CouchCoop
 
         private void OnCollisionEnter(Collision collision)
         {
-
             if (collision.gameObject.tag == "Finish")
             {
                 platformTransform = collision.gameObject.GetComponent<Transform>();
@@ -44,6 +38,11 @@ namespace Mirror.Examples.CouchCoop
                 onPlatform = false;
                 platformTransform = null;
             }
+        }
+
+        public override void OnStartAuthority()
+        {
+            enabled = true;
         }
     }
 }

@@ -16,56 +16,69 @@
 //      -> client gets Cmd() and X at the same time, but buffers X for bufferTime
 //      -> for unreliable, it would get X before the reliable Cmd(), still
 //         buffer for bufferTime but end up closer to the original time
-using System;
+
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mirror
 {
-    public enum CoordinateSpace { Local, World }
+    public enum CoordinateSpace
+    {
+        Local,
+        World
+    }
 
     public abstract class NetworkTransformBase : NetworkBehaviour
     {
         // target transform to sync. can be on a child.
         // TODO this field is kind of unnecessary since we now support child NetworkBehaviours
-        [Header("Target")]
-        [Tooltip("The Transform component to sync. May be on on this GameObject, or on a child.")]
+        [Header("Target")] [Tooltip("The Transform component to sync. May be on on this GameObject, or on a child.")]
         public Transform target;
-
-        // Is this a client with authority over this transform?
-        // This component could be on the player object or any object that has been assigned authority to this client.
-        protected bool IsClientWithAuthority => isClient && authority;
-
-        // snapshots with initial capacity to avoid early resizing & allocations: see NetworkRigidbodyBenchmark example.
-        public readonly SortedList<double, TransformSnapshot> clientSnapshots = new SortedList<double, TransformSnapshot>(16);
-        public readonly SortedList<double, TransformSnapshot> serverSnapshots = new SortedList<double, TransformSnapshot>(16);
 
         // selective sync //////////////////////////////////////////////////////
         [Header("Selective Sync\nDon't change these at Runtime")]
-        public bool syncPosition = true;  // do not change at runtime!
-        public bool syncRotation = true;  // do not change at runtime!
-        public bool syncScale = false; // do not change at runtime! rare. off by default.
+        public bool syncPosition = true; // do not change at runtime!
 
-        [Header("Bandwidth Savings")]
-        [Tooltip("When true, changes are not sent unless greater than sensitivity values below.")]
+        public bool syncRotation = true; // do not change at runtime!
+        public bool syncScale; // do not change at runtime! rare. off by default.
+
+        [Header("Bandwidth Savings")] [Tooltip("When true, changes are not sent unless greater than sensitivity values below.")]
         public bool onlySyncOnChange = true;
+
         [Tooltip("Apply smallest-three quaternion compression. This is lossy, you can disable it if the small rotation inaccuracies are noticeable in your project.")]
         public bool compressRotation = true;
 
         // interpolation is on by default, but can be disabled to jump to
         // the destination immediately. some projects need this.
-        [Header("Interpolation")]
-        [Tooltip("Set to false to have a snap-like effect on position movement.")]
+        [Header("Interpolation")] [Tooltip("Set to false to have a snap-like effect on position movement.")]
         public bool interpolatePosition = true;
+
         [Tooltip("Set to false to have a snap-like effect on rotations.")]
         public bool interpolateRotation = true;
+
         [Tooltip("Set to false to remove scale smoothing. Example use-case: Instant flipping of sprites that use -X and +X for direction.")]
         public bool interpolateScale = true;
 
         // CoordinateSpace ///////////////////////////////////////////////////////////
-        [Header("Coordinate Space")]
-        [Tooltip("Local by default. World may be better when changing hierarchy, or non-NetworkTransforms root position/rotation/scale values.")]
+        [Header("Coordinate Space")] [Tooltip("Local by default. World may be better when changing hierarchy, or non-NetworkTransforms root position/rotation/scale values.")]
         public CoordinateSpace coordinateSpace = CoordinateSpace.Local;
+
+        [Header("Timeline Offset")] [Tooltip("Add a small timeline offset to account for decoupled arrival of NetworkTime and NetworkTransform snapshots.\nfixes: https://github.com/MirrorNetworking/Mirror/issues/3427")]
+        public bool timelineOffset = true;
+
+        // debugging ///////////////////////////////////////////////////////////
+        [Header("Debug")] public bool showGizmos;
+
+        public bool showOverlay;
+        public Color overlayColor = new(0, 0, 0, 0.5f);
+
+        // snapshots with initial capacity to avoid early resizing & allocations: see NetworkRigidbodyBenchmark example.
+        public readonly SortedList<double, TransformSnapshot> clientSnapshots = new(16);
+        public readonly SortedList<double, TransformSnapshot> serverSnapshots = new(16);
+
+        // Is this a client with authority over this transform?
+        // This component could be on the player object or any object that has been assigned authority to this client.
+        protected bool IsClientWithAuthority => isClient && authority;
 
         // convert syncInterval to sendIntervalMultiplier.
         // in the future this can be moved into core to support tick aligned Sync,
@@ -86,7 +99,7 @@ namespace Mirror
                     // note that NetworkServer.sendInterval is usually set on start.
                     // to make this work in Edit mode, make sure that NetworkManager
                     // OnValidate sets NetworkServer.sendInterval immediately.
-                    float multiples = syncInterval / NetworkServer.sendInterval;
+                    var multiples = syncInterval / NetworkServer.sendInterval;
 
                     // syncInterval is always supposed to sync at a minimum of 1 x sendInterval.
                     // that's what we do for every other NetworkBehaviour since
@@ -98,10 +111,6 @@ namespace Mirror
                 return 1;
             }
         }
-
-        [Header("Timeline Offset")]
-        [Tooltip("Add a small timeline offset to account for decoupled arrival of NetworkTime and NetworkTransform snapshots.\nfixes: https://github.com/MirrorNetworking/Mirror/issues/3427")]
-        public bool timelineOffset = true;
 
         // Ninja's Notes on offset & mulitplier:
         //
@@ -124,11 +133,36 @@ namespace Mirror
         public Vector3 velocity { get; private set; }
         public Vector3 angularVelocity { get; private set; }
 
-        // debugging ///////////////////////////////////////////////////////////
-        [Header("Debug")]
-        public bool showGizmos;
-        public bool showOverlay;
-        public Color overlayColor = new Color(0, 0, 0, 0.5f);
+        // make sure to call this when inheriting too!
+        protected virtual void Awake()
+        {
+            // sometimes OnValidate() doesn't run before launching a project.
+            // need to guarantee configuration runs.
+            Configure();
+        }
+
+        public virtual void Reset()
+        {
+            ResetState();
+            // default to ClientToServer so this works immediately for users
+            syncDirection = SyncDirection.ClientToServer;
+        }
+
+        protected virtual void OnEnable()
+        {
+            ResetState();
+
+            if (NetworkServer.active)
+                NetworkIdentity.clientAuthorityCallback += OnClientAuthorityChanged;
+        }
+
+        protected virtual void OnDisable()
+        {
+            ResetState();
+
+            if (NetworkServer.active)
+                NetworkIdentity.clientAuthorityCallback -= OnClientAuthorityChanged;
+        }
 
         protected override void OnValidate()
         {
@@ -153,26 +187,24 @@ namespace Mirror
             if (coordinateSpace == CoordinateSpace.World) syncScale = false;
         }
 
-        // make sure to call this when inheriting too!
-        protected virtual void Awake()
-        {
-            // sometimes OnValidate() doesn't run before launching a project.
-            // need to guarantee configuration runs.
-            Configure();
-        }
-
         // snapshot functions //////////////////////////////////////////////////
         // get local/world position
-        protected virtual Vector3 GetPosition() =>
-            coordinateSpace == CoordinateSpace.Local ? target.localPosition : target.position;
+        protected virtual Vector3 GetPosition()
+        {
+            return coordinateSpace == CoordinateSpace.Local ? target.localPosition : target.position;
+        }
 
         // get local/world rotation
-        protected virtual Quaternion GetRotation() =>
-            coordinateSpace == CoordinateSpace.Local ? target.localRotation : target.rotation;
+        protected virtual Quaternion GetRotation()
+        {
+            return coordinateSpace == CoordinateSpace.Local ? target.localRotation : target.rotation;
+        }
 
         // get local/world scale
-        protected virtual Vector3 GetScale() =>
-            coordinateSpace == CoordinateSpace.Local ? target.localScale : target.lossyScale;
+        protected virtual Vector3 GetScale()
+        {
+            return coordinateSpace == CoordinateSpace.Local ? target.localScale : target.lossyScale;
+        }
 
         // set local/world position
         protected virtual void SetPosition(Vector3 position)
@@ -211,7 +243,7 @@ namespace Mirror
             return new TransformSnapshot(
                 // our local time is what the other end uses as remote time
                 NetworkTime.localTime, // Unity 2019 doesn't have timeAsDouble yet
-                0,                     // the other end fills out local time itself
+                0, // the other end fills out local time itself
                 GetPosition(),
                 GetRotation(),
                 GetScale()
@@ -367,7 +399,7 @@ namespace Mirror
         }
 
         [ClientRpc]
-        void RpcResetState()
+        private void RpcResetState()
         {
             ResetState();
         }
@@ -433,31 +465,8 @@ namespace Mirror
             Physics.SyncTransforms();
         }
 
-        public virtual void Reset()
-        {
-            ResetState();
-            // default to ClientToServer so this works immediately for users
-            syncDirection = SyncDirection.ClientToServer;
-        }
-
-        protected virtual void OnEnable()
-        {
-            ResetState();
-
-            if (NetworkServer.active)
-                NetworkIdentity.clientAuthorityCallback += OnClientAuthorityChanged;
-        }
-
-        protected virtual void OnDisable()
-        {
-            ResetState();
-
-            if (NetworkServer.active)
-                NetworkIdentity.clientAuthorityCallback -= OnClientAuthorityChanged;
-        }
-
         [ServerCallback]
-        void OnClientAuthorityChanged(NetworkConnectionToClient conn, NetworkIdentity identity, bool authorityState)
+        private void OnClientAuthorityChanged(NetworkConnectionToClient conn, NetworkIdentity identity, bool authorityState)
         {
             if (identity != netIdentity) return;
 
@@ -487,7 +496,7 @@ namespace Mirror
             if (!Debug.isDebugBuild) return;
 
             // project position to screen
-            Vector3 point = Camera.main.WorldToScreenPoint(target.position);
+            var point = Camera.main.WorldToScreenPoint(target.position);
 
             // enough alpha, in front of camera and in screen?
             if (point.z >= 0 && Utils.IsPointInScreen(point))
@@ -511,17 +520,17 @@ namespace Mirror
             if (buffer.Count < 2) return;
 
             // calculate threshold for 'old enough' snapshots
-            double threshold = NetworkTime.localTime - NetworkClient.bufferTime;
-            Color oldEnoughColor = new Color(0, 1, 0, 0.5f);
-            Color notOldEnoughColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
+            var threshold = NetworkTime.localTime - NetworkClient.bufferTime;
+            var oldEnoughColor = new Color(0, 1, 0, 0.5f);
+            var notOldEnoughColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
 
             // draw the whole buffer for easier debugging.
             // it's worth seeing how much we have buffered ahead already
-            for (int i = 0; i < buffer.Count; ++i)
+            for (var i = 0; i < buffer.Count; ++i)
             {
                 // color depends on if old enough or not
-                TransformSnapshot entry = buffer.Values[i];
-                bool oldEnough = entry.localTime <= threshold;
+                var entry = buffer.Values[i];
+                var oldEnough = entry.localTime <= threshold;
                 Gizmos.color = oldEnough ? oldEnoughColor : notOldEnoughColor;
                 Gizmos.DrawWireCube(entry.position, Vector3.one);
             }

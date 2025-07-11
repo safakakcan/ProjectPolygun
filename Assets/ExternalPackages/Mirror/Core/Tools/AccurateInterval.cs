@@ -22,6 +22,7 @@
 //
 // we need an accurate way to measure intervals for where it matters.
 // and it needs to be testable to guarantee results.
+
 using System.Runtime.CompilerServices;
 
 namespace Mirror
@@ -78,7 +79,7 @@ namespace Mirror
 
             // easier: set to rounded multiples of interval (fholm).
             // long to match double time.
-            long multiplier = (long)(time / interval);
+            var multiplier = (long)(time / interval);
             lastTime = multiplier * interval;
             return true;
         }

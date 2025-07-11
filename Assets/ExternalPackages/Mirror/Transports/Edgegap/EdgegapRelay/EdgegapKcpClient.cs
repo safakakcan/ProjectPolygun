@@ -1,24 +1,25 @@
 // overwrite RawSend/Receive
+
 using System;
 using System.Net.Sockets;
+using kcp2k;
 using Mirror;
 using UnityEngine;
-using kcp2k;
 
 namespace Edgegap
 {
     public class EdgegapKcpClient : KcpClient
     {
         // need buffer larger than KcpClient.rawReceiveBuffer to add metadata
-        readonly byte[] relayReceiveBuffer;
-
-        // authentication
-        public uint userId;
-        public uint sessionId;
+        private readonly byte[] relayReceiveBuffer;
         public ConnectionState connectionState = ConnectionState.Disconnected;
 
         // ping
-        double lastPingTime;
+        private double lastPingTime;
+        public uint sessionId;
+
+        // authentication
+        public uint userId;
 
         public EdgegapKcpClient(
             Action OnConnected,
@@ -26,7 +27,7 @@ namespace Edgegap
             Action OnDisconnected,
             Action<ErrorCode, string> OnError,
             KcpConfig config)
-              : base(OnConnected, OnData, OnDisconnected, OnError, config)
+            : base(OnConnected, OnData, OnDisconnected, OnError, config)
         {
             relayReceiveBuffer = new byte[config.Mtu + Protocol.Overhead];
         }
@@ -51,9 +52,8 @@ namespace Edgegap
 
             try
             {
-                if (socket.ReceiveNonBlocking(relayReceiveBuffer, out ArraySegment<byte> content))
-                {
-                    using (NetworkReaderPooled reader = NetworkReaderPool.Get(content))
+                if (socket.ReceiveNonBlocking(relayReceiveBuffer, out var content))
+                    using (var reader = NetworkReaderPool.Get(content))
                     {
                         // parse message type
                         if (reader.Remaining == 0)
@@ -61,7 +61,8 @@ namespace Edgegap
                             Debug.LogWarning($"EdgegapClient: message of {content.Count} is too small to parse.");
                             return false;
                         }
-                        byte messageType = reader.ReadByte();
+
+                        var messageType = reader.ReadByte();
 
                         // handle message type
                         switch (messageType)
@@ -70,7 +71,7 @@ namespace Edgegap
                             {
                                 // parse state
                                 if (reader.Remaining < 1) return false;
-                                ConnectionState last = connectionState;
+                                var last = connectionState;
                                 connectionState = (ConnectionState)reader.ReadByte();
 
                                 // log state changes for debugging.
@@ -89,7 +90,6 @@ namespace Edgegap
                             default: return false;
                         }
                     }
-                }
             }
             catch (SocketException e)
             {
@@ -102,7 +102,7 @@ namespace Edgegap
 
         protected override void RawSend(ArraySegment<byte> data)
         {
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 writer.WriteUInt(userId);
                 writer.WriteUInt(sessionId);
@@ -112,9 +112,9 @@ namespace Edgegap
             }
         }
 
-        void SendPing()
+        private void SendPing()
         {
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 writer.WriteUInt(userId);
                 writer.WriteUInt(sessionId);
@@ -126,14 +126,12 @@ namespace Edgegap
         public override void TickOutgoing()
         {
             if (connected)
-            {
                 // ping every interval for keepalive & handshake
                 if (NetworkTime.localTime >= lastPingTime + Protocol.PingInterval)
                 {
                     SendPing();
                     lastPingTime = NetworkTime.localTime;
                 }
-            }
 
             base.TickOutgoing();
         }

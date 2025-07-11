@@ -19,11 +19,11 @@ namespace Mirror.Examples.MultipleMatch
                 Destroy(child.gameObject);
 
             startButton.interactable = false;
-            bool everyoneReady = true;
+            var everyoneReady = true;
 
-            foreach (PlayerInfo playerInfo in playerInfos)
+            foreach (var playerInfo in playerInfos)
             {
-                GameObject newPlayer = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
+                var newPlayer = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
                 newPlayer.transform.SetParent(playerList.transform, false);
                 newPlayer.GetComponent<PlayerGUI>().SetPlayerInfo(playerInfo);
 
@@ -31,7 +31,7 @@ namespace Mirror.Examples.MultipleMatch
                     everyoneReady = false;
             }
 
-            startButton.interactable = everyoneReady && owner && (playerInfos.Length > 1);
+            startButton.interactable = everyoneReady && owner && playerInfos.Length > 1;
         }
 
         [ClientCallback]

@@ -1,6 +1,7 @@
 // worker thread for Unity (mischa 2022)
 // thread with proper exception handling, profling, init, cleanup, etc. for Unity.
 // use this from main thread.
+
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -11,12 +12,13 @@ namespace Mirror
 {
     public class WorkerThread
     {
-        readonly Thread thread;
-
-        protected volatile bool active;
+        private readonly Thread thread;
 
         // stopwatch so we don't need to use Unity's Time (engine independent)
-        readonly Stopwatch watch = new Stopwatch();
+        private readonly Stopwatch watch = new();
+
+        protected volatile bool active;
+        public Action Cleanup;
 
         // callbacks need to be set after constructor.
         // inheriting classes can't pass their member funcs to base ctor.
@@ -25,17 +27,17 @@ namespace Mirror
         //    without needing to throw InterruptExceptions or similar.
         public Action Init;
         public Func<bool> Tick;
-        public Action Cleanup;
 
         public WorkerThread(string identifier)
         {
             // start the thread wrapped in safety guard
             // if main application terminates, this thread needs to terminate too
-            thread = new Thread(
-                () => Guard(identifier)
+            thread = new Thread(() => Guard(identifier)
             );
             thread.IsBackground = true;
         }
+
+        public bool IsAlive => thread.IsAlive;
 
         public void Start()
         {
@@ -53,7 +55,10 @@ namespace Mirror
         // signal the thread to stop gracefully.
         // returns immediately, but the thread may take a while to stop.
         // may be overwritten to clear more flags like 'computing' etc.
-        public virtual void SignalStop() => active = false;
+        public virtual void SignalStop()
+        {
+            active = false;
+        }
 
         // wait for the thread to fully stop
         public bool StopBlocking(float timeout)
@@ -82,10 +87,9 @@ namespace Mirror
                     return false;
                 }
             }
+
             return true;
         }
-
-        public bool IsAlive => thread.IsAlive;
 
         // signal an interrupt in the thread.
         // this function is very safe to use.
@@ -100,14 +104,28 @@ namespace Mirror
         // and that's _okay_. using interrupt is safe & best practice.
         // => Unity still aborts deadlocked threads on script reload.
         // => and we catch + warn on AbortException.
-        public void Interrupt() => thread.Interrupt();
+        public void Interrupt()
+        {
+            thread.Interrupt();
+        }
 
         // thread constructor needs callbacks.
         // always define them, and make them call actions.
         // those can be set at any time.
-        void OnInit()    => Init?.Invoke();
-        bool OnTick()    => Tick?.Invoke() ?? false;
-        void OnCleanup() => Cleanup?.Invoke();
+        private void OnInit()
+        {
+            Init?.Invoke();
+        }
+
+        private bool OnTick()
+        {
+            return Tick?.Invoke() ?? false;
+        }
+
+        private void OnCleanup()
+        {
+            Cleanup?.Invoke();
+        }
 
         // guarded wrapper for thread code.
         // catches exceptions which would otherwise be silent.
@@ -129,11 +147,10 @@ namespace Mirror
 
                 // run thread func while active
                 while (active)
-                {
                     // Tick() returns a bool so it can easily stop the thread
                     // without needing to throw InterruptExceptions or similar.
-                    if (!OnTick()) break;
-                }
+                    if (!OnTick())
+                        break;
             }
             // Thread.Interrupt() will gracefully raise a InterruptedException.
             catch (ThreadInterruptedException)

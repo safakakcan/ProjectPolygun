@@ -8,31 +8,29 @@ namespace Mirror.Examples.MultipleAdditiveScenes
     [AddComponentMenu("")]
     public class MultiSceneNetManager : NetworkManager
     {
-        [Header("Spawner Setup")]
-        [Tooltip("Reward Prefab for the Spawner")]
+        [Header("Spawner Setup")] [Tooltip("Reward Prefab for the Spawner")]
         public GameObject rewardPrefab;
+
         public byte poolSize = 20;
 
-        [Header("MultiScene Setup")]
-        public int instances = 3;
+        [Header("MultiScene Setup")] public int instances = 3;
 
-        [Scene]
-        public string gameScene;
-
-        // This is set true after server loads all subscene instances
-        bool subscenesLoaded;
+        [Scene] public string gameScene;
 
         // subscenes are added to this list as they're loaded
-        readonly List<Scene> subScenes = new List<Scene>();
+        private readonly List<Scene> subScenes = new();
 
         // Sequential index used in round-robin deployment of players into instances and score positioning
-        int clientIndex;
+        private int clientIndex;
+
+        // This is set true after server loads all subscene instances
+        private bool subscenesLoaded;
 
         #region Server System Callbacks
 
         /// <summary>
-        /// Called on the server when a client adds a new player with NetworkClient.AddPlayer.
-        /// <para>The default implementation for this function creates a new player object from the playerPrefab.</para>
+        ///     Called on the server when a client adds a new player with NetworkClient.AddPlayer.
+        ///     <para>The default implementation for this function creates a new player object from the playerPrefab.</para>
         /// </summary>
         /// <param name="conn">Connection from client.</param>
         public override void OnServerAddPlayer(NetworkConnectionToClient conn)
@@ -42,7 +40,7 @@ namespace Mirror.Examples.MultipleAdditiveScenes
 
         // This delay is mostly for the host player that loads too fast for the
         // server to have subscenes async loaded from OnStartServer ahead of it.
-        IEnumerator OnServerAddPlayerDelayed(NetworkConnectionToClient conn)
+        private IEnumerator OnServerAddPlayerDelayed(NetworkConnectionToClient conn)
         {
             // wait for server to async load all subscenes for game instances
             while (!subscenesLoaded)
@@ -54,8 +52,8 @@ namespace Mirror.Examples.MultipleAdditiveScenes
             // Wait for end of frame before adding the player to ensure Scene Message goes first
             yield return new WaitForEndOfFrame();
 
-            Transform startPos = GetStartPosition();
-            GameObject player = startPos != null
+            var startPos = GetStartPosition();
+            var player = startPos != null
                 ? Instantiate(playerPrefab, startPos.position, startPos.rotation)
                 : Instantiate(playerPrefab);
 
@@ -63,7 +61,7 @@ namespace Mirror.Examples.MultipleAdditiveScenes
             // => appending the connectionId is WAY more useful for debugging!
             player.name = $"{playerPrefab.name} [connId={conn.connectionId}]";
 
-            PlayerScore playerScore = player.GetComponent<PlayerScore>();
+            var playerScore = player.GetComponent<PlayerScore>();
             playerScore.playerNumber = clientIndex;
             playerScore.scoreIndex = clientIndex / subScenes.Count;
             playerScore.matchIndex = clientIndex % subScenes.Count;
@@ -83,8 +81,8 @@ namespace Mirror.Examples.MultipleAdditiveScenes
         #region Start & Stop Callbacks
 
         /// <summary>
-        /// This is invoked when a server is started - including when a host is started.
-        /// <para>StartServer has multiple signatures, but they all cause this hook to be called.</para>
+        ///     This is invoked when a server is started - including when a host is started.
+        ///     <para>StartServer has multiple signatures, but they all cause this hook to be called.</para>
         /// </summary>
         public override void OnStartServer()
         {
@@ -94,19 +92,19 @@ namespace Mirror.Examples.MultipleAdditiveScenes
         // We're additively loading scenes, so GetSceneAt(0) will return the main "container" scene,
         // therefore we start the index at one and loop through instances value inclusively.
         // If instances is zero, the loop is bypassed entirely.
-        IEnumerator ServerLoadSubScenes()
+        private IEnumerator ServerLoadSubScenes()
         {
-            for (int index = 1; index <= instances; index++)
+            for (var index = 1; index <= instances; index++)
             {
                 yield return SceneManager.LoadSceneAsync(gameScene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = LocalPhysicsMode.Physics3D });
 
-                Scene newScene = SceneManager.GetSceneAt(index);
+                var newScene = SceneManager.GetSceneAt(index);
                 subScenes.Add(newScene);
             }
 
             Spawner.InitializePool(rewardPrefab, poolSize);
 
-            foreach (Scene scene in subScenes)
+            foreach (var scene in subScenes)
                 if (scene.IsValid())
                     Spawner.InitialSpawn(scene);
 
@@ -114,13 +112,13 @@ namespace Mirror.Examples.MultipleAdditiveScenes
         }
 
         /// <summary>
-        /// This is called when a server is stopped - including when a host is stopped.
+        ///     This is called when a server is stopped - including when a host is stopped.
         /// </summary>
         public override void OnStopServer()
         {
             NetworkServer.SendToAll(new SceneMessage { sceneName = gameScene, sceneOperation = SceneOperation.UnloadAdditive });
-            
-            if (gameObject.activeSelf) 
+
+            if (gameObject.activeSelf)
                 StartCoroutine(ServerUnloadSubScenes());
 
             Spawner.ClearPool();
@@ -128,9 +126,9 @@ namespace Mirror.Examples.MultipleAdditiveScenes
         }
 
         // Unload the subScenes and unused assets and clear the subScenes list.
-        IEnumerator ServerUnloadSubScenes()
+        private IEnumerator ServerUnloadSubScenes()
         {
-            for (int index = 0; index < subScenes.Count; index++)
+            for (var index = 0; index < subScenes.Count; index++)
                 if (subScenes[index].IsValid())
                     yield return SceneManager.UnloadSceneAsync(subScenes[index]);
 
@@ -151,15 +149,15 @@ namespace Mirror.Examples.MultipleAdditiveScenes
         }
 
         // Unload all but the active scene, which is the "container" scene
-        IEnumerator ClientUnloadSubScenes()
+        private IEnumerator ClientUnloadSubScenes()
         {
-            for (int index = 0; index < SceneManager.sceneCount; index++)
+            for (var index = 0; index < SceneManager.sceneCount; index++)
                 if (SceneManager.GetSceneAt(index) != SceneManager.GetActiveScene())
                     yield return SceneManager.UnloadSceneAsync(SceneManager.GetSceneAt(index));
         }
 
         /// <summary>
-        /// This is called when a client is stopped.
+        ///     This is called when a client is stopped.
         /// </summary>
         public override void OnStopClient()
         {
@@ -171,7 +169,8 @@ namespace Mirror.Examples.MultipleAdditiveScenes
 
             // Make sure we're not in ServerOnly mode now after stopping host client
             if (mode == NetworkManagerMode.Offline)
-                if (gameObject.activeSelf) StartCoroutine(ClientUnloadSubScenes());
+                if (gameObject.activeSelf)
+                    StartCoroutine(ClientUnloadSubScenes());
         }
 
         #endregion

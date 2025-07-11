@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Callbacks;
@@ -22,13 +21,13 @@ namespace Mirror
             //    for some reason
             // => OfTypeAll so disabled objects are included too
             // => Unity 2019 returns prefabs here too, so filter them out.
-            IEnumerable<NetworkIdentity> identities = Resources.FindObjectsOfTypeAll<NetworkIdentity>()
+            var identities = Resources.FindObjectsOfTypeAll<NetworkIdentity>()
                 .Where(identity => identity.gameObject.hideFlags != HideFlags.NotEditable &&
                                    identity.gameObject.hideFlags != HideFlags.HideAndDontSave &&
                                    identity.gameObject.scene.name != "DontDestroyOnLoad" &&
                                    !Utils.IsPrefab(identity.gameObject));
 
-            foreach (NetworkIdentity identity in identities)
+            foreach (var identity in identities)
             {
                 // if we had a [ConflictComponent] attribute that would be better than this check.
                 // also there is no context about which scene this is in.
@@ -56,7 +55,7 @@ namespace Mirror
                     {
                         // there are two cases where sceneId == 0:
                         // if we have a prefab open in the prefab scene
-                        string path = identity.gameObject.scene.path;
+                        var path = identity.gameObject.scene.path;
                         if (string.IsNullOrWhiteSpace(path))
                         {
                             // pressing play while in prefab edit mode used to freeze/crash Unity 2019.
@@ -71,7 +70,6 @@ namespace Mirror
                         // if an unopened scene needs resaving
                         else
                         {
-
                             // nothing good will happen when trying to launch with invalid sceneIds.
                             // show an error and stop playing immediately.
                             Debug.LogError($"Scene {path} needs to be opened and resaved, because the scene object {identity.name} has no valid sceneId yet.");
@@ -82,7 +80,7 @@ namespace Mirror
             }
         }
 
-        static void PrepareSceneObject(NetworkIdentity identity)
+        private static void PrepareSceneObject(NetworkIdentity identity)
         {
             // set scene hash
             identity.SetSceneIdSceneHashPartInternal();
@@ -95,10 +93,10 @@ namespace Mirror
             identity.gameObject.SetActive(false);
 
             // safety check for prefabs with more than one NetworkIdentity
-            GameObject prefabGO = PrefabUtility.GetCorrespondingObjectFromSource(identity.gameObject);
+            var prefabGO = PrefabUtility.GetCorrespondingObjectFromSource(identity.gameObject);
             if (prefabGO)
             {
-                GameObject prefabRootGO = prefabGO.transform.root.gameObject;
+                var prefabRootGO = prefabGO.transform.root.gameObject;
                 if (prefabRootGO != null && prefabRootGO.GetComponentsInChildren<NetworkIdentity>().Length > 1)
                     Debug.LogWarning($"Prefab {prefabRootGO.name} has several NetworkIdentity components attached to itself or its children, this is not supported.");
             }

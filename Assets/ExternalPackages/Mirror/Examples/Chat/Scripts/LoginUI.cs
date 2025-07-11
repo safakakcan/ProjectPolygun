@@ -5,23 +5,24 @@ namespace Mirror.Examples.Chat
 {
     public class LoginUI : MonoBehaviour
     {
-        [Header("UI Elements")]
-        [SerializeField] internal InputField networkAddressInput;
+        public static LoginUI instance;
+
+        [Header("UI Elements")] [SerializeField]
+        internal InputField networkAddressInput;
+
         [SerializeField] internal InputField usernameInput;
         [SerializeField] internal Button hostButton;
         [SerializeField] internal Button clientButton;
         [SerializeField] internal Text errorText;
 
-        public static LoginUI instance;
+        private string originalNetworkAddress;
 
-        string originalNetworkAddress;
-
-        void Awake()
+        private void Awake()
         {
             instance = this;
         }
 
-        void Start()
+        private void Start()
         {
             // if we don't have a networkAddress, set a default one.
             if (string.IsNullOrWhiteSpace(NetworkManager.singleton.networkAddress))
@@ -31,7 +32,7 @@ namespace Mirror.Examples.Chat
             originalNetworkAddress = NetworkManager.singleton.networkAddress;
         }
 
-        void Update()
+        private void Update()
         {
             // bidirectional sync of networkAddressInput and NetworkManager.networkAddress
             // Order of operations is important here...Don't switch the order of these steps.

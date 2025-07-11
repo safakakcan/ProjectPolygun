@@ -7,8 +7,10 @@ namespace Mirror
     {
         // Send stage three: hand off to transport
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void SendToTransport(ArraySegment<byte> segment, int channelId = Channels.Reliable) =>
+        protected override void SendToTransport(ArraySegment<byte> segment, int channelId = Channels.Reliable)
+        {
             Transport.active.ClientSend(segment, channelId);
+        }
 
         /// <summary>Disconnects this connection.</summary>
         public override void Disconnect()

@@ -10,9 +10,9 @@ namespace Mirror.Examples.CharacterSelection
         // Compare Network Manager inspector setups to see the difference between the two.
         // Either of these allow selecting character after spawning in too.
         public bool SpawnAsCharacter = true;
-
-        public static new NetworkManagerCharacterSelection singleton => (NetworkManagerCharacterSelection)NetworkManager.singleton;
         private CharacterData characterData;
+
+        public new static NetworkManagerCharacterSelection singleton => (NetworkManagerCharacterSelection)NetworkManager.singleton;
 
         public override void Awake()
         {
@@ -22,19 +22,8 @@ namespace Mirror.Examples.CharacterSelection
                 Debug.Log("Add CharacterData prefab singleton into the scene.");
                 return;
             }
+
             base.Awake();
-        }
-
-        public struct CreateCharacterMessage : NetworkMessage
-        {
-            public string playerName;
-            public int characterNumber;
-            public Color characterColour;
-        }
-
-        public struct ReplaceCharacterMessage : NetworkMessage
-        {
-            public CreateCharacterMessage createCharacterMessage;
         }
 
         public override void OnStartServer()
@@ -52,7 +41,7 @@ namespace Mirror.Examples.CharacterSelection
             if (SpawnAsCharacter)
             {
                 // you can send the message here, or wherever else you want
-                CreateCharacterMessage characterMessage = new CreateCharacterMessage
+                var characterMessage = new CreateCharacterMessage
                 {
                     playerName = StaticVariables.playerName,
                     characterNumber = StaticVariables.characterNumber,
@@ -63,15 +52,15 @@ namespace Mirror.Examples.CharacterSelection
             }
         }
 
-        void OnCreateCharacter(NetworkConnectionToClient conn, CreateCharacterMessage message)
+        private void OnCreateCharacter(NetworkConnectionToClient conn, CreateCharacterMessage message)
         {
-            Transform startPos = GetStartPosition();
+            var startPos = GetStartPosition();
 
             // check if the save data has been pre-set
             if (message.playerName == "")
             {
                 Debug.Log("OnCreateCharacter name invalid or not set, use random.");
-                message.playerName = "Player: " + UnityEngine.Random.Range(100, 1000);
+                message.playerName = "Player: " + Random.Range(100, 1000);
             }
 
             // check that prefab is set, or exists for saved character number data
@@ -79,7 +68,7 @@ namespace Mirror.Examples.CharacterSelection
             if (message.characterNumber <= 0 || message.characterNumber >= characterData.characterPrefabs.Length)
             {
                 Debug.Log("OnCreateCharacter prefab Invalid or not set, use random.");
-                message.characterNumber = UnityEngine.Random.Range(1, characterData.characterPrefabs.Length);
+                message.characterNumber = Random.Range(1, characterData.characterPrefabs.Length);
             }
 
             // check if the save data has been pre-set
@@ -89,14 +78,14 @@ namespace Mirror.Examples.CharacterSelection
                 message.characterColour = Random.ColorHSV(0f, 1f, 1f, 1f, 0f, 1f);
             }
 
-            GameObject playerObject = startPos != null
+            var playerObject = startPos != null
                 ? Instantiate(characterData.characterPrefabs[message.characterNumber], startPos.position, startPos.rotation)
                 : Instantiate(characterData.characterPrefabs[message.characterNumber]);
 
 
             // Apply data from the message however appropriate for your game
             // Typically Player would be a component you write with syncvars or properties
-            CharacterSelection characterSelection = playerObject.GetComponent<CharacterSelection>();
+            var characterSelection = playerObject.GetComponent<CharacterSelection>();
             characterSelection.playerName = message.playerName;
             characterSelection.characterNumber = message.characterNumber;
             characterSelection.characterColour = message.characterColour;
@@ -105,19 +94,19 @@ namespace Mirror.Examples.CharacterSelection
             NetworkServer.AddPlayerForConnection(conn, playerObject);
         }
 
-        void OnReplaceCharacterMessage(NetworkConnectionToClient conn, ReplaceCharacterMessage message)
+        private void OnReplaceCharacterMessage(NetworkConnectionToClient conn, ReplaceCharacterMessage message)
         {
             // Cache a reference to the current player object
-            GameObject oldPlayer = conn.identity.gameObject;
+            var oldPlayer = conn.identity.gameObject;
 
-            GameObject playerObject = Instantiate(characterData.characterPrefabs[message.createCharacterMessage.characterNumber], oldPlayer.transform.position, oldPlayer.transform.rotation);
+            var playerObject = Instantiate(characterData.characterPrefabs[message.createCharacterMessage.characterNumber], oldPlayer.transform.position, oldPlayer.transform.rotation);
 
             // Instantiate the new player object and broadcast to clients
             NetworkServer.ReplacePlayerForConnection(conn, playerObject, ReplacePlayerOptions.KeepActive);
 
             // Apply data from the message however appropriate for your game
             // Typically Player would be a component you write with syncvars or properties
-            CharacterSelection characterSelection = playerObject.GetComponent<CharacterSelection>();
+            var characterSelection = playerObject.GetComponent<CharacterSelection>();
             characterSelection.playerName = message.createCharacterMessage.playerName;
             characterSelection.characterNumber = message.createCharacterMessage.characterNumber;
             characterSelection.characterColour = message.createCharacterMessage.characterColour;
@@ -130,6 +119,18 @@ namespace Mirror.Examples.CharacterSelection
         public void ReplaceCharacter(ReplaceCharacterMessage message)
         {
             NetworkClient.Send(message);
+        }
+
+        public struct CreateCharacterMessage : NetworkMessage
+        {
+            public string playerName;
+            public int characterNumber;
+            public Color characterColour;
+        }
+
+        public struct ReplaceCharacterMessage : NetworkMessage
+        {
+            public CreateCharacterMessage createCharacterMessage;
         }
     }
 }

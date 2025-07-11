@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using static Mirror.Examples.CharacterSelection.NetworkManagerCharacterSelection;
 
 namespace Mirror.Examples.CharacterSelection
-{ 
+{
     public class CanvasReferencer : MonoBehaviour
     {
         // Make sure to attach these Buttons in the Inspector
@@ -13,12 +13,12 @@ namespace Mirror.Examples.CharacterSelection
         public InputField inputFieldPlayerName;
 
         public Transform podiumPosition;
-        private int currentlySelectedCharacter = 1;
-        private CharacterData characterData;
-        private GameObject currentInstantiatedCharacter;
-        private CharacterSelection characterSelection;
         public SceneReferencer sceneReferencer;
         public Camera cameraObj;
+        private CharacterData characterData;
+        private CharacterSelection characterSelection;
+        private GameObject currentInstantiatedCharacter;
+        private int currentlySelectedCharacter = 1;
 
         private void Start()
         {
@@ -44,10 +44,7 @@ namespace Mirror.Examples.CharacterSelection
         public void ButtonExit()
         {
             //Debug.Log("ButtonExit");
-            if (sceneReferencer)
-            {
-                sceneReferencer.CloseCharacterSelection();
-            }
+            if (sceneReferencer) sceneReferencer.CloseCharacterSelection();
         }
 
         public void ButtonGo()
@@ -57,23 +54,22 @@ namespace Mirror.Examples.CharacterSelection
             // presumes we're already in-game
             if (sceneReferencer && NetworkClient.active)
             {
-
                 // You could check if prefab (character number) has not changed, and if so just update the sync vars and hooks of current prefab, this would call a command from your player.
                 // this is not fully setup for this example, but provides a minor template to follow if needed
                 //NetworkClient.localPlayer.GetComponent<CharacterSelection>().CmdSetupCharacter(StaticVariables.playerName, StaticVariables.characterColour);
 
-                CreateCharacterMessage _characterMessage = new CreateCharacterMessage
+                var _characterMessage = new CreateCharacterMessage
                 {
                     playerName = StaticVariables.playerName,
                     characterNumber = StaticVariables.characterNumber,
                     characterColour = StaticVariables.characterColour
                 };
 
-                ReplaceCharacterMessage replaceCharacterMessage = new ReplaceCharacterMessage
+                var replaceCharacterMessage = new ReplaceCharacterMessage
                 {
                     createCharacterMessage = _characterMessage
                 };
-                NetworkManagerCharacterSelection.singleton.ReplaceCharacter(replaceCharacterMessage);
+                singleton.ReplaceCharacter(replaceCharacterMessage);
                 sceneReferencer.CloseCharacterSelection();
             }
             else
@@ -88,10 +84,7 @@ namespace Mirror.Examples.CharacterSelection
             //Debug.Log("ButtonNextCharacter");
 
             currentlySelectedCharacter += 1;
-            if (currentlySelectedCharacter >= characterData.characterPrefabs.Length)
-            {
-                currentlySelectedCharacter = 1;
-            }
+            if (currentlySelectedCharacter >= characterData.characterPrefabs.Length) currentlySelectedCharacter = 1;
             SetupCharacters();
 
             StaticVariables.characterNumber = currentlySelectedCharacter;
@@ -119,28 +112,22 @@ namespace Mirror.Examples.CharacterSelection
             textAttack.text = "Attack: " + characterData.characterAttack[currentlySelectedCharacter];
             textAbilities.text = "Abilities:\n" + characterData.characterAbilities[currentlySelectedCharacter];
 
-            if (currentInstantiatedCharacter)
-            {
-                Destroy(currentInstantiatedCharacter);
-            }
+            if (currentInstantiatedCharacter) Destroy(currentInstantiatedCharacter);
             currentInstantiatedCharacter = Instantiate(characterData.characterPrefabs[currentlySelectedCharacter]);
             currentInstantiatedCharacter.transform.position = podiumPosition.position;
             currentInstantiatedCharacter.transform.rotation = podiumPosition.rotation;
             characterSelection = currentInstantiatedCharacter.GetComponent<CharacterSelection>();
-            currentInstantiatedCharacter.transform.SetParent(this.transform.root);
+            currentInstantiatedCharacter.transform.SetParent(transform.root);
 
             SetupCharacterColours();
             SetupPlayerName();
 
-            if (cameraObj)
-            {
-                characterSelection.floatingInfo.forward = cameraObj.transform.forward;
-            }
+            if (cameraObj) characterSelection.floatingInfo.forward = cameraObj.transform.forward;
         }
 
         public void SetupCharacterColours()
         {
-           // Debug.Log("SetupCharacterColours");
+            // Debug.Log("SetupCharacterColours");
             if (StaticVariables.characterColour != new Color(0, 0, 0, 0))
             {
                 characterSelection.characterColour = StaticVariables.characterColour;
@@ -170,10 +157,7 @@ namespace Mirror.Examples.CharacterSelection
             // check if the static save data has been pre-set
             if (StaticVariables.playerName != "")
             {
-                if (inputFieldPlayerName)
-                {
-                    inputFieldPlayerName.text = StaticVariables.playerName;
-                }
+                if (inputFieldPlayerName) inputFieldPlayerName.text = StaticVariables.playerName;
             }
             else
             {
@@ -182,13 +166,9 @@ namespace Mirror.Examples.CharacterSelection
 
             // check that prefab is set, or exists for saved character number data
             if (StaticVariables.characterNumber > 0 && StaticVariables.characterNumber < characterData.characterPrefabs.Length)
-            {
                 currentlySelectedCharacter = StaticVariables.characterNumber;
-            }
             else
-            {
                 StaticVariables.characterNumber = currentlySelectedCharacter;
-            }
         }
     }
 }

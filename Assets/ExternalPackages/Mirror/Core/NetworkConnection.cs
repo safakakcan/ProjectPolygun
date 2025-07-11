@@ -10,31 +10,16 @@ namespace Mirror
     {
         public const int LocalConnectionId = 0;
 
-        /// <summary>Flag that indicates the client has been authenticated.</summary>
-        public bool isAuthenticated;
-
-        /// <summary>General purpose object to hold authentication data, character selection, tokens, etc.</summary>
-        public object authenticationData;
-
-        /// <summary>A server connection is ready after joining the game world.</summary>
-        // TODO move this to ConnectionToClient so the flag only lives on server
-        // connections? clients could use NetworkClient.ready to avoid redundant
-        // state.
-        public bool isReady;
-
-        /// <summary>Last time a message was received for this connection. Includes system and user messages.</summary>
-        public float lastMessageTime;
-
-        /// <summary>This connection's main object (usually the player object).</summary>
-        public NetworkIdentity identity { get; internal set; }
-
         /// <summary>All NetworkIdentities owned by this connection. Can be main player, pets, etc.</summary>
         // .owned is now valid both on server and on client.
         // IMPORTANT: this needs to be <NetworkIdentity>, not <uint netId>.
         //            fixes a bug where DestroyOwnedObjects wouldn't find the
         //            netId anymore: https://github.com/vis2k/Mirror/issues/1380
         //            Works fine with NetworkIdentity pointers though.
-        public readonly HashSet<NetworkIdentity> owned = new HashSet<NetworkIdentity>();
+        public readonly HashSet<NetworkIdentity> owned = new();
+
+        /// <summary>General purpose object to hold authentication data, character selection, tokens, etc.</summary>
+        public object authenticationData;
 
         // batching from server to client & client to server.
         // fewer transport calls give us significantly better performance/scale.
@@ -45,7 +30,29 @@ namespace Mirror
         // depending on the transport, this can give 10x performance.
         //
         // Dictionary<channelId, batch> because we have multiple channels.
-        protected Dictionary<int, Batcher> batches = new Dictionary<int, Batcher>();
+        protected Dictionary<int, Batcher> batches = new();
+
+        /// <summary>Flag that indicates the client has been authenticated.</summary>
+        public bool isAuthenticated;
+
+        /// <summary>A server connection is ready after joining the game world.</summary>
+        // TODO move this to ConnectionToClient so the flag only lives on server
+        // connections? clients could use NetworkClient.ready to avoid redundant
+        // state.
+        public bool isReady;
+
+        /// <summary>Last time a message was received for this connection. Includes system and user messages.</summary>
+        public float lastMessageTime;
+
+        internal NetworkConnection()
+        {
+            // set lastTime to current time when creating connection to make
+            // sure it isn't instantly kicked for inactivity
+            lastMessageTime = Time.time;
+        }
+
+        /// <summary>This connection's main object (usually the player object).</summary>
+        public NetworkIdentity identity { get; internal set; }
 
         /// <summary>last batch's remote timestamp. not interpolated. useful for NetworkTransform etc.</summary>
         // for any given NetworkMessage/Rpc/Cmd/OnSerialize, this was the time
@@ -56,13 +63,6 @@ namespace Mirror
         //       different connections.
         public double remoteTimeStamp { get; internal set; }
 
-        internal NetworkConnection()
-        {
-            // set lastTime to current time when creating connection to make
-            // sure it isn't instantly kicked for inactivity
-            lastMessageTime = Time.time;
-        }
-
         // TODO if we only have Reliable/Unreliable, then we could initialize
         // two batches and avoid this code
         protected Batcher GetBatchForChannelId(int channelId)
@@ -72,12 +72,13 @@ namespace Mirror
             if (!batches.TryGetValue(channelId, out batch))
             {
                 // get max batch size for this channel
-                int threshold = Transport.active.GetBatchThreshold(channelId);
+                var threshold = Transport.active.GetBatchThreshold(channelId);
 
                 // create batcher
                 batch = new Batcher(threshold);
                 batches[channelId] = batch;
             }
+
             return batch;
         }
 
@@ -86,7 +87,7 @@ namespace Mirror
         public void Send<T>(T message, int channelId = Channels.Reliable)
             where T : struct, NetworkMessage
         {
-            using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+            using (var writer = NetworkWriterPool.Get())
             {
                 // pack message
                 NetworkMessages.Pack(message, writer);
@@ -96,7 +97,7 @@ namespace Mirror
                 // if it's larger, log an error immediately with the type <T>.
                 // previously we only logged in Update() when processing batches,
                 // but there we don't have type information anymore.
-                int max = NetworkMessages.MaxMessageSize(channelId);
+                var max = NetworkMessages.MaxMessageSize(channelId);
                 if (writer.Position > max)
                 {
                     Debug.LogError($"NetworkConnection.Send: message of type {typeof(T)} with a size of {writer.Position} bytes is larger than the max allowed message size in one batch: {max}.\nThe message was dropped, please make it smaller.");
@@ -145,32 +146,33 @@ namespace Mirror
         {
             // go through batches for all channels
             // foreach ((int key, Batcher batcher) in batches) // Unity 2020 doesn't support deconstruct yet
-            foreach (KeyValuePair<int, Batcher> kvp in batches)
-            {
+            foreach (var kvp in batches)
                 // make and send as many batches as necessary from the stored
                 // messages.
-                using (NetworkWriterPooled writer = NetworkWriterPool.Get())
+                using (var writer = NetworkWriterPool.Get())
                 {
                     // make a batch with our local time (double precision)
                     while (kvp.Value.GetBatch(writer))
                     {
                         // message size is validated in Send<T>, with test coverage.
                         // we can send directly without checking again.
-                        ArraySegment<byte> segment = writer.ToArraySegment();
+                        var segment = writer.ToArraySegment();
 
                         // send to transport
                         SendToTransport(segment, kvp.Key);
-                        //UnityEngine.Debug.Log($"sending batch of {writer.Position} bytes for channel={kvp.Key} connId={connectionId}");
 
+                        //UnityEngine.Debug.Log($"sending batch of {writer.Position} bytes for channel={kvp.Key} connId={connectionId}");
                         // reset writer for each new batch
                         writer.Position = 0;
                     }
                 }
-            }
         }
 
         /// <summary>Check if we received a message within the last 'timeout' seconds.</summary>
-        internal virtual bool IsAlive(float timeout) => Time.time - lastMessageTime < timeout;
+        internal virtual bool IsAlive(float timeout)
+        {
+            return Time.time - lastMessageTime < timeout;
+        }
 
         /// <summary>Disconnects this connection.</summary>
         // for future reference, here is how Disconnects work in Mirror.
@@ -198,10 +200,7 @@ namespace Mirror
         // never be returned to the pool.
         public virtual void Cleanup()
         {
-            foreach (Batcher batcher in batches.Values)
-            {
-                batcher.Clear();
-            }
+            foreach (var batcher in batches.Values) batcher.Clear();
         }
     }
 }

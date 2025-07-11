@@ -1,18 +1,19 @@
-using IO.Swagger.Model;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using IO.Swagger.Model;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using System.IO;
+using Application = UnityEngine.Application;
 
 namespace Edgegap
 {
-    static class EdgegapServerDataManagerUtils
+    internal static class EdgegapServerDataManagerUtils
     {
         public static Label GetHeader(string text)
         {
-            Label header = new Label(text);
+            var header = new Label(text);
             header.AddToClassList("label__header");
 
             return header;
@@ -20,7 +21,7 @@ namespace Edgegap
 
         public static VisualElement GetHeaderRow()
         {
-            VisualElement row = new VisualElement();
+            var row = new VisualElement();
             row.AddToClassList("row__port-table");
             row.AddToClassList("label__header");
 
@@ -35,7 +36,7 @@ namespace Edgegap
 
         public static VisualElement GetRowFromPortResponse(PortMapping port)
         {
-            VisualElement row = new VisualElement();
+            var row = new VisualElement();
             row.AddToClassList("row__port-table");
             row.AddToClassList("focusable");
 
@@ -51,7 +52,7 @@ namespace Edgegap
 
         public static Button GetCopyButton(string btnText, string copiedText)
         {
-            Button copyBtn = new Button();
+            var copyBtn = new Button();
             copyBtn.text = btnText;
             copyBtn.clickable.clicked += () => GUIUtility.systemCopyBuffer = copiedText;
 
@@ -60,15 +61,16 @@ namespace Edgegap
 
         public static Button GetLinkButton(string btnText, string targetUrl)
         {
-            Button copyBtn = new Button();
+            var copyBtn = new Button();
             copyBtn.text = btnText;
-            copyBtn.clickable.clicked += () => UnityEngine.Application.OpenURL(targetUrl);
+            copyBtn.clickable.clicked += () => Application.OpenURL(targetUrl);
 
             return copyBtn;
         }
+
         public static Label GetInfoText(string innerText)
         {
-            Label infoText = new Label(innerText);
+            var infoText = new Label(innerText);
             infoText.AddToClassList("label__info-text");
 
             return infoText;
@@ -76,7 +78,8 @@ namespace Edgegap
     }
 
     /// <summary>
-    /// Utility class to centrally manage the Edgegap server data, and create / update the elements displaying the server info.
+    ///     Utility class to centrally manage the Edgegap server data, and create / update the elements displaying the server
+    ///     info.
     /// </summary>
     public static class EdgegapServerDataManager
     {
@@ -85,14 +88,7 @@ namespace Edgegap
 
         // UI elements
         private static readonly StyleSheet _serverDataStylesheet;
-        private static readonly List<VisualElement> _serverDataContainers = new List<VisualElement>();
-
-        public static Status GetServerStatus() => _serverData;
-
-#if UNITY_EDITOR
-        internal static string StylesheetPath =>
-            Path.GetDirectoryName(AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets($"t:Script {nameof(EdgegapServerDataManager)}")[0]));
-#endif
+        private static readonly List<VisualElement> _serverDataContainers = new();
 
         static EdgegapServerDataManager()
         {
@@ -100,14 +96,27 @@ namespace Edgegap
             _serverDataStylesheet = AssetDatabase.LoadAssetAtPath<StyleSheet>($"{StylesheetPath}{Path.DirectorySeparatorChar}EdgegapServerData.uss");
 #endif
         }
+
+#if UNITY_EDITOR
+        internal static string StylesheetPath =>
+            Path.GetDirectoryName(AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets($"t:Script {nameof(EdgegapServerDataManager)}")[0]));
+#endif
+
+        public static Status GetServerStatus()
+        {
+            return _serverData;
+        }
+
         public static void RegisterServerDataContainer(VisualElement serverDataContainer)
         {
             _serverDataContainers.Add(serverDataContainer);
         }
+
         public static void DeregisterServerDataContainer(VisualElement serverDataContainer)
         {
             _serverDataContainers.Remove(serverDataContainer);
         }
+
         public static void SetServerData(Status serverData, ApiEnvironment apiEnvironment)
         {
             _serverData = serverData;
@@ -117,39 +126,32 @@ namespace Edgegap
 
         private static VisualElement GetStatusSection()
         {
-            ServerStatus serverStatus = _serverData.GetServerStatus();
-            string dashboardUrl = _apiEnvironment.GetDashboardUrl();
-            string requestId = _serverData.RequestId;
-            string deploymentDashboardUrl = "";
+            var serverStatus = _serverData.GetServerStatus();
+            var dashboardUrl = _apiEnvironment.GetDashboardUrl();
+            var requestId = _serverData.RequestId;
+            var deploymentDashboardUrl = "";
 
-            if (!string.IsNullOrEmpty(requestId) && !string.IsNullOrEmpty(dashboardUrl))
-            {
-                deploymentDashboardUrl = $"{dashboardUrl}/arbitrium/deployment/read/{requestId}/";
-            }
+            if (!string.IsNullOrEmpty(requestId) && !string.IsNullOrEmpty(dashboardUrl)) deploymentDashboardUrl = $"{dashboardUrl}/arbitrium/deployment/read/{requestId}/";
 
-            VisualElement container = new VisualElement();
+            var container = new VisualElement();
             container.AddToClassList("container");
 
             container.Add(EdgegapServerDataManagerUtils.GetHeader("Server Status"));
 
-            VisualElement row = new VisualElement();
+            var row = new VisualElement();
             row.AddToClassList("row__status");
 
             // Status pill
-            Label statusLabel = new Label(serverStatus.GetLabelText());
+            var statusLabel = new Label(serverStatus.GetLabelText());
             statusLabel.AddToClassList(serverStatus.GetStatusBgClass());
             statusLabel.AddToClassList("label__status");
             row.Add(statusLabel);
 
             // Link to dashboard
             if (!string.IsNullOrEmpty(deploymentDashboardUrl))
-            {
                 row.Add(EdgegapServerDataManagerUtils.GetLinkButton("See in the dashboard", deploymentDashboardUrl));
-            }
             else
-            {
                 row.Add(new Label("Could not resolve link to this deployment"));
-            }
 
             container.Add(row);
 
@@ -158,14 +160,14 @@ namespace Edgegap
 
         private static VisualElement GetDnsSection()
         {
-            string serverDns = _serverData.Fqdn;
+            var serverDns = _serverData.Fqdn;
 
-            VisualElement container = new VisualElement();
+            var container = new VisualElement();
             container.AddToClassList("container");
 
             container.Add(EdgegapServerDataManagerUtils.GetHeader("Server DNS"));
 
-            VisualElement row = new VisualElement();
+            var row = new VisualElement();
             row.AddToClassList("row__dns");
             row.AddToClassList("focusable");
 
@@ -179,27 +181,21 @@ namespace Edgegap
 
         private static VisualElement GetPortsSection()
         {
-            List<PortMapping> serverPorts = _serverData.Ports.Values.ToList();
+            var serverPorts = _serverData.Ports.Values.ToList();
 
-            VisualElement container = new VisualElement();
+            var container = new VisualElement();
             container.AddToClassList("container");
 
             container.Add(EdgegapServerDataManagerUtils.GetHeader("Server PortsDict"));
             container.Add(EdgegapServerDataManagerUtils.GetHeaderRow());
 
-            VisualElement portList = new VisualElement();
+            var portList = new VisualElement();
 
             if (serverPorts.Count > 0)
-            {
-                foreach (PortMapping port in serverPorts)
-                {
+                foreach (var port in serverPorts)
                     portList.Add(EdgegapServerDataManagerUtils.GetRowFromPortResponse(port));
-                }
-            }
             else
-            {
                 portList.Add(new Label("No port configured for this app version."));
-            }
 
             container.Add(portList);
 
@@ -208,11 +204,11 @@ namespace Edgegap
 
         public static VisualElement GetServerDataVisualTree()
         {
-            VisualElement serverDataTree = new VisualElement();
+            var serverDataTree = new VisualElement();
             serverDataTree.styleSheets.Add(_serverDataStylesheet);
 
-            bool hasServerData = _serverData != null;
-            bool isReady = hasServerData && _serverData.GetServerStatus().IsOneOf(ServerStatus.Ready, ServerStatus.Error);
+            var hasServerData = _serverData != null;
+            var isReady = hasServerData && _serverData.GetServerStatus().IsOneOf(ServerStatus.Ready, ServerStatus.Error);
 
             if (hasServerData)
             {
@@ -238,7 +234,7 @@ namespace Edgegap
 
         private static void RefreshServerDataContainers()
         {
-            foreach (VisualElement serverDataContainer in _serverDataContainers)
+            foreach (var serverDataContainer in _serverDataContainers)
             {
                 serverDataContainer.Clear();
                 serverDataContainer.Add(GetServerDataVisualTree()); // Cannot reuse a same instance of VisualElement

@@ -1,4 +1,5 @@
 using System;
+using Mirror.RemoteCalls;
 using Mono.CecilX;
 using UnityEditor;
 using UnityEngine;
@@ -8,63 +9,58 @@ namespace Mirror.Weaver
     // not static, because ILPostProcessor is multithreaded
     public class WeaverTypes
     {
-        public MethodReference ScriptableObjectCreateInstanceMethod;
-
-        public FieldReference NetworkBehaviourDirtyBitsReference;
-        public MethodReference GetWriterReference;
-        public MethodReference ReturnWriterReference;
-
-        public MethodReference NetworkClientConnectionReference;
-
-        public MethodReference RemoteCallDelegateConstructor;
-
-        public MethodReference NetworkServerGetActive;
-        public MethodReference NetworkClientGetActive;
-
-        // custom attribute types
-        public MethodReference InitSyncObjectReference;
-
-        // array segment
-        public MethodReference ArraySegmentConstructorReference;
+        private readonly AssemblyDefinition assembly;
 
         // Action<T,T> for SyncVar Hooks
         public MethodReference ActionT_T;
 
+        // array segment
+        public MethodReference ArraySegmentConstructorReference;
+        public MethodReference generatedSyncVarDeserialize;
+        public MethodReference generatedSyncVarDeserialize_GameObject;
+        public MethodReference generatedSyncVarDeserialize_NetworkBehaviour_T;
+        public MethodReference generatedSyncVarDeserialize_NetworkIdentity;
+
         // syncvar
         public MethodReference generatedSyncVarSetter;
         public MethodReference generatedSyncVarSetter_GameObject;
-        public MethodReference generatedSyncVarSetter_NetworkIdentity;
         public MethodReference generatedSyncVarSetter_NetworkBehaviour_T;
-        public MethodReference generatedSyncVarDeserialize;
-        public MethodReference generatedSyncVarDeserialize_GameObject;
-        public MethodReference generatedSyncVarDeserialize_NetworkIdentity;
-        public MethodReference generatedSyncVarDeserialize_NetworkBehaviour_T;
+        public MethodReference generatedSyncVarSetter_NetworkIdentity;
         public MethodReference getSyncVarGameObjectReference;
-        public MethodReference getSyncVarNetworkIdentityReference;
         public MethodReference getSyncVarNetworkBehaviourReference;
-        public MethodReference registerCommandReference;
-        public MethodReference registerRpcReference;
+        public MethodReference getSyncVarNetworkIdentityReference;
         public MethodReference getTypeFromHandleReference;
-        public MethodReference logErrorReference;
-        public MethodReference logWarningReference;
-        public MethodReference sendCommandInternal;
-        public MethodReference sendRpcInternal;
-        public MethodReference sendTargetRpcInternal;
-
-        public MethodReference readNetworkBehaviourGeneric;
-
-        public TypeReference weaverFuseType;
-        public MethodReference weaverFuseMethod;
+        public MethodReference GetWriterReference;
 
         // attributes
         public TypeDefinition initializeOnLoadMethodAttribute;
+
+        // custom attribute types
+        public MethodReference InitSyncObjectReference;
+        public MethodReference logErrorReference;
+        public MethodReference logWarningReference;
+
+        public FieldReference NetworkBehaviourDirtyBitsReference;
+
+        public MethodReference NetworkClientConnectionReference;
+        public MethodReference NetworkClientGetActive;
+
+        public MethodReference NetworkServerGetActive;
+
+        public MethodReference readNetworkBehaviourGeneric;
+        public MethodReference registerCommandReference;
+        public MethodReference registerRpcReference;
+
+        public MethodReference RemoteCallDelegateConstructor;
+        public MethodReference ReturnWriterReference;
         public TypeDefinition runtimeInitializeOnLoadMethodAttribute;
+        public MethodReference ScriptableObjectCreateInstanceMethod;
+        public MethodReference sendCommandInternal;
+        public MethodReference sendRpcInternal;
+        public MethodReference sendTargetRpcInternal;
+        public MethodReference weaverFuseMethod;
 
-        AssemblyDefinition assembly;
-
-        public TypeReference Import<T>() => Import(typeof(T));
-
-        public TypeReference Import(Type t) => assembly.MainModule.ImportReference(t);
+        public TypeReference weaverFuseType;
 
         // constructor resolves the types and stores them in fields
         public WeaverTypes(AssemblyDefinition assembly, Logger Log, ref bool WeavingFailed)
@@ -72,23 +68,23 @@ namespace Mirror.Weaver
             // system types
             this.assembly = assembly;
 
-            TypeReference ArraySegmentType = Import(typeof(ArraySegment<>));
+            var ArraySegmentType = Import(typeof(ArraySegment<>));
             ArraySegmentConstructorReference = Resolvers.ResolveMethod(ArraySegmentType, assembly, Log, ".ctor", ref WeavingFailed);
 
-            TypeReference ActionType = Import(typeof(Action<,>));
+            var ActionType = Import(typeof(Action<,>));
             ActionT_T = Resolvers.ResolveMethod(ActionType, assembly, Log, ".ctor", ref WeavingFailed);
 
             weaverFuseType = Import(typeof(WeaverFuse));
             weaverFuseMethod = Resolvers.ResolveMethod(weaverFuseType, assembly, Log, "Weaved", ref WeavingFailed);
 
-            TypeReference NetworkServerType = Import(typeof(NetworkServer));
+            var NetworkServerType = Import(typeof(NetworkServer));
             NetworkServerGetActive = Resolvers.ResolveMethod(NetworkServerType, assembly, Log, "get_active", ref WeavingFailed);
 
-            TypeReference NetworkClientType = Import(typeof(NetworkClient));
+            var NetworkClientType = Import(typeof(NetworkClient));
             NetworkClientGetActive = Resolvers.ResolveMethod(NetworkClientType, assembly, Log, "get_active", ref WeavingFailed);
             NetworkClientConnectionReference = Resolvers.ResolveMethod(NetworkClientType, assembly, Log, "get_connection", ref WeavingFailed);
 
-            TypeReference NetworkBehaviourType = Import<NetworkBehaviour>();
+            var NetworkBehaviourType = Import<NetworkBehaviour>();
 
             NetworkBehaviourDirtyBitsReference = Resolvers.ResolveField(NetworkBehaviourType, assembly, Log, "syncVarDirtyBits", ref WeavingFailed);
 
@@ -112,60 +108,70 @@ namespace Mirror.Weaver
 
             InitSyncObjectReference = Resolvers.ResolveMethod(NetworkBehaviourType, assembly, Log, "InitSyncObject", ref WeavingFailed);
 
-            TypeReference RemoteProcedureCallsType = Import(typeof(RemoteCalls.RemoteProcedureCalls));
+            var RemoteProcedureCallsType = Import(typeof(RemoteProcedureCalls));
             registerCommandReference = Resolvers.ResolveMethod(RemoteProcedureCallsType, assembly, Log, "RegisterCommand", ref WeavingFailed);
             registerRpcReference = Resolvers.ResolveMethod(RemoteProcedureCallsType, assembly, Log, "RegisterRpc", ref WeavingFailed);
 
-            TypeReference RemoteCallDelegateType = Import<RemoteCalls.RemoteCallDelegate>();
+            var RemoteCallDelegateType = Import<RemoteCallDelegate>();
             RemoteCallDelegateConstructor = Resolvers.ResolveMethod(RemoteCallDelegateType, assembly, Log, ".ctor", ref WeavingFailed);
 
-            TypeReference ScriptableObjectType = Import<ScriptableObject>();
+            var ScriptableObjectType = Import<ScriptableObject>();
             ScriptableObjectCreateInstanceMethod = Resolvers.ResolveMethod(
                 ScriptableObjectType, assembly, Log,
                 md => md.Name == "CreateInstance" && md.HasGenericParameters,
                 ref WeavingFailed);
 
-            TypeReference unityDebug = Import(typeof(UnityEngine.Debug));
+            var unityDebug = Import(typeof(Debug));
             // these have multiple methods with same name, so need to check parameters too
             logErrorReference = Resolvers.ResolveMethod(unityDebug, assembly, Log, md =>
-                md.Name == "LogError" &&
-                md.Parameters.Count == 1 &&
-                md.Parameters[0].ParameterType.FullName == typeof(object).FullName,
+                    md.Name == "LogError" &&
+                    md.Parameters.Count == 1 &&
+                    md.Parameters[0].ParameterType.FullName == typeof(object).FullName,
                 ref WeavingFailed);
 
             logWarningReference = Resolvers.ResolveMethod(unityDebug, assembly, Log, md =>
-                md.Name == "LogWarning" &&
-                md.Parameters.Count == 1 &&
-                md.Parameters[0].ParameterType.FullName == typeof(object).FullName,
+                    md.Name == "LogWarning" &&
+                    md.Parameters.Count == 1 &&
+                    md.Parameters[0].ParameterType.FullName == typeof(object).FullName,
                 ref WeavingFailed);
 
-            TypeReference typeType = Import(typeof(Type));
+            var typeType = Import(typeof(Type));
             getTypeFromHandleReference = Resolvers.ResolveMethod(typeType, assembly, Log, "GetTypeFromHandle", ref WeavingFailed);
 
-            TypeReference NetworkWriterPoolType = Import(typeof(NetworkWriterPool));
+            var NetworkWriterPoolType = Import(typeof(NetworkWriterPool));
             GetWriterReference = Resolvers.ResolveMethod(NetworkWriterPoolType, assembly, Log, "Get", ref WeavingFailed);
             ReturnWriterReference = Resolvers.ResolveMethod(NetworkWriterPoolType, assembly, Log, "Return", ref WeavingFailed);
 
-            TypeReference readerExtensions = Import(typeof(NetworkReaderExtensions));
-            readNetworkBehaviourGeneric = Resolvers.ResolveMethod(readerExtensions, assembly, Log, (md =>
-            {
-                return md.Name == nameof(NetworkReaderExtensions.ReadNetworkBehaviour) &&
-                       md.HasGenericParameters;
-            }),
-            ref WeavingFailed);
+            var readerExtensions = Import(typeof(NetworkReaderExtensions));
+            readNetworkBehaviourGeneric = Resolvers.ResolveMethod(readerExtensions, assembly, Log, md =>
+                {
+                    return md.Name == nameof(NetworkReaderExtensions.ReadNetworkBehaviour) &&
+                           md.HasGenericParameters;
+                },
+                ref WeavingFailed);
 
             // [InitializeOnLoadMethod]
             // 'UnityEditor' is not available in builds.
             // we can only import this attribute if we are in an Editor assembly.
             if (Helpers.IsEditorAssembly(assembly))
             {
-                TypeReference initializeOnLoadMethodAttributeRef = Import(typeof(InitializeOnLoadMethodAttribute));
+                var initializeOnLoadMethodAttributeRef = Import(typeof(InitializeOnLoadMethodAttribute));
                 initializeOnLoadMethodAttribute = initializeOnLoadMethodAttributeRef.Resolve();
             }
 
             // [RuntimeInitializeOnLoadMethod]
-            TypeReference runtimeInitializeOnLoadMethodAttributeRef = Import(typeof(RuntimeInitializeOnLoadMethodAttribute));
+            var runtimeInitializeOnLoadMethodAttributeRef = Import(typeof(RuntimeInitializeOnLoadMethodAttribute));
             runtimeInitializeOnLoadMethodAttribute = runtimeInitializeOnLoadMethodAttributeRef.Resolve();
+        }
+
+        public TypeReference Import<T>()
+        {
+            return Import(typeof(T));
+        }
+
+        public TypeReference Import(Type t)
+        {
+            return assembly.MainModule.ImportReference(t);
         }
     }
 }

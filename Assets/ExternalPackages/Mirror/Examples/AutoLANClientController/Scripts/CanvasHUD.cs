@@ -1,27 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using Mirror;
-using UnityEngine.UI;
 using Mirror.Discovery;
-using UnityEngine.SceneManagement;
+using UnityEngine;
+using UnityEngine.UI;
 
 namespace Mirror.Examples.AutoLANClientController
 {
     public class CanvasHUD : MonoBehaviour
     {
         // this will check for games to join, if non, start host.
-        public bool alwaysAutoStart = false;
+        public bool alwaysAutoStart;
         public AutoLANNetworkDiscovery networkDiscovery;
-        readonly Dictionary<long, ServerResponse> discoveredServers = new Dictionary<long, ServerResponse>();
-        public bool runAsPlayerHost = false;
+        public bool runAsPlayerHost;
 
         // UI
         public GameObject PanelStart, PanelStop;
         public Button buttonHost, buttonServer, buttonClient, buttonStop, buttonAuto;
+
         public Text infoText;
+
         // legacy inputfield interaction does not auto bring up a keyboard on headset builds, use tmp.
         public InputField inputFieldAddress;
+        private readonly Dictionary<long, ServerResponse> discoveredServers = new();
 
         private void Start()
         {
@@ -41,18 +41,15 @@ namespace Mirror.Examples.AutoLANClientController
             if (networkDiscovery == null)
             {
 #if UNITY_2022_2_OR_NEWER
-                networkDiscovery = GameObject.FindAnyObjectByType<AutoLANNetworkDiscovery>();
+                networkDiscovery = FindAnyObjectByType<AutoLANNetworkDiscovery>();
 #else
                 // Deprecated in Unity 2023.1
-                networkDiscovery = GameObject.FindObjectOfType<AutoLANNetworkDiscovery>(); 
+                networkDiscovery = GameObject.FindObjectOfType<AutoLANNetworkDiscovery>();
 #endif
             }
 
             // skips waiting for users to press ui button
-            if (alwaysAutoStart)
-            {
-                StartCoroutine(Waiter());
-            }
+            if (alwaysAutoStart) StartCoroutine(Waiter());
         }
 
         public IEnumerator Waiter()
@@ -64,30 +61,22 @@ namespace Mirror.Examples.AutoLANClientController
             yield return new WaitForSeconds(3.1f);
             if (discoveredServers == null || discoveredServers.Count <= 0)
             {
-                if (runAsPlayerHost == true)
-                {
+                if (runAsPlayerHost)
                     infoText.text = "No Servers found, starting as Host.";
-                }
                 else
-                {
                     infoText.text = "No Servers found, starting as Server.";
-                }
                 yield return new WaitForSeconds(1.0f);
                 discoveredServers.Clear();
                 // NetworkManager.singleton.onlineScene = SceneManager.GetActiveScene().name;
-                if (runAsPlayerHost == true)
-                {
+                if (runAsPlayerHost)
                     NetworkManager.singleton.StartHost();
-                }
                 else
-                {
                     NetworkManager.singleton.StartServer();
-                }
                 networkDiscovery.AdvertiseServer();
             }
         }
 
-        void Connect(ServerResponse info)
+        private void Connect(ServerResponse info)
         {
             infoText.text = "Connecting to: " + info.serverId;
             networkDiscovery.StopDiscovery();
@@ -107,7 +96,6 @@ namespace Mirror.Examples.AutoLANClientController
             //NetworkManager.singleton.onlineScene = SceneManager.GetActiveScene().name;
             NetworkManager.singleton.StartHost();
             networkDiscovery.AdvertiseServer();
-
         }
 
         public void ButtonServer()
@@ -117,7 +105,6 @@ namespace Mirror.Examples.AutoLANClientController
             // NetworkManager.singleton.onlineScene = SceneManager.GetActiveScene().name;
             NetworkManager.singleton.StartServer();
             networkDiscovery.AdvertiseServer();
-
         }
 
         public void ButtonClient()
@@ -132,19 +119,12 @@ namespace Mirror.Examples.AutoLANClientController
             SetupInfoText("Stopping.");
             // stop host if host mode
             if (NetworkServer.active && NetworkClient.isConnected)
-            {
                 NetworkManager.singleton.StopHost();
-            }
             // stop client if client-only
             else if (NetworkClient.isConnected)
-            {
                 NetworkManager.singleton.StopClient();
-            }
             // stop server if server-only
-            else if (NetworkServer.active)
-            {
-                NetworkManager.singleton.StopServer();
-            }
+            else if (NetworkServer.active) NetworkManager.singleton.StopServer();
             networkDiscovery.StopDiscovery();
             // we need to call setup canvas a second time in this function for it to update the abovee changes
             SetupCanvas();

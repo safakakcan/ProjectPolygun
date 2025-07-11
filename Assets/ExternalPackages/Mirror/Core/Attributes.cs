@@ -4,12 +4,17 @@ using UnityEngine;
 namespace Mirror
 {
     /// <summary>
-    /// SyncVars are used to automatically synchronize a variable between the server and all clients. The direction of synchronization depends on the Sync Direction property, ServerToClient by default.
-    /// <para>
-    /// When Sync Direction is equal to ServerToClient, the value should be changed on the server side and synchronized to all clients.
-    /// Otherwise, the value should be changed on the client side and synchronized to server and other clients.
-    /// </para>
-    /// <para>Hook parameter allows you to define a method to be invoked when gets an value update. Notice that the hook method will not be called on the change side.</para>
+    ///     SyncVars are used to automatically synchronize a variable between the server and all clients. The direction of
+    ///     synchronization depends on the Sync Direction property, ServerToClient by default.
+    ///     <para>
+    ///         When Sync Direction is equal to ServerToClient, the value should be changed on the server side and synchronized
+    ///         to all clients.
+    ///         Otherwise, the value should be changed on the client side and synchronized to server and other clients.
+    ///     </para>
+    ///     <para>
+    ///         Hook parameter allows you to define a method to be invoked when gets an value update. Notice that the hook
+    ///         method will not be called on the change side.
+    ///     </para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
     public class SyncVarAttribute : PropertyAttribute
@@ -18,8 +23,8 @@ namespace Mirror
     }
 
     /// <summary>
-    /// Call this from a client to run this function on the server.
-    /// <para>Make sure to validate input etc. It's not possible to call this from a server.</para>
+    ///     Call this from a client to run this function on the server.
+    ///     <para>Make sure to validate input etc. It's not possible to call this from a server.</para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
     public class CommandAttribute : Attribute
@@ -29,7 +34,7 @@ namespace Mirror
     }
 
     /// <summary>
-    /// The server uses a Remote Procedure Call (RPC) to run this function on clients.
+    ///     The server uses a Remote Procedure Call (RPC) to run this function on clients.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
     public class ClientRpcAttribute : Attribute
@@ -39,7 +44,7 @@ namespace Mirror
     }
 
     /// <summary>
-    /// The server uses a Remote Procedure Call (RPC) to run this function on a specific client.
+    ///     The server uses a Remote Procedure Call (RPC) to run this function on a specific client.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
     public class TargetRpcAttribute : Attribute
@@ -48,54 +53,70 @@ namespace Mirror
     }
 
     /// <summary>
-    /// Only an active server will run this method.
-    /// <para>Prints a warning if a client or in-active server tries to execute this method.</para>
+    ///     Only an active server will run this method.
+    ///     <para>Prints a warning if a client or in-active server tries to execute this method.</para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    public class ServerAttribute : Attribute {}
+    public class ServerAttribute : Attribute
+    {
+    }
 
     /// <summary>
-    /// Only an active server will run this method.
-    /// <para>No warning is thrown.</para>
+    ///     Only an active server will run this method.
+    ///     <para>No warning is thrown.</para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    public class ServerCallbackAttribute : Attribute {}
+    public class ServerCallbackAttribute : Attribute
+    {
+    }
 
     /// <summary>
-    /// Only an active client will run this method.
-    /// <para>Prints a warning if the server or in-active client tries to execute this method.</para>
+    ///     Only an active client will run this method.
+    ///     <para>Prints a warning if the server or in-active client tries to execute this method.</para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    public class ClientAttribute : Attribute {}
+    public class ClientAttribute : Attribute
+    {
+    }
 
     /// <summary>
-    /// Only an active client will run this method.
-    /// <para>No warning is printed.</para>
+    ///     Only an active client will run this method.
+    ///     <para>No warning is printed.</para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    public class ClientCallbackAttribute : Attribute {}
+    public class ClientCallbackAttribute : Attribute
+    {
+    }
 
     /// <summary>
-    /// Converts a string property into a Scene property in the inspector
+    ///     Converts a string property into a Scene property in the inspector
     /// </summary>
-    public class SceneAttribute : PropertyAttribute {}
+    public class SceneAttribute : PropertyAttribute
+    {
+    }
 
     /// <summary>
-    /// Used to show private SyncList in the inspector,
-    /// <para> Use instead of SerializeField for non Serializable types </para>
+    ///     Used to show private SyncList in the inspector,
+    ///     <para> Use instead of SerializeField for non Serializable types </para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
-    public class ShowInInspectorAttribute : Attribute {}
+    public class ShowInInspectorAttribute : Attribute
+    {
+    }
 
     /// <summary>
-    /// Used to make a field readonly in the inspector
+    ///     Used to make a field readonly in the inspector
     /// </summary>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class ReadOnlyAttribute : PropertyAttribute {}
+    public class ReadOnlyAttribute : PropertyAttribute
+    {
+    }
 
     /// <summary>
-    /// When defining multiple Readers/Writers for the same type, indicate which one Weaver must use.
+    ///     When defining multiple Readers/Writers for the same type, indicate which one Weaver must use.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    public class WeaverPriorityAttribute : Attribute {}
+    public class WeaverPriorityAttribute : Attribute
+    {
+    }
 }

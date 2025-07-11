@@ -6,10 +6,10 @@ namespace Mirror
     [AddComponentMenu("Network/Network Rigidbody 2D (Unreliable)")]
     public class NetworkRigidbodyUnreliable2D : NetworkTransformUnreliable
     {
-        bool clientAuthority => syncDirection == SyncDirection.ClientToServer;
+        private bool clientAuthority => syncDirection == SyncDirection.ClientToServer;
 
-        Rigidbody2D rb;
-        bool wasKinematic;
+        private Rigidbody2D rb;
+        private bool wasKinematic;
 
         protected override void OnValidate()
         {
@@ -20,10 +20,7 @@ namespace Mirror
 
             // we can't overwrite .target to be a Rigidbody.
             // but we can ensure that .target has a Rigidbody, and use it.
-            if (target.GetComponent<Rigidbody2D>() == null)
-            {
-                Debug.LogWarning($"{name}'s NetworkRigidbody2D.target {target.name} is missing a Rigidbody2D", this);
-            }
+            if (target.GetComponent<Rigidbody2D>() == null) Debug.LogWarning($"{name}'s NetworkRigidbody2D.target {target.name} is missing a Rigidbody2D", this);
         }
 
         // cach Rigidbody and original isKinematic setting
@@ -55,14 +52,21 @@ namespace Mirror
         public override void OnStopServer() => rb.bodyType = wasKinematic ? RigidbodyType2D.Kinematic : RigidbodyType2D.Dynamic;
         public override void OnStopClient() => rb.bodyType = wasKinematic ? RigidbodyType2D.Kinematic : RigidbodyType2D.Dynamic;
 #else
-        public override void OnStopServer() => rb.isKinematic = wasKinematic;
-        public override void OnStopClient() => rb.isKinematic = wasKinematic;
+        public override void OnStopServer()
+        {
+            rb.isKinematic = wasKinematic;
+        }
+
+        public override void OnStopClient()
+        {
+            rb.isKinematic = wasKinematic;
+        }
 #endif
         // overwriting Construct() and Apply() to set Rigidbody.MovePosition
         // would give more jittery movement.
 
         // FixedUpdate for physics
-        void FixedUpdate()
+        private void FixedUpdate()
         {
             // who ever has authority moves the Rigidbody with physics.
             // everyone else simply sets it to kinematic.
@@ -74,7 +78,7 @@ namespace Mirror
                 // in host mode, we own it it if:
                 // clientAuthority is disabled (hence server / we own it)
                 // clientAuthority is enabled and we have authority over this object.
-                bool owned = !clientAuthority || IsClientWithAuthority;
+                var owned = !clientAuthority || IsClientWithAuthority;
 
                 // only set to kinematic if we don't own it
                 // otherwise don't touch isKinematic.
@@ -90,7 +94,7 @@ namespace Mirror
             {
                 // on the client, we own it only if clientAuthority is enabled,
                 // and we have authority over this object.
-                bool owned = IsClientWithAuthority;
+                var owned = IsClientWithAuthority;
 
                 // only set to kinematic if we don't own it
                 // otherwise don't touch isKinematic.
@@ -105,7 +109,7 @@ namespace Mirror
             else if (isServer)
             {
                 // on the server, we always own it if clientAuthority is disabled.
-                bool owned = !clientAuthority;
+                var owned = !clientAuthority;
 
                 // only set to kinematic if we don't own it
                 // otherwise don't touch isKinematic.

@@ -1,8 +1,10 @@
+using System;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace StinkySteak.NetcodeBenchmark
 {
-    [System.Serializable]
+    [Serializable]
     public struct WanderMoveWrapper : IMoveWrapper
     {
         [SerializeField] private float _circleRadius;
@@ -21,7 +23,7 @@ namespace StinkySteak.NetcodeBenchmark
 
         public static WanderMoveWrapper CreateDefault()
         {
-            WanderMoveWrapper data = new WanderMoveWrapper();
+            var data = new WanderMoveWrapper();
             data._circleRadius = 1;
             data._turnChance = 0.05f;
             data._maxRadius = 5;

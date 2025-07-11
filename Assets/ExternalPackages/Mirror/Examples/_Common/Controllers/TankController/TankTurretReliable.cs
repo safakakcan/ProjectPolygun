@@ -7,8 +7,8 @@ namespace Mirror.Examples.Common.Controllers.Tank
     [RequireComponent(typeof(NetworkTransformReliable))]
     public class TankTurretReliable : TankTurretBase
     {
-        [Header("Network Transforms")]
-        public NetworkTransformReliable turretNetworkTransform;
+        [Header("Network Transforms")] public NetworkTransformReliable turretNetworkTransform;
+
         public NetworkTransformReliable barrelNetworkTransform;
 
         protected override void Reset()
@@ -18,7 +18,7 @@ namespace Mirror.Examples.Common.Controllers.Tank
             // The base Tank uses the first NetworkTransformReliable for the tank body
             // Add additional NetworkTransformReliable components for the turret and barrel
             // Set SyncPosition to false because we only want to sync rotation
-            NetworkTransformReliable[] NTs = GetComponents<NetworkTransformReliable>();
+            var NTs = GetComponents<NetworkTransformReliable>();
 
             if (NTs.Length < 2)
             {
@@ -27,7 +27,9 @@ namespace Mirror.Examples.Common.Controllers.Tank
                 NTs = GetComponents<NetworkTransformReliable>();
             }
             else
+            {
                 turretNetworkTransform = NTs[1];
+            }
 
             // Ensure syncDirection is Client to Server
             turretNetworkTransform.syncDirection = SyncDirection.ClientToServer;
@@ -35,7 +37,7 @@ namespace Mirror.Examples.Common.Controllers.Tank
             // Set syncPosition to false because we only want to sync rotation
             turretNetworkTransform.syncPosition = false;
 
-            if (base.turret != null)
+            if (turret != null)
                 turretNetworkTransform.target = turret;
 
             if (NTs.Length < 3)
@@ -45,7 +47,9 @@ namespace Mirror.Examples.Common.Controllers.Tank
                 NTs = GetComponents<NetworkTransformReliable>();
             }
             else
+            {
                 barrelNetworkTransform = NTs[2];
+            }
 
             // Ensure syncDirection is Client to Server
             barrelNetworkTransform.syncDirection = SyncDirection.ClientToServer;

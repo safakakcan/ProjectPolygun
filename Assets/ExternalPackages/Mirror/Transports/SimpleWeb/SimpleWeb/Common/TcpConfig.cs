@@ -1,8 +1,9 @@
+using System;
 using System.Net.Sockets;
 
 namespace Mirror.SimpleWeb
 {
-    [System.Serializable]
+    [Serializable]
     public struct TcpConfig
     {
         public readonly bool noDelay;

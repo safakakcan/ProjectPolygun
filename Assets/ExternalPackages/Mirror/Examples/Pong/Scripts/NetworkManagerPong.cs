@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /*
-	Documentation: https://mirror-networking.gitbook.io/docs/components/network-manager
-	API Reference: https://mirror-networking.com/docs/api/Mirror.NetworkManager.html
+    Documentation: https://mirror-networking.gitbook.io/docs/components/network-manager
+    API Reference: https://mirror-networking.com/docs/api/Mirror.NetworkManager.html
 */
 
 namespace Mirror.Examples.Pong
@@ -15,13 +15,13 @@ namespace Mirror.Examples.Pong
     {
         public Transform leftRacketSpawn;
         public Transform rightRacketSpawn;
-        GameObject ball;
+        private GameObject ball;
 
         public override void OnServerAddPlayer(NetworkConnectionToClient conn)
         {
             // add player at correct spawn position
-            Transform start = numPlayers == 0 ? leftRacketSpawn : rightRacketSpawn;
-            GameObject player = Instantiate(playerPrefab, start.position, start.rotation);
+            var start = numPlayers == 0 ? leftRacketSpawn : rightRacketSpawn;
+            var player = Instantiate(playerPrefab, start.position, start.rotation);
             NetworkServer.AddPlayerForConnection(conn, player);
 
             // spawn ball if two players

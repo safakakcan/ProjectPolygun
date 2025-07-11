@@ -1,42 +1,28 @@
+using Mirror.Examples.Common;
 using UnityEngine;
 
 namespace Mirror.Examples.NetworkRoom
 {
     [AddComponentMenu("")]
-    [RequireComponent(typeof(Common.RandomColor))]
+    [RequireComponent(typeof(RandomColor))]
     public class Reward : NetworkBehaviour
     {
-        [Header("Components")]
-        public Common.RandomColor randomColor;
+        [Header("Components")] public RandomColor randomColor;
 
-        [Header("Diagnostics")]
-        [ReadOnly, SerializeField]
-        bool available;
+        [Header("Diagnostics")] [ReadOnly] [SerializeField]
+        private bool available;
 
-        protected override void OnValidate()
-        {
-            if (Application.isPlaying) return;
-
-            base.OnValidate();
-            Reset();
-        }
-
-        void Reset()
+        private void Reset()
         {
             // Default position out of reach
             transform.position = new Vector3(0, -1000, 0);
 
             if (randomColor == null)
-                randomColor = GetComponent<Common.RandomColor>();
-        }
-
-        public override void OnStartServer()
-        {
-            available = true;
+                randomColor = GetComponent<RandomColor>();
         }
 
         [ServerCallback]
-        void OnTriggerEnter(Collider other)
+        private void OnTriggerEnter(Collider other)
         {
             // Don't process collisions when it's in the pool
             if (!gameObject.activeSelf) return;
@@ -54,12 +40,25 @@ namespace Mirror.Examples.NetworkRoom
 
             // Calculate the points from the color...lighter scores higher as the average approaches 255
             // UnityEngine.Color RGB values are byte 0 to 255
-            uint points = (uint)((randomColor.color.r + randomColor.color.g + randomColor.color.b) / 3);
+            var points = (uint)((randomColor.color.r + randomColor.color.g + randomColor.color.b) / 3);
 
             // award the points via SyncVar on Player's PlayerScore
             other.GetComponent<PlayerScore>().score += points;
 
             Spawner.RecycleReward(gameObject);
+        }
+
+        protected override void OnValidate()
+        {
+            if (Application.isPlaying) return;
+
+            base.OnValidate();
+            Reset();
+        }
+
+        public override void OnStartServer()
+        {
+            available = true;
         }
     }
 }

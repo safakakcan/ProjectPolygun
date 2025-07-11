@@ -12,11 +12,11 @@ namespace Mirror.Examples.Chat
     [AddComponentMenu("")]
     public class ChatAuthenticator : NetworkAuthenticator
     {
-        readonly HashSet<NetworkConnectionToClient> connectionsPendingDisconnect = new HashSet<NetworkConnectionToClient>();
-        internal static readonly HashSet<string> playerNames = new HashSet<string>();
+        internal static readonly HashSet<string> playerNames = new();
 
-        [Header("Client Username")]
-        public string playerName;
+        [Header("Client Username")] public string playerName;
+
+        private readonly HashSet<NetworkConnectionToClient> connectionsPendingDisconnect = new();
 
         #region Messages
 
@@ -38,15 +38,15 @@ namespace Mirror.Examples.Chat
         #region Server
 
         // RuntimeInitializeOnLoadMethod -> fast playmode without domain reload
-        [UnityEngine.RuntimeInitializeOnLoadMethod]
-        static void ResetStatics()
+        [RuntimeInitializeOnLoadMethod]
+        private static void ResetStatics()
         {
             playerNames.Clear();
         }
 
         /// <summary>
-        /// Called on server from StartServer to initialize the Authenticator
-        /// <para>Server message handlers should be registered in this method.</para>
+        ///     Called on server from StartServer to initialize the Authenticator
+        ///     <para>Server message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStartServer()
         {
@@ -55,8 +55,8 @@ namespace Mirror.Examples.Chat
         }
 
         /// <summary>
-        /// Called on server from StopServer to reset the Authenticator
-        /// <para>Server message handlers should be registered in this method.</para>
+        ///     Called on server from StopServer to reset the Authenticator
+        ///     <para>Server message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStopServer()
         {
@@ -65,7 +65,7 @@ namespace Mirror.Examples.Chat
         }
 
         /// <summary>
-        /// Called on server from OnServerConnectInternal when a client needs to authenticate
+        ///     Called on server from OnServerConnectInternal when a client needs to authenticate
         /// </summary>
         /// <param name="conn">Connection to client.</param>
         public override void OnServerAuthenticate(NetworkConnectionToClient conn)
@@ -74,7 +74,7 @@ namespace Mirror.Examples.Chat
         }
 
         /// <summary>
-        /// Called on server when the client's AuthRequestMessage arrives
+        ///     Called on server when the client's AuthRequestMessage arrives
         /// </summary>
         /// <param name="conn">Connection to client.</param>
         /// <param name="msg">The message payload</param>
@@ -96,7 +96,7 @@ namespace Mirror.Examples.Chat
                 conn.authenticationData = msg.authUsername;
 
                 // create and send msg to client so it knows to proceed
-                AuthResponseMessage authResponseMessage = new AuthResponseMessage
+                var authResponseMessage = new AuthResponseMessage
                 {
                     code = 100,
                     message = "Success"
@@ -112,7 +112,7 @@ namespace Mirror.Examples.Chat
                 connectionsPendingDisconnect.Add(conn);
 
                 // create and send msg to client so it knows to disconnect
-                AuthResponseMessage authResponseMessage = new AuthResponseMessage
+                var authResponseMessage = new AuthResponseMessage
                 {
                     code = 200,
                     message = "Username already in use...try again"
@@ -128,7 +128,7 @@ namespace Mirror.Examples.Chat
             }
         }
 
-        IEnumerator DelayedDisconnect(NetworkConnectionToClient conn, float waitTime)
+        private IEnumerator DelayedDisconnect(NetworkConnectionToClient conn, float waitTime)
         {
             yield return new WaitForSeconds(waitTime);
 
@@ -154,8 +154,8 @@ namespace Mirror.Examples.Chat
         }
 
         /// <summary>
-        /// Called on client from StartClient to initialize the Authenticator
-        /// <para>Client message handlers should be registered in this method.</para>
+        ///     Called on client from StartClient to initialize the Authenticator
+        ///     <para>Client message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStartClient()
         {
@@ -164,8 +164,8 @@ namespace Mirror.Examples.Chat
         }
 
         /// <summary>
-        /// Called on client from StopClient to reset the Authenticator
-        /// <para>Client message handlers should be unregistered in this method.</para>
+        ///     Called on client from StopClient to reset the Authenticator
+        ///     <para>Client message handlers should be unregistered in this method.</para>
         /// </summary>
         public override void OnStopClient()
         {
@@ -174,7 +174,7 @@ namespace Mirror.Examples.Chat
         }
 
         /// <summary>
-        /// Called on client from OnClientConnectInternal when a client needs to authenticate
+        ///     Called on client from OnClientConnectInternal when a client needs to authenticate
         /// </summary>
         public override void OnClientAuthenticate()
         {
@@ -182,7 +182,7 @@ namespace Mirror.Examples.Chat
         }
 
         /// <summary>
-        /// Called on client when the server's AuthResponseMessage arrives
+        ///     Called on client when the server's AuthResponseMessage arrives
         /// </summary>
         /// <param name="msg">The message payload</param>
         public void OnAuthResponseMessage(AuthResponseMessage msg)

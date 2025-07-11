@@ -1,6 +1,6 @@
 // Add this component to a Player object with collider.
 // Automatically keeps a history for lag compensation.
-using System;
+
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -24,14 +24,19 @@ namespace Mirror
             Gizmos.DrawWireCube(position, size);
         }
 
-        public static Capture3D Interpolate(Capture3D from, Capture3D to, double t) =>
-            new Capture3D(
+        public static Capture3D Interpolate(Capture3D from, Capture3D to, double t)
+        {
+            return new Capture3D(
                 0, // interpolated snapshot is applied directly. don't need timestamps.
                 Vector3.LerpUnclamped(from.position, to.position, (float)t),
                 Vector3.LerpUnclamped(from.size, to.size, (float)t)
             );
+        }
 
-        public override string ToString() => $"(time={timestamp} pos={position} size={size})";
+        public override string ToString()
+        {
+            return $"(time={timestamp} pos={position} size={size})";
+        }
     }
 
     [DisallowMultipleComponent]
@@ -39,19 +44,17 @@ namespace Mirror
     [HelpURL("https://mirror-networking.gitbook.io/docs/manual/general/lag-compensation")]
     public class LagCompensator : NetworkBehaviour
     {
-        [Header("Components")]
-        [Tooltip("The collider to keep a history of.")]
+        [Header("Components")] [Tooltip("The collider to keep a history of.")]
         public Collider trackedCollider; // assign this in inspector
 
-        [Header("Settings")]
-        public LagCompensationSettings lagCompensationSettings = new LagCompensationSettings();
-        double lastCaptureTime;
+        [Header("Settings")] public LagCompensationSettings lagCompensationSettings = new();
+
+        [Header("Debugging")] public Color historyColor = Color.white;
 
         // lag compensation history of <timestamp, capture>
-        readonly Queue<KeyValuePair<double, Capture3D>> history = new Queue<KeyValuePair<double, Capture3D>>();
+        private readonly Queue<KeyValuePair<double, Capture3D>> history = new();
 
-        [Header("Debugging")]
-        public Color historyColor = Color.white;
+        private double lastCaptureTime;
 
         [ServerCallback]
         protected virtual void Update()
@@ -65,11 +68,18 @@ namespace Mirror
             }
         }
 
+        protected virtual void OnDrawGizmos()
+        {
+            // draw history
+            Gizmos.color = historyColor;
+            LagCompensation.DrawGizmos(history);
+        }
+
         [ServerCallback]
         protected virtual void Capture()
         {
             // capture current state
-            Capture3D capture = new Capture3D(
+            var capture = new Capture3D(
                 NetworkTime.localTime,
                 trackedCollider.bounds.center,
                 trackedCollider.bounds.size
@@ -77,13 +87,6 @@ namespace Mirror
 
             // insert into history
             LagCompensation.Insert(history, lagCompensationSettings.historyLimit, NetworkTime.localTime, capture);
-        }
-
-        protected virtual void OnDrawGizmos()
-        {
-            // draw history
-            Gizmos.color = historyColor;
-            LagCompensation.DrawGizmos(history);
         }
 
         // sampling ////////////////////////////////////////////////////////////
@@ -97,16 +100,17 @@ namespace Mirror
             // https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking
             // the estimation is very good. the error is as low as ~6ms for the demo.
             // note that passing 'rtt' is fine: EstimateTime halves it to latency.
-            double estimatedTime = LagCompensation.EstimateTime(NetworkTime.localTime, viewer.rtt, NetworkClient.bufferTime);
+            var estimatedTime = LagCompensation.EstimateTime(NetworkTime.localTime, viewer.rtt, NetworkClient.bufferTime);
 
             // sample the history to get the nearest snapshots around 'timestamp'
-            if (LagCompensation.Sample(history, estimatedTime, lagCompensationSettings.captureInterval, out Capture3D resultBefore, out Capture3D resultAfter, out double t))
+            if (LagCompensation.Sample(history, estimatedTime, lagCompensationSettings.captureInterval, out var resultBefore, out var resultAfter, out var t))
             {
                 // interpolate to get a decent estimation at exactly 'timestamp'
                 sample = Capture3D.Interpolate(resultBefore, resultAfter, t);
                 return true;
             }
-            else Debug.Log($"CmdClicked: history doesn't contain {estimatedTime:F3}");
+
+            Debug.Log($"CmdClicked: history doesn't contain {estimatedTime:F3}");
 
             sample = default;
             return false;
@@ -133,17 +137,18 @@ namespace Mirror
             out Vector3 nearest)
         {
             // first, sample the history at -rtt of the viewer.
-            if (Sample(viewer, out Capture3D capture))
+            if (Sample(viewer, out var capture))
             {
                 // now that we know where the other player was at that time,
                 // we can see if the hit point was within tolerance of it.
                 // TODO consider rotations???
                 // TODO consider original collider shape??
-                Bounds bounds = new Bounds(capture.position, capture.size);
+                var bounds = new Bounds(capture.position, capture.size);
                 nearest = bounds.ClosestPoint(hitPoint);
                 distance = Vector3.Distance(nearest, hitPoint);
                 return distance <= toleranceDistance;
             }
+
             nearest = hitPoint;
             distance = 0;
             return false;
@@ -170,20 +175,20 @@ namespace Mirror
             out RaycastHit hit)
         {
             // first, sample the history at -rtt of the viewer.
-            if (Sample(viewer, out Capture3D capture))
+            if (Sample(viewer, out var capture))
             {
                 // instantiate a real physics collider on demand.
                 // TODO rotation??
                 // TODO different collier types??
-                GameObject temp = new GameObject("LagCompensatorTest");
+                var temp = new GameObject("LagCompensatorTest");
                 temp.transform.position = capture.position;
-                BoxCollider tempCollider = temp.AddComponent<BoxCollider>();
+                var tempCollider = temp.AddComponent<BoxCollider>();
                 tempCollider.size = capture.size * (1 + tolerancePercent);
 
                 // raycast
-                Vector3 direction = hitPoint - originPoint;
-                float maxDistance = direction.magnitude * 2;
-                bool result = Physics.Raycast(originPoint, direction, out hit, maxDistance, layerMask);
+                var direction = hitPoint - originPoint;
+                var maxDistance = direction.magnitude * 2;
+                var result = Physics.Raycast(originPoint, direction, out hit, maxDistance, layerMask);
 
                 // cleanup
                 Destroy(temp);

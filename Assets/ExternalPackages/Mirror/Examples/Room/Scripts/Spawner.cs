@@ -1,14 +1,17 @@
+using System;
 using System.Threading.Tasks;
 using UnityEngine;
+using Object = UnityEngine.Object;
+using Random = UnityEngine.Random;
 
 namespace Mirror.Examples.NetworkRoom
 {
     internal static class Spawner
     {
-        static GameObject prefab;
-        static byte poolSize = 10;
-        static Pool<GameObject> pool;
-        static ushort counter;
+        private static GameObject prefab;
+        private static byte poolSize = 10;
+        private static Pool<GameObject> pool;
+        private static ushort counter;
 
         internal static void InitializePool(GameObject poolPrefab, byte count)
         {
@@ -35,14 +38,20 @@ namespace Mirror.Examples.NetworkRoom
             pool = null;
         }
 
-        static GameObject SpawnHandler(SpawnMessage msg) => Get(msg.position, msg.rotation);
+        private static GameObject SpawnHandler(SpawnMessage msg)
+        {
+            return Get(msg.position, msg.rotation);
+        }
 
-        static void UnspawnHandler(GameObject spawned) => Return(spawned);
+        private static void UnspawnHandler(GameObject spawned)
+        {
+            Return(spawned);
+        }
 
-        static GameObject CreateNew()
+        private static GameObject CreateNew()
         {
             // use this object as parent so that objects dont crowd hierarchy
-            GameObject next = Object.Instantiate(prefab);
+            var next = Object.Instantiate(prefab);
             counter++;
             next.name = $"{prefab.name}_pooled_{counter:00}";
             next.SetActive(false);
@@ -51,7 +60,7 @@ namespace Mirror.Examples.NetworkRoom
 
         public static GameObject Get(Vector3 position, Quaternion rotation)
         {
-            GameObject next = pool.Get();
+            var next = pool.Get();
 
             // set position/rotation and set active
             next.transform.SetPositionAndRotation(position, rotation);
@@ -84,7 +93,7 @@ namespace Mirror.Examples.NetworkRoom
         [ServerCallback]
         internal static void SpawnReward()
         {
-            Vector3 spawnPosition = new Vector3(Random.Range(-19, 20), 1, Random.Range(-19, 20));
+            var spawnPosition = new Vector3(Random.Range(-19, 20), 1, Random.Range(-19, 20));
             NetworkServer.Spawn(Get(spawnPosition, Quaternion.identity));
         }
 
@@ -95,9 +104,9 @@ namespace Mirror.Examples.NetworkRoom
             await DelayedSpawn();
         }
 
-        static async Task DelayedSpawn()
+        private static async Task DelayedSpawn()
         {
-            await Task.Delay(new System.TimeSpan(0, 0, 1));
+            await Task.Delay(new TimeSpan(0, 0, 1));
             SpawnReward();
         }
     }

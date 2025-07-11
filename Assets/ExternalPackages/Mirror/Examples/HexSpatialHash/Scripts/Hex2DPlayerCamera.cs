@@ -9,15 +9,15 @@ namespace Mirror.Examples.Hex2D
     [DisallowMultipleComponent]
     public class Hex2DPlayerCamera : NetworkBehaviour
     {
-        Camera mainCam;
+        public Vector3 offset = new(0f, 40f, -65f);
+        public Vector3 rotation = new(35f, 0f, 0f);
 
-        public Vector3 offset = new Vector3(0f, 40f, -65f);
-        public Vector3 rotation = new Vector3(35f, 0f, 0f);
+        [Header("Diagnostics")] [ReadOnly] [SerializeField]
+        private HexSpatialHash2DInterestManagement.CheckMethod checkMethod;
 
-        [Header("Diagnostics")]
-        [ReadOnly, SerializeField] HexSpatialHash2DInterestManagement.CheckMethod checkMethod;
+        private Camera mainCam;
 
-        void Awake()
+        private void Awake()
         {
             mainCam = Camera.main;
 #if UNITY_2022_2_OR_NEWER
@@ -25,6 +25,24 @@ namespace Mirror.Examples.Hex2D
 #else
             checkMethod = FindObjectOfType<HexSpatialHash2DInterestManagement>().checkMethod;
 #endif
+        }
+
+        private void OnDisable()
+        {
+            //Debug.Log("PlayerCamera.OnDisable");
+            ReleaseCamera();
+        }
+
+        private void OnDestroy()
+        {
+            //Debug.Log("PlayerCamera.OnDestroy");
+            ReleaseCamera();
+        }
+
+        private void OnApplicationQuit()
+        {
+            //Debug.Log("PlayerCamera.OnApplicationQuit");
+            ReleaseCamera();
         }
 
         public override void OnStartLocalPlayer()
@@ -48,13 +66,9 @@ namespace Mirror.Examples.Hex2D
                 }
             }
             else
+            {
                 Debug.LogWarning("PlayerCamera: Could not find a camera in scene with 'MainCamera' tag.");
-        }
-
-        void OnApplicationQuit()
-        {
-            //Debug.Log("PlayerCamera.OnApplicationQuit");
-            ReleaseCamera();
+            }
         }
 
         public override void OnStopLocalPlayer()
@@ -63,19 +77,7 @@ namespace Mirror.Examples.Hex2D
             ReleaseCamera();
         }
 
-        void OnDisable()
-        {
-            //Debug.Log("PlayerCamera.OnDisable");
-            ReleaseCamera();
-        }
-
-        void OnDestroy()
-        {
-            //Debug.Log("PlayerCamera.OnDestroy");
-            ReleaseCamera();
-        }
-
-        void ReleaseCamera()
+        private void ReleaseCamera()
         {
             if (mainCam != null && mainCam.transform.parent == transform)
             {

@@ -8,56 +8,169 @@ namespace Mirror
     // but they do all need to be extensions.
     public static class NetworkWriterExtensions
     {
-        public static void WriteByte(this NetworkWriter writer, byte value) => writer.WriteBlittable(value);
-        public static void WriteByteNullable(this NetworkWriter writer, byte? value) => writer.WriteBlittableNullable(value);
+        public static void WriteByte(this NetworkWriter writer, byte value)
+        {
+            writer.WriteBlittable(value);
+        }
 
-        public static void WriteSByte(this NetworkWriter writer, sbyte value) => writer.WriteBlittable(value);
-        public static void WriteSByteNullable(this NetworkWriter writer, sbyte? value) => writer.WriteBlittableNullable(value);
+        public static void WriteByteNullable(this NetworkWriter writer, byte? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteSByte(this NetworkWriter writer, sbyte value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteSByteNullable(this NetworkWriter writer, sbyte? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
         // char is not blittable. convert to ushort.
-        public static void WriteChar(this NetworkWriter writer, char value) => writer.WriteBlittable((ushort)value);
-        public static void WriteCharNullable(this NetworkWriter writer, char? value) => writer.WriteBlittableNullable((ushort?)value);
+        public static void WriteChar(this NetworkWriter writer, char value)
+        {
+            writer.WriteBlittable((ushort)value);
+        }
+
+        public static void WriteCharNullable(this NetworkWriter writer, char? value)
+        {
+            writer.WriteBlittableNullable((ushort?)value);
+        }
 
         // bool is not blittable. convert to byte.
-        public static void WriteBool(this NetworkWriter writer, bool value) => writer.WriteBlittable((byte)(value ? 1 : 0));
-        public static void WriteBoolNullable(this NetworkWriter writer, bool? value) => writer.WriteBlittableNullable(value.HasValue ? ((byte)(value.Value ? 1 : 0)) : new byte?());
+        public static void WriteBool(this NetworkWriter writer, bool value)
+        {
+            writer.WriteBlittable((byte)(value ? 1 : 0));
+        }
 
-        public static void WriteShort(this NetworkWriter writer, short value) => writer.WriteBlittable(value);
-        public static void WriteShortNullable(this NetworkWriter writer, short? value) => writer.WriteBlittableNullable(value);
+        public static void WriteBoolNullable(this NetworkWriter writer, bool? value)
+        {
+            writer.WriteBlittableNullable(value.HasValue ? (byte)(value.Value ? 1 : 0) : new byte?());
+        }
 
-        public static void WriteUShort(this NetworkWriter writer, ushort value) => writer.WriteBlittable(value);
-        public static void WriteUShortNullable(this NetworkWriter writer, ushort? value) => writer.WriteBlittableNullable(value);
+        public static void WriteShort(this NetworkWriter writer, short value)
+        {
+            writer.WriteBlittable(value);
+        }
 
-        public static void WriteInt(this NetworkWriter writer, int value) => writer.WriteBlittable(value);
-        public static void WriteIntNullable(this NetworkWriter writer, int? value) => writer.WriteBlittableNullable(value);
+        public static void WriteShortNullable(this NetworkWriter writer, short? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
-        public static void WriteUInt(this NetworkWriter writer, uint value) => writer.WriteBlittable(value);
-        public static void WriteUIntNullable(this NetworkWriter writer, uint? value) => writer.WriteBlittableNullable(value);
+        public static void WriteUShort(this NetworkWriter writer, ushort value)
+        {
+            writer.WriteBlittable(value);
+        }
 
-        public static void WriteLong(this NetworkWriter writer, long value)  => writer.WriteBlittable(value);
-        public static void WriteLongNullable(this NetworkWriter writer, long? value) => writer.WriteBlittableNullable(value);
+        public static void WriteUShortNullable(this NetworkWriter writer, ushort? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
-        public static void WriteULong(this NetworkWriter writer, ulong value) => writer.WriteBlittable(value);
-        public static void WriteULongNullable(this NetworkWriter writer, ulong? value) => writer.WriteBlittableNullable(value);
+        public static void WriteInt(this NetworkWriter writer, int value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteIntNullable(this NetworkWriter writer, int? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteUInt(this NetworkWriter writer, uint value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteUIntNullable(this NetworkWriter writer, uint? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteLong(this NetworkWriter writer, long value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteLongNullable(this NetworkWriter writer, long? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteULong(this NetworkWriter writer, ulong value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteULongNullable(this NetworkWriter writer, ulong? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
         // WriteInt/UInt/Long/ULong writes full bytes by default.
         // define additional "VarInt" versions that Weaver will automatically prefer.
         // 99% of the time [SyncVar] ints are small values, which makes this very much worth it.
-        [WeaverPriority] public static void WriteVarInt(this NetworkWriter writer, int value) => Compression.CompressVarInt(writer, value);
-        [WeaverPriority] public static void WriteVarUInt(this NetworkWriter writer, uint value) => Compression.CompressVarUInt(writer, value);
-        [WeaverPriority] public static void WriteVarLong(this NetworkWriter writer, long value) => Compression.CompressVarInt(writer, value);
-        [WeaverPriority] public static void WriteVarULong(this NetworkWriter writer, ulong value) => Compression.CompressVarUInt(writer, value);
+        [WeaverPriority]
+        public static void WriteVarInt(this NetworkWriter writer, int value)
+        {
+            Compression.CompressVarInt(writer, value);
+        }
 
-        public static void WriteFloat(this NetworkWriter writer, float value) => writer.WriteBlittable(value);
-        public static void WriteFloatNullable(this NetworkWriter writer, float? value) => writer.WriteBlittableNullable(value);
+        [WeaverPriority]
+        public static void WriteVarUInt(this NetworkWriter writer, uint value)
+        {
+            Compression.CompressVarUInt(writer, value);
+        }
 
-        public static void WriteDouble(this NetworkWriter writer, double value) => writer.WriteBlittable(value);
-        public static void WriteDoubleNullable(this NetworkWriter writer, double? value) => writer.WriteBlittableNullable(value);
+        [WeaverPriority]
+        public static void WriteVarLong(this NetworkWriter writer, long value)
+        {
+            Compression.CompressVarInt(writer, value);
+        }
 
-        public static void WriteDecimal(this NetworkWriter writer, decimal value) => writer.WriteBlittable(value);
-        public static void WriteDecimalNullable(this NetworkWriter writer, decimal? value) => writer.WriteBlittableNullable(value);
+        [WeaverPriority]
+        public static void WriteVarULong(this NetworkWriter writer, ulong value)
+        {
+            Compression.CompressVarUInt(writer, value);
+        }
 
-        public static void WriteHalf(this NetworkWriter writer, Half value) => writer.WriteUShort(value._value);
+        public static void WriteFloat(this NetworkWriter writer, float value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteFloatNullable(this NetworkWriter writer, float? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteDouble(this NetworkWriter writer, double value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteDoubleNullable(this NetworkWriter writer, double? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteDecimal(this NetworkWriter writer, decimal value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteDecimalNullable(this NetworkWriter writer, decimal? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteHalf(this NetworkWriter writer, Half value)
+        {
+            writer.WriteUShort(value._value);
+        }
 
         public static void WriteString(this NetworkWriter writer, string value)
         {
@@ -72,12 +185,12 @@ namespace Mirror
 
             // WriteString copies into the buffer manually.
             // need to ensure capacity here first, manually.
-            int maxSize = writer.encoding.GetMaxByteCount(value.Length);
+            var maxSize = writer.encoding.GetMaxByteCount(value.Length);
             writer.EnsureCapacity(writer.Position + 2 + maxSize); // 2 bytes position + N bytes encoding
 
             // encode it into the buffer first.
             // reserve 2 bytes for header after we know how much was written.
-            int written = writer.encoding.GetBytes(value, 0, value.Length, writer.buffer, writer.Position + 2);
+            var written = writer.encoding.GetBytes(value, 0, value.Length, writer.buffer, writer.Position + 2);
 
             // check if within max size, otherwise Reader can't read it.
             if (written > NetworkWriter.MaxStringLength)
@@ -114,6 +227,7 @@ namespace Mirror
                 // writer.WriteUInt(0u);
                 return;
             }
+
             // most sizes are small, write size as VarUInt!
             Compression.CompressVarUInt(writer, checked((uint)count) + 1u);
             // writer.WriteUInt(checked((uint)count) + 1u);
@@ -137,39 +251,92 @@ namespace Mirror
             // - WriteArraySegment
             // - ReadArray
             // in which case ReadArray needs null support. both need to be compatible.
-            int count = segment.Count;
+            var count = segment.Count;
             // most sizes are small, write size as VarUInt!
             Compression.CompressVarUInt(writer, checked((uint)count) + 1u);
             // writer.WriteUInt(checked((uint)count) + 1u);
-            for (int i = 0; i < count; i++)
-            {
-                writer.Write(segment.Array[segment.Offset + i]);
-            }
+            for (var i = 0; i < count; i++) writer.Write(segment.Array[segment.Offset + i]);
         }
 
-        public static void WriteVector2(this NetworkWriter writer, Vector2 value) => writer.WriteBlittable(value);
-        public static void WriteVector2Nullable(this NetworkWriter writer, Vector2? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector2(this NetworkWriter writer, Vector2 value)
+        {
+            writer.WriteBlittable(value);
+        }
 
-        public static void WriteVector3(this NetworkWriter writer, Vector3 value) => writer.WriteBlittable(value);
-        public static void WriteVector3Nullable(this NetworkWriter writer, Vector3? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector2Nullable(this NetworkWriter writer, Vector2? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
-        public static void WriteVector4(this NetworkWriter writer, Vector4 value) => writer.WriteBlittable(value);
-        public static void WriteVector4Nullable(this NetworkWriter writer, Vector4? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector3(this NetworkWriter writer, Vector3 value)
+        {
+            writer.WriteBlittable(value);
+        }
 
-        public static void WriteVector2Int(this NetworkWriter writer, Vector2Int value) => writer.WriteBlittable(value);
-        public static void WriteVector2IntNullable(this NetworkWriter writer, Vector2Int? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector3Nullable(this NetworkWriter writer, Vector3? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
-        public static void WriteVector3Int(this NetworkWriter writer, Vector3Int value) => writer.WriteBlittable(value);
-        public static void WriteVector3IntNullable(this NetworkWriter writer, Vector3Int? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector4(this NetworkWriter writer, Vector4 value)
+        {
+            writer.WriteBlittable(value);
+        }
 
-        public static void WriteColor(this NetworkWriter writer, Color value) => writer.WriteBlittable(value);
-        public static void WriteColorNullable(this NetworkWriter writer, Color? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector4Nullable(this NetworkWriter writer, Vector4? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
-        public static void WriteColor32(this NetworkWriter writer, Color32 value) => writer.WriteBlittable(value);
-        public static void WriteColor32Nullable(this NetworkWriter writer, Color32? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector2Int(this NetworkWriter writer, Vector2Int value)
+        {
+            writer.WriteBlittable(value);
+        }
 
-        public static void WriteQuaternion(this NetworkWriter writer, Quaternion value) => writer.WriteBlittable(value);
-        public static void WriteQuaternionNullable(this NetworkWriter writer, Quaternion? value) => writer.WriteBlittableNullable(value);
+        public static void WriteVector2IntNullable(this NetworkWriter writer, Vector2Int? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteVector3Int(this NetworkWriter writer, Vector3Int value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteVector3IntNullable(this NetworkWriter writer, Vector3Int? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteColor(this NetworkWriter writer, Color value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteColorNullable(this NetworkWriter writer, Color? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteColor32(this NetworkWriter writer, Color32 value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteColor32Nullable(this NetworkWriter writer, Color32? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
+
+        public static void WriteQuaternion(this NetworkWriter writer, Quaternion value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteQuaternionNullable(this NetworkWriter writer, Quaternion? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
         // Rect is a struct with properties instead of fields
         public static void WriteRect(this NetworkWriter writer, Rect value)
@@ -177,6 +344,7 @@ namespace Mirror
             writer.WriteVector2(value.position);
             writer.WriteVector2(value.size);
         }
+
         public static void WriteRectNullable(this NetworkWriter writer, Rect? value)
         {
             writer.WriteBool(value.HasValue);
@@ -190,6 +358,7 @@ namespace Mirror
             writer.WriteVector3(value.normal);
             writer.WriteFloat(value.distance);
         }
+
         public static void WritePlaneNullable(this NetworkWriter writer, Plane? value)
         {
             writer.WriteBool(value.HasValue);
@@ -203,6 +372,7 @@ namespace Mirror
             writer.WriteVector3(value.origin);
             writer.WriteVector3(value.direction);
         }
+
         public static void WriteRayNullable(this NetworkWriter writer, Ray? value)
         {
             writer.WriteBool(value.HasValue);
@@ -216,6 +386,7 @@ namespace Mirror
             // 32 layers as a flags enum, max value of 496, we only need a UShort.
             writer.WriteUShort((ushort)layerMask.value);
         }
+
         public static void WriteLayerMaskNullable(this NetworkWriter writer, LayerMask? layerMask)
         {
             writer.WriteBool(layerMask.HasValue);
@@ -223,8 +394,15 @@ namespace Mirror
                 writer.WriteLayerMask(layerMask.Value);
         }
 
-        public static void WriteMatrix4x4(this NetworkWriter writer, Matrix4x4 value) => writer.WriteBlittable(value);
-        public static void WriteMatrix4x4Nullable(this NetworkWriter writer, Matrix4x4? value) => writer.WriteBlittableNullable(value);
+        public static void WriteMatrix4x4(this NetworkWriter writer, Matrix4x4 value)
+        {
+            writer.WriteBlittable(value);
+        }
+
+        public static void WriteMatrix4x4Nullable(this NetworkWriter writer, Matrix4x4? value)
+        {
+            writer.WriteBlittableNullable(value);
+        }
 
         public static void WriteGuid(this NetworkWriter writer, Guid value)
         {
@@ -241,6 +419,7 @@ namespace Mirror
             writer.Position += 16;
 #endif
         }
+
         public static void WriteGuidNullable(this NetworkWriter writer, Guid? value)
         {
             writer.WriteBool(value.HasValue);
@@ -303,6 +482,7 @@ namespace Mirror
                 writer.WriteUInt(0);
                 return;
             }
+
             if (value.TryGetComponent(out NetworkIdentity identity))
             {
                 writer.WriteUInt(identity.netId);
@@ -357,7 +537,7 @@ namespace Mirror
             // most sizes are small, write size as VarUInt!
             Compression.CompressVarUInt(writer, checked((uint)list.Count) + 1u);
             // writer.WriteUInt(checked((uint)list.Count) + 1u);
-            for (int i = 0; i < list.Count; i++)
+            for (var i = 0; i < list.Count; i++)
                 writer.Write(list[i]);
         }
 
@@ -381,7 +561,7 @@ namespace Mirror
             // most sizes are small, write size as VarUInt!
             Compression.CompressVarUInt(writer, checked((uint)hashSet.Count) + 1u);
             //writer.WriteUInt(checked((uint)hashSet.Count) + 1u);
-            foreach (T item in hashSet)
+            foreach (var item in hashSet)
                 writer.Write(item);
         }
 
@@ -405,7 +585,7 @@ namespace Mirror
             // most sizes are small, write size as VarUInt!
             Compression.CompressVarUInt(writer, checked((uint)array.Length) + 1u);
             // writer.WriteUInt(checked((uint)array.Length) + 1u);
-            for (int i = 0; i < array.Length; i++)
+            for (var i = 0; i < array.Length; i++)
                 writer.Write(array[i]);
         }
 
@@ -429,7 +609,7 @@ namespace Mirror
             }
 
             // check if within max size, otherwise Reader can't read it.
-            int totalSize = texture2D.width * texture2D.height;
+            var totalSize = texture2D.width * texture2D.height;
             if (totalSize > NetworkReader.AllocationLimit)
                 throw new IndexOutOfRangeException($"NetworkWriter.WriteTexture2D - Texture2D total size (width*height) too big: {totalSize}. Limit: {NetworkReader.AllocationLimit}");
 

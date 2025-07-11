@@ -1,9 +1,19 @@
 using System;
 using UnityEngine;
+
 namespace Mirror
 {
     public class NetworkPingGraph : BaseUIGraph
     {
+        protected override void OnValidate()
+        {
+            base.OnValidate();
+            if (CategoryColors.Length != 2)
+                CategoryColors = new[] { Color.cyan, Color.yellow };
+
+            IsStacked = false;
+        }
+
         protected override void CollectData(int category, out float value, out GraphAggregationMode mode)
         {
             mode = GraphAggregationMode.Average;
@@ -20,15 +30,9 @@ namespace Mirror
             }
         }
 
-        protected override string FormatValue(float value) => $"{value:N0}ms";
-
-        protected override void OnValidate()
+        protected override string FormatValue(float value)
         {
-            base.OnValidate();
-            if (CategoryColors.Length != 2)
-                CategoryColors = new[] { Color.cyan, Color.yellow };
-
-            IsStacked = false;
+            return $"{value:N0}ms";
         }
     }
 }

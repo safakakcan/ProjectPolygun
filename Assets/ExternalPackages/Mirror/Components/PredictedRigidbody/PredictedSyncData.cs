@@ -7,6 +7,7 @@
 //
 // in this case however, we need to squeeze everything we can out of prediction
 // to support low even devices / VR.
+
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -17,16 +18,17 @@ namespace Mirror
     [StructLayout(LayoutKind.Sequential)] // explicitly force sequential
     public struct PredictedSyncData
     {
-        public float deltaTime;         // 4 bytes (word aligned)
-        public Vector3 position;        // 12 bytes (word aligned)
-        public Quaternion rotation;     // 16 bytes (word aligned)
-        public Vector3 velocity;        // 12 bytes (word aligned)
+        public float deltaTime; // 4 bytes (word aligned)
+        public Vector3 position; // 12 bytes (word aligned)
+        public Quaternion rotation; // 16 bytes (word aligned)
+        public Vector3 velocity; // 12 bytes (word aligned)
+
         public Vector3 angularVelocity; // 12 bytes (word aligned)
         // DO NOT SYNC SLEEPING! this cuts benchmark performance in half(!!!)
         // public byte sleeping;           // 1 byte: bool isn't blittable
 
         // constructor for convenience
-        public PredictedSyncData(float deltaTime, Vector3 position, Quaternion rotation, Vector3 velocity, Vector3 angularVelocity)//, bool sleeping)
+        public PredictedSyncData(float deltaTime, Vector3 position, Quaternion rotation, Vector3 velocity, Vector3 angularVelocity) //, bool sleeping)
         {
             this.deltaTime = deltaTime;
             this.position = position;

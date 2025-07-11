@@ -5,6 +5,11 @@ namespace Mirror.Examples.NetworkRoom
     [AddComponentMenu("")]
     public class NetworkRoomPlayerExt : NetworkRoomPlayer
     {
+        public override void OnGUI()
+        {
+            base.OnGUI();
+        }
+
         public override void OnStartClient()
         {
             //Debug.Log($"OnStartClient {gameObject}");
@@ -28,11 +33,6 @@ namespace Mirror.Examples.NetworkRoom
         public override void ReadyStateChanged(bool oldReadyState, bool newReadyState)
         {
             //Debug.Log($"ReadyStateChanged {newReadyState}");
-        }
-
-        public override void OnGUI()
-        {
-            base.OnGUI();
         }
     }
 }

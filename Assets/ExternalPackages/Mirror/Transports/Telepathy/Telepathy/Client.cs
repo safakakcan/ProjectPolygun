@@ -12,16 +12,13 @@ namespace Telepathy
     //    while attempting to use it for a new connection attempt etc.
     // => creating a fresh client state each time is the best solution against
     //    data races here!
-    class ClientConnectionState : ConnectionState
+    internal class ClientConnectionState : ConnectionState
     {
-        public Thread receiveThread;
-
-        // TcpClient.Connected doesn't check if socket != null, which
-        // results in NullReferenceExceptions if connection was closed.
-        // -> let's check it manually instead
-        public bool Connected => client != null &&
-                                 client.Client != null &&
-                                 client.Client.Connected;
+        // thread safe pipe for received messages
+        // => inside client connection state so that we can create a new state
+        //    each time we connect
+        //    (unlike server which has one receive pipe for all connections)
+        public readonly MagnificentReceivePipe receivePipe;
 
         // TcpClient has no 'connecting' state to check. We need to keep track
         // of it manually.
@@ -36,12 +33,7 @@ namespace Telepathy
         //    https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/variables
         //    made volatile so the compiler does not reorder access to it
         public volatile bool Connecting;
-
-        // thread safe pipe for received messages
-        // => inside client connection state so that we can create a new state
-        //    each time we connect
-        //    (unlike server which has one receive pipe for all connections)
-        public readonly MagnificentReceivePipe receivePipe;
+        public Thread receiveThread;
 
         // constructor always creates new TcpClient for client connection!
         public ClientConnectionState(int MaxMessageSize) : base(new TcpClient(), MaxMessageSize)
@@ -49,6 +41,13 @@ namespace Telepathy
             // create receive pipe with max message size for pooling
             receivePipe = new MagnificentReceivePipe(MaxMessageSize);
         }
+
+        // TcpClient.Connected doesn't check if socket != null, which
+        // results in NullReferenceExceptions if connection was closed.
+        // -> let's check it manually instead
+        public bool Connected => client != null &&
+                                 client.Client != null &&
+                                 client.Client.Connected;
 
         // dispose all the state safely
         public void Dispose()
@@ -87,6 +86,7 @@ namespace Telepathy
         public Action OnConnected;
         public Action<ArraySegment<byte>> OnData;
         public Action OnDisconnected;
+        public int ReceiveQueueLimit = 10000;
 
         // disconnect if send queue gets too big.
         // -> avoids ever growing queue memory if network is slower than input
@@ -98,12 +98,16 @@ namespace Telepathy
         //   limit =  1,000 means  16 MB of memory/connection
         //   limit = 10,000 means 160 MB of memory/connection
         public int SendQueueLimit = 10000;
-        public int ReceiveQueueLimit = 10000;
 
         // all client state wrapped into an object that is passed to ReceiveThread
         // => we create a new one each time we connect to avoid data races with
         //    old dieing threads still using the previous object!
-        ClientConnectionState state;
+        private ClientConnectionState state;
+
+        // constructor
+        public Client(int MaxMessageSize) : base(MaxMessageSize)
+        {
+        }
 
         // Connected & Connecting
         public bool Connected => state != null && state.Connected;
@@ -112,15 +116,12 @@ namespace Telepathy
         // pipe count, useful for debugging / benchmarks
         public int ReceivePipeCount => state != null ? state.receivePipe.TotalCount : 0;
 
-        // constructor
-        public Client(int MaxMessageSize) : base(MaxMessageSize) {}
-
         // the thread function
         // STATIC to avoid sharing state!
         // => pass ClientState object. a new one is created for each new thread!
         // => avoids data races where an old dieing thread might still modify
         //    the current thread's state :/
-        static void ReceiveThreadFunction(ClientConnectionState state, string ip, int port, int MaxMessageSize, bool NoDelay, int SendTimeout, int ReceiveTimeout, int ReceiveQueueLimit)
+        private static void ReceiveThreadFunction(ClientConnectionState state, string ip, int port, int MaxMessageSize, bool NoDelay, int SendTimeout, int ReceiveTimeout, int ReceiveQueueLimit)
 
         {
             Thread sendThread = null;
@@ -173,10 +174,11 @@ namespace Telepathy
                 // something went wrong. probably important.
                 Log.Error("Client Recv Exception: " + exception);
             }
+
             // add 'Disconnected' event to receive pipe so that the caller
             // knows that the Connect failed. otherwise they will never know
             state.receivePipe.Enqueue(0, EventType.Disconnected, default);
-            
+
             // sendthread might be waiting on ManualResetEvent,
             // so let's make sure to end it if the connection
             // closed.
@@ -235,9 +237,7 @@ namespace Telepathy
             //    too long, which is especially good in games
             // -> this way we don't async client.BeginConnect, which seems to
             //    fail sometimes if we connect too many clients too fast
-            state.receiveThread = new Thread(() => {
-                ReceiveThreadFunction(state, ip, port, MaxMessageSize, NoDelay, SendTimeout, ReceiveTimeout, ReceiveQueueLimit);
-            });
+            state.receiveThread = new Thread(() => { ReceiveThreadFunction(state, ip, port, MaxMessageSize, NoDelay, SendTimeout, ReceiveTimeout, ReceiveQueueLimit); });
             state.receiveThread.IsBackground = true;
             state.receiveThread.Start();
         }
@@ -246,13 +246,10 @@ namespace Telepathy
         {
             // only if started
             if (Connecting || Connected)
-            {
                 // dispose all the state safely
                 state.Dispose();
-
-                // IMPORTANT: DO NOT set state = null!
-                // we still want to process the pipe's disconnect message etc.!
-            }
+            // IMPORTANT: DO NOT set state = null!
+            // we still want to process the pipe's disconnect message etc.!
         }
 
         // send message to server using socket connection.
@@ -284,19 +281,19 @@ namespace Telepathy
                     //       immediately, it's still possible that the sending
                     //       blocks for so long that the send queue just gets
                     //       way too big. have a limit - better safe than sorry.
-                    else
-                    {
-                        // log the reason
-                        Log.Warning($"Client.Send: sendPipe reached limit of {SendQueueLimit}. This can happen if we call send faster than the network can process messages. Disconnecting to avoid ever growing memory & latency.");
 
-                        // just close it. send thread will take care of the rest.
-                        state.client.Close();
-                        return false;
-                    }
+                    // log the reason
+                    Log.Warning($"Client.Send: sendPipe reached limit of {SendQueueLimit}. This can happen if we call send faster than the network can process messages. Disconnecting to avoid ever growing memory & latency.");
+
+                    // just close it. send thread will take care of the rest.
+                    state.client.Close();
+                    return false;
                 }
+
                 Log.Error("Client.Send: message too big: " + message.Count + ". Limit: " + MaxMessageSize);
                 return false;
             }
+
             Log.Warning("Client.Send: not connected!");
             return false;
         }
@@ -323,7 +320,7 @@ namespace Telepathy
                 return 0;
 
             // process up to 'processLimit' messages
-            for (int i = 0; i < processLimit; ++i)
+            for (var i = 0; i < processLimit; ++i)
             {
                 // check enabled in case a Mirror scene message arrived
                 if (checkEnabled != null && !checkEnabled())
@@ -331,7 +328,7 @@ namespace Telepathy
 
                 // peek first. allows us to process the first queued entry while
                 // still keeping the pooled byte[] alive by not removing anything.
-                if (state.receivePipe.TryPeek(out int _, out EventType eventType, out ArraySegment<byte> message))
+                if (state.receivePipe.TryPeek(out _, out var eventType, out var message))
                 {
                     switch (eventType)
                     {
@@ -351,7 +348,10 @@ namespace Telepathy
                     state.receivePipe.TryDequeue();
                 }
                 // no more messages. stop the loop.
-                else break;
+                else
+                {
+                    break;
+                }
             }
 
             // return what's left to process for next time

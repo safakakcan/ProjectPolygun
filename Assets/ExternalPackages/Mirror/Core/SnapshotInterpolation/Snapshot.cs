@@ -2,6 +2,7 @@
 // for example, NetworkTransform, NetworkRigidbody, CharacterController etc.
 // NOTE: we use '<T>' and 'where T : Snapshot' to avoid boxing.
 //       List<Snapshot> would cause allocations through boxing.
+
 namespace Mirror
 {
     public interface Snapshot

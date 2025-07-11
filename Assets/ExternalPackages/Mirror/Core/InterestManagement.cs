@@ -11,8 +11,7 @@ namespace Mirror
     public abstract class InterestManagement : InterestManagementBase
     {
         // allocate newObservers helper HashSet
-        readonly HashSet<NetworkConnectionToClient> newObservers =
-            new HashSet<NetworkConnectionToClient>();
+        private readonly HashSet<NetworkConnectionToClient> newObservers = new();
 
         // rebuild observers for the given NetworkIdentity.
         // Server will automatically spawn/despawn added/removed ones.
@@ -42,10 +41,7 @@ namespace Mirror
         [ServerCallback]
         protected void RebuildAll()
         {
-            foreach (NetworkIdentity identity in NetworkServer.spawned.Values)
-            {
-                NetworkServer.RebuildObservers(identity, false);
-            }
+            foreach (var identity in NetworkServer.spawned.Values) NetworkServer.RebuildObservers(identity, false);
         }
 
         public override void Rebuild(NetworkIdentity identity, bool initialize)
@@ -54,10 +50,7 @@ namespace Mirror
             newObservers.Clear();
 
             // not force hidden?
-            if (identity.visibility != Visibility.ForceHidden)
-            {
-                OnRebuildObservers(identity, newObservers);
-            }
+            if (identity.visibility != Visibility.ForceHidden) OnRebuildObservers(identity, newObservers);
 
             // IMPORTANT: AFTER rebuilding add own player connection in any case
             // to ensure player always sees himself no matter what.
@@ -66,20 +59,15 @@ namespace Mirror
             // -> fixes https://github.com/vis2k/Mirror/issues/692 where a
             //    player might teleport out of the ProximityChecker's cast,
             //    losing the own connection as observer.
-            if (identity.connectionToClient != null)
-            {
-                newObservers.Add(identity.connectionToClient);
-            }
+            if (identity.connectionToClient != null) newObservers.Add(identity.connectionToClient);
 
-            bool changed = false;
+            var changed = false;
 
             // add all newObservers that aren't in .observers yet
-            foreach (NetworkConnectionToClient conn in newObservers)
-            {
+            foreach (var conn in newObservers)
                 // only add ready connections.
                 // otherwise the player might not be in the world yet or anymore
                 if (conn != null && conn.isReady)
-                {
                     if (initialize || !identity.observers.ContainsKey(conn.connectionId))
                     {
                         // new observer
@@ -87,12 +75,9 @@ namespace Mirror
                         // Debug.Log($"New Observer for {gameObject} {conn}");
                         changed = true;
                     }
-                }
-            }
 
             // remove all old .observers that aren't in newObservers anymore
-            foreach (NetworkConnectionToClient conn in identity.observers.Values)
-            {
+            foreach (var conn in identity.observers.Values)
                 if (!newObservers.Contains(conn))
                 {
                     // removed observer
@@ -100,17 +85,14 @@ namespace Mirror
                     // Debug.Log($"Removed Observer for {gameObject} {conn}");
                     changed = true;
                 }
-            }
 
             // copy new observers to observers
             if (changed)
             {
                 identity.observers.Clear();
-                foreach (NetworkConnectionToClient conn in newObservers)
-                {
+                foreach (var conn in newObservers)
                     if (conn != null && conn.isReady)
                         identity.observers.Add(conn.connectionId, conn);
-                }
             }
 
             // special case for host mode: we use SetHostVisibility to hide
@@ -135,12 +117,8 @@ namespace Mirror
             //      don't break anything in host mode. it's way easier than
             //      iterating all identities in a special function in StartHost.
             if (initialize)
-            {
                 if (!newObservers.Contains(NetworkServer.localConnection))
-                {
                     SetHostVisibility(identity, false);
-                }
-            }
         }
     }
 }

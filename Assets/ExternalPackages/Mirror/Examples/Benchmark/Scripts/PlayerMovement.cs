@@ -6,6 +6,17 @@ namespace Mirror.Examples.Benchmark
     {
         public float speed = 5;
 
+        private void Update()
+        {
+            if (!isLocalPlayer) return;
+
+            var h = Input.GetAxis("Horizontal");
+            var v = Input.GetAxis("Vertical");
+
+            var dir = new Vector3(h, 0, v);
+            transform.position += dir.normalized * (Time.deltaTime * speed);
+        }
+
         // naming for easier debugging
         public override void OnStartClient()
         {
@@ -15,17 +26,6 @@ namespace Mirror.Examples.Benchmark
         public override void OnStartServer()
         {
             name = $"Player[{netId}|server]";
-        }
-
-        void Update()
-        {
-            if (!isLocalPlayer) return;
-
-            float h = Input.GetAxis("Horizontal");
-            float v = Input.GetAxis("Vertical");
-
-            Vector3 dir = new Vector3(h, 0, v);
-            transform.position += dir.normalized * (Time.deltaTime * speed);
         }
     }
 }

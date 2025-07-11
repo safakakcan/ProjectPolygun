@@ -21,10 +21,7 @@ namespace Mirror.Weaver
             try
             {
                 // value types cant inherit from SyncObject
-                if (typeRef.IsValueType)
-                {
-                    return false;
-                }
+                if (typeRef.IsValueType) return false;
 
                 return typeRef.Resolve().IsDerivedFrom<SyncObject>();
             }

@@ -9,14 +9,31 @@ namespace Mirror.Examples.Common
     [DisallowMultipleComponent]
     public class PlayerCamera : NetworkBehaviour
     {
-        Camera mainCam;
+        public Vector3 offset = new(0f, 3f, -8f);
+        public Vector3 rotation = new(10f, 0f, 0f);
+        private Camera mainCam;
 
-        public Vector3 offset = new Vector3(0f, 3f, -8f);
-        public Vector3 rotation = new Vector3(10f, 0f, 0f);
-
-        void Awake()
+        private void Awake()
         {
             mainCam = Camera.main;
+        }
+
+        private void OnDisable()
+        {
+            //Debug.Log("PlayerCamera.OnDisable");
+            ReleaseCamera();
+        }
+
+        private void OnDestroy()
+        {
+            //Debug.Log("PlayerCamera.OnDestroy");
+            ReleaseCamera();
+        }
+
+        private void OnApplicationQuit()
+        {
+            //Debug.Log("PlayerCamera.OnApplicationQuit");
+            ReleaseCamera();
         }
 
         public override void OnStartLocalPlayer()
@@ -30,13 +47,9 @@ namespace Mirror.Examples.Common
                 mainCam.transform.localEulerAngles = rotation;
             }
             else
+            {
                 Debug.LogWarning("PlayerCamera: Could not find a camera in scene with 'MainCamera' tag.");
-        }
-
-        void OnApplicationQuit()
-        {
-            //Debug.Log("PlayerCamera.OnApplicationQuit");
-            ReleaseCamera();
+            }
         }
 
         public override void OnStopLocalPlayer()
@@ -45,19 +58,7 @@ namespace Mirror.Examples.Common
             ReleaseCamera();
         }
 
-        void OnDisable()
-        {
-            //Debug.Log("PlayerCamera.OnDisable");
-            ReleaseCamera();
-        }
-
-        void OnDestroy()
-        {
-            //Debug.Log("PlayerCamera.OnDestroy");
-            ReleaseCamera();
-        }
-
-        void ReleaseCamera()
+        private void ReleaseCamera()
         {
             if (mainCam != null && mainCam.transform.parent == transform)
             {

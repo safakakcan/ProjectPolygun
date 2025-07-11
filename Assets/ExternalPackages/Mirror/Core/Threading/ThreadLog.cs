@@ -4,6 +4,7 @@
 // Builds don't show Debug.Logs from different threads.
 //
 // need to hook into logMessageReceivedThreaded to receive them in builds too.
+
 using System.Collections.Concurrent;
 using System.Threading;
 using UnityEngine;
@@ -13,12 +14,12 @@ namespace Mirror
     public static class ThreadLog
     {
         // queue log messages from threads
-        struct LogEntry
+        private struct LogEntry
         {
-            public int     threadId;
-            public LogType type;
-            public string  message;
-            public string  stackTrace;
+            public readonly int threadId;
+            public readonly LogType type;
+            public readonly string message;
+            public readonly string stackTrace;
 
             public LogEntry(int threadId, LogType type, string message, string stackTrace)
             {
@@ -31,11 +32,10 @@ namespace Mirror
 
         // ConcurrentQueue allocations are fine here.
         // logs allocate anywway.
-        static readonly ConcurrentQueue<LogEntry> logs =
-            new ConcurrentQueue<LogEntry>();
+        private static readonly ConcurrentQueue<LogEntry> logs = new();
 
         // main thread id
-        static int mainThreadId;
+        private static int mainThreadId;
 
 #if !UNITY_EDITOR
         // Editor as of Unity 2021 does log threaded messages.
@@ -64,12 +64,14 @@ namespace Mirror
         }
 #endif
 
-        static bool IsMainThread() =>
-            Thread.CurrentThread.ManagedThreadId == mainThreadId;
+        private static bool IsMainThread()
+        {
+            return Thread.CurrentThread.ManagedThreadId == mainThreadId;
+        }
 
         // callback runs on the same thread where the Debug.Log is called.
         // we can use this to buffer messages for main thread here.
-        static void OnLog(string message, string stackTrace, LogType type)
+        private static void OnLog(string message, string stackTrace, LogType type)
         {
             // only enqueue messages from other threads.
             // otherwise OnLateUpdate main thread logging would be enqueued
@@ -80,11 +82,10 @@ namespace Mirror
             logs.Enqueue(new LogEntry(Thread.CurrentThread.ManagedThreadId, type, message, stackTrace));
         }
 
-        static void OnLateUpdate()
+        private static void OnLateUpdate()
         {
             // process queued logs on main thread
-            while (logs.TryDequeue(out LogEntry entry))
-            {
+            while (logs.TryDequeue(out var entry))
                 switch (entry.type)
                 {
                     // add [Thread#] prefix to make it super obvious where this log message comes from.
@@ -106,7 +107,6 @@ namespace Mirror
                         Debug.LogAssertion($"[Thread{entry.threadId}] {entry.message}\n{entry.stackTrace}");
                         break;
                 }
-            }
         }
     }
 }

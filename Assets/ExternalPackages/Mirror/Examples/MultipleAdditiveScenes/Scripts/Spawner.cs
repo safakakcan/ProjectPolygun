@@ -1,15 +1,18 @@
+using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Object = UnityEngine.Object;
+using Random = UnityEngine.Random;
 
 namespace Mirror.Examples.MultipleAdditiveScenes
 {
     internal static class Spawner
     {
-        static GameObject prefab;
-        static byte poolSize = 10;
-        static Pool<GameObject> pool;
-        static ushort counter;
+        private static GameObject prefab;
+        private static byte poolSize = 10;
+        private static Pool<GameObject> pool;
+        private static ushort counter;
 
         internal static void InitializePool(GameObject poolPrefab, byte count)
         {
@@ -36,14 +39,20 @@ namespace Mirror.Examples.MultipleAdditiveScenes
             pool = null;
         }
 
-        static GameObject SpawnHandler(SpawnMessage msg) => Get(msg.position, msg.rotation);
+        private static GameObject SpawnHandler(SpawnMessage msg)
+        {
+            return Get(msg.position, msg.rotation);
+        }
 
-        static void UnspawnHandler(GameObject spawned) => Return(spawned);
+        private static void UnspawnHandler(GameObject spawned)
+        {
+            Return(spawned);
+        }
 
-        static GameObject CreateNew()
+        private static GameObject CreateNew()
         {
             // use this object as parent so that objects dont crowd hierarchy
-            GameObject next = Object.Instantiate(prefab);
+            var next = Object.Instantiate(prefab);
             counter++;
             next.name = $"{prefab.name}_pooled_{counter:00}";
             next.SetActive(false);
@@ -52,7 +61,7 @@ namespace Mirror.Examples.MultipleAdditiveScenes
 
         public static GameObject Get(Vector3 position, Quaternion rotation)
         {
-            GameObject next = pool.Get();
+            var next = pool.Get();
 
             // set position/rotation and set active
             next.transform.SetPositionAndRotation(position, rotation);
@@ -78,15 +87,15 @@ namespace Mirror.Examples.MultipleAdditiveScenes
         [ServerCallback]
         internal static void InitialSpawn(Scene scene)
         {
-            for (int i = 0; i < 10; i++)
+            for (var i = 0; i < 10; i++)
                 SpawnReward(scene);
         }
 
         [ServerCallback]
         internal static void SpawnReward(Scene scene)
         {
-            Vector3 spawnPosition = new Vector3(Random.Range(-19, 20), 1, Random.Range(-19, 20));
-            GameObject reward = Get(spawnPosition, Quaternion.identity);
+            var spawnPosition = new Vector3(Random.Range(-19, 20), 1, Random.Range(-19, 20));
+            var reward = Get(spawnPosition, Quaternion.identity);
             SceneManager.MoveGameObjectToScene(reward, scene);
             NetworkServer.Spawn(reward);
         }
@@ -98,9 +107,9 @@ namespace Mirror.Examples.MultipleAdditiveScenes
             await DelayedSpawn(reward.scene);
         }
 
-        static async Task DelayedSpawn(Scene scene)
+        private static async Task DelayedSpawn(Scene scene)
         {
-            await Task.Delay(new System.TimeSpan(0, 0, 1));
+            await Task.Delay(new TimeSpan(0, 0, 1));
             SpawnReward(scene);
         }
     }

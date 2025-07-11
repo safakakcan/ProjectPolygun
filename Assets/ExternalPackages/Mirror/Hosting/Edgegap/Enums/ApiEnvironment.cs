@@ -3,7 +3,7 @@ namespace Edgegap
     public enum ApiEnvironment
     {
         Staging,
-        Console,
+        Console
     }
 
     public static class ApiEnvironmentsExtensions

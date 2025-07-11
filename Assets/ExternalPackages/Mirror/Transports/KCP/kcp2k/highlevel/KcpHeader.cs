@@ -9,21 +9,23 @@ namespace kcp2k
     public enum KcpHeaderReliable : byte
     {
         // don't react on 0x00. might help to filter out random noise.
-        Hello      = 1,
+        Hello = 1,
+
         // ping goes over reliable & KcpHeader for now. could go over unreliable
         // too. there is no real difference except that this is easier because
         // we already have a KcpHeader for reliable messages.
         // ping is only used to keep it alive, so latency doesn't matter.
-        Ping       = 2,
-        Data       = 3,
+        Ping = 2,
+        Data = 3
     }
 
     public enum KcpHeaderUnreliable : byte
     {
         // users may send unreliable messages
         Data = 4,
+
         // disconnect always goes through rapid fire unreliable (glenn fielder)
-        Disconnect = 5,
+        Disconnect = 5
     }
 
     // save convert the enums from/to byte.

@@ -7,7 +7,10 @@ using UnityEngine;
 
 namespace Mirror
 {
-    /// <summary>Network Reader for most simple types like floats, ints, buffers, structs, etc. Use NetworkReaderPool.GetReader() to avoid allocations.</summary>
+    /// <summary>
+    ///     Network Reader for most simple types like floats, ints, buffers, structs, etc. Use
+    ///     NetworkReaderPool.GetReader() to avoid allocations.
+    /// </summary>
     // Note: This class is intended to be extremely pedantic,
     // and throw exceptions whenever stuff is going slightly wrong.
     // The exceptions will be handled in NetworkServer/NetworkClient.
@@ -43,7 +46,7 @@ namespace Mirror
         // with the valid ones, creating strings like "a�������".
         // instead, we want to catch it manually and return String.Empty.
         // this is safer. see test: ReadString_InvalidUTF8().
-        internal readonly UTF8Encoding encoding = new UTF8Encoding(false, true);
+        internal readonly UTF8Encoding encoding = new(false, true);
 
         // while allocation free ReadArraySegment is encouraged,
         // some functions can allocate a new byte[], List<T>, Texture, etc.
@@ -122,10 +125,7 @@ namespace Mirror
         {
             // check if blittable for safety
 #if UNITY_EDITOR
-            if (!UnsafeUtility.IsBlittable(typeof(T)))
-            {
-                throw new ArgumentException($"{typeof(T)} is not blittable!");
-            }
+            if (!UnsafeUtility.IsBlittable(typeof(T))) throw new ArgumentException($"{typeof(T)} is not blittable!");
 #endif
 
             // calculate size
@@ -134,13 +134,10 @@ namespace Mirror
             // => our 1mio writes benchmark is 6x slower with Marshal.SizeOf<T>
             // => for blittable types, sizeof(T) is even recommended:
             // https://docs.microsoft.com/en-us/dotnet/standard/native-interop/best-practices
-            int size = sizeof(T);
+            var size = sizeof(T);
 
             // ensure remaining
-            if (Remaining < size)
-            {
-                throw new EndOfStreamException($"ReadBlittable<{typeof(T)}> not enough data in buffer to read {size} bytes: {ToString()}");
-            }
+            if (Remaining < size) throw new EndOfStreamException($"ReadBlittable<{typeof(T)}> not enough data in buffer to read {size} bytes: {ToString()}");
 
             // read blittable
             T value;
@@ -168,6 +165,7 @@ namespace Mirror
                 value = *(T*)ptr;
 #endif
             }
+
             Position += size;
             return value;
         }
@@ -176,10 +174,15 @@ namespace Mirror
         // note: bool isn't blittable. need to read as byte.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal T? ReadBlittableNullable<T>()
-            where T : unmanaged =>
-            ReadByte() != 0 ? ReadBlittable<T>() : default(T?);
+            where T : unmanaged
+        {
+            return ReadByte() != 0 ? ReadBlittable<T>() : default(T?);
+        }
 
-        public byte ReadByte() => ReadBlittable<byte>();
+        public byte ReadByte()
+        {
+            return ReadBlittable<byte>();
+        }
 
         /// <summary>Read 'count' bytes into the bytes array</summary>
         // NOTE: returns byte[] because all reader functions return something.
@@ -189,15 +192,9 @@ namespace Mirror
             if (count < 0) throw new ArgumentOutOfRangeException("ReadBytes requires count >= 0");
 
             // check if passed byte array is big enough
-            if (count > bytes.Length)
-            {
-                throw new EndOfStreamException($"ReadBytes can't read {count} + bytes because the passed byte[] only has length {bytes.Length}");
-            }
+            if (count > bytes.Length) throw new EndOfStreamException($"ReadBytes can't read {count} + bytes because the passed byte[] only has length {bytes.Length}");
             // ensure remaining
-            if (Remaining < count)
-            {
-                throw new EndOfStreamException($"ReadBytesSegment can't read {count} bytes because it would read past the end of the stream. {ToString()}");
-            }
+            if (Remaining < count) throw new EndOfStreamException($"ReadBytesSegment can't read {count} bytes because it would read past the end of the stream. {ToString()}");
 
             Array.Copy(buffer.Array, buffer.Offset + Position, bytes, 0, count);
             Position += count;
@@ -211,13 +208,10 @@ namespace Mirror
             if (count < 0) throw new ArgumentOutOfRangeException("ReadBytesSegment requires count >= 0");
 
             // ensure remaining
-            if (Remaining < count)
-            {
-                throw new EndOfStreamException($"ReadBytesSegment can't read {count} bytes because it would read past the end of the stream. {ToString()}");
-            }
+            if (Remaining < count) throw new EndOfStreamException($"ReadBytesSegment can't read {count} bytes because it would read past the end of the stream. {ToString()}");
 
             // return the segment
-            ArraySegment<byte> result = new ArraySegment<byte>(buffer.Array, buffer.Offset + Position, count);
+            var result = new ArraySegment<byte>(buffer.Array, buffer.Offset + Position, count);
             Position += count;
             return result;
         }
@@ -225,18 +219,21 @@ namespace Mirror
         /// <summary>Reads any data type that mirror supports. Uses weaver populated Reader(T).read</summary>
         public T Read<T>()
         {
-            Func<NetworkReader, T> readerDelegate = Reader<T>.read;
+            var readerDelegate = Reader<T>.read;
             if (readerDelegate == null)
             {
                 Debug.LogError($"No reader found for {typeof(T)}. Use a type supported by Mirror or define a custom reader extension for {typeof(T)}.");
                 return default;
             }
+
             return readerDelegate(this);
         }
 
         // print the full buffer with position / capacity.
-        public override string ToString() =>
-            $"[{buffer.ToHexString()} @ {Position}/{Capacity}]";
+        public override string ToString()
+        {
+            return $"[{buffer.ToHexString()} @ {Position}/{Capacity}]";
+        }
     }
 
     /// <summary>Helper class that weaver populates with all reader types.</summary>

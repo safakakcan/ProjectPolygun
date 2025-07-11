@@ -4,7 +4,7 @@
 //
 // however, some of the old NetworkTime code remains for ping time (rtt).
 // some users may still be using that.
-using System;
+
 using System.Runtime.CompilerServices;
 using UnityEngine;
 #if !UNITY_2020_3_OR_NEWER
@@ -19,16 +19,17 @@ namespace Mirror
         /// <summary>Ping message interval, used to calculate latency / RTT and predicted time.</summary>
         // 2s was enough to get a good average RTT.
         // for prediction, we want to react to latency changes more rapidly.
-        const float DefaultPingInterval = 0.1f; // for resets
+        private const float DefaultPingInterval = 0.1f; // for resets
+
         public static float PingInterval = DefaultPingInterval;
 
         /// <summary>Average out the last few results from Ping</summary>
         // const because it's used immediately in _rtt constructor.
         public const int PingWindowSize = 50; // average over 50 * 100ms = 5s
 
-        static double lastPingTime;
+        private static double lastPingTime;
 
-        static ExponentialMovingAverage _rtt = new ExponentialMovingAverage(PingWindowSize);
+        private static ExponentialMovingAverage _rtt = new(PingWindowSize);
 
         /// <summary>Returns double precision clock time _in this system_, unaffected by the network.</summary>
 #if UNITY_2020_3_OR_NEWER
@@ -90,12 +91,15 @@ namespace Mirror
         // credits: FakeByte, imer, NinjaKickja, mischa
         // const because it's used immediately in _predictionError constructor.
 
-        static int PredictionErrorWindowSize = 20; // average over 20 * 100ms = 2s
-        static ExponentialMovingAverage _predictionErrorUnadjusted = new ExponentialMovingAverage(PredictionErrorWindowSize);
+        private static readonly int PredictionErrorWindowSize = 20; // average over 20 * 100ms = 2s
+        private static ExponentialMovingAverage _predictionErrorUnadjusted = new(PredictionErrorWindowSize);
         public static double predictionErrorUnadjusted => _predictionErrorUnadjusted.Value;
         public static double predictionErrorAdjusted { get; private set; } // for debugging
 
-        /// <summary>Predicted timeline in order for client inputs to be timestamped with the exact time when they will most likely arrive on the server. This is the basis for all prediction like PredictedRigidbody.</summary>
+        /// <summary>
+        ///     Predicted timeline in order for client inputs to be timestamped with the exact time when they will most likely
+        ///     arrive on the server. This is the basis for all prediction like PredictedRigidbody.
+        /// </summary>
         // on client, this is based on localTime (aka Time.time) instead of the snapshot interpolated timeline.
         // this gives much better and immediately accurate results.
         // -> snapshot interpolation timeline tries to emulate a server timeline without hard offset corrections.
@@ -149,7 +153,7 @@ namespace Mirror
         {
             // send raw predicted time without the offset applied yet.
             // we then apply the offset to it after.
-            NetworkPingMessage pingMessage = new NetworkPingMessage
+            var pingMessage = new NetworkPingMessage
             (
                 localTime,
                 predictedTime
@@ -166,18 +170,18 @@ namespace Mirror
         {
             // calculate the prediction offset that the client needs to apply to unadjusted time to reach server time.
             // this will be sent back to client for corrections.
-            double unadjustedError = localTime - message.localTime;
+            var unadjustedError = localTime - message.localTime;
 
             // to see how well the client's final prediction worked, compare with adjusted time.
             // this is purely for debugging.
             // >0 means: server is ... seconds ahead of client's prediction (good if small)
             // <0 means: server is ... seconds behind client's prediction.
             //           in other words, client is predicting too far ahead (not good)
-            double adjustedError = localTime - message.predictedTimeAdjusted;
+            var adjustedError = localTime - message.predictedTimeAdjusted;
             // Debug.Log($"[Server] unadjustedError:{(unadjustedError*1000):F1}ms adjustedError:{(adjustedError*1000):F1}ms");
 
             // Debug.Log($"OnServerPing conn:{conn}");
-            NetworkPongMessage pongMessage = new NetworkPongMessage
+            var pongMessage = new NetworkPongMessage
             (
                 message.localTime,
                 unadjustedError,
@@ -195,7 +199,7 @@ namespace Mirror
             if (message.localTime > localTime) return;
 
             // how long did this message take to come back
-            double newRtt = localTime - message.localTime;
+            var newRtt = localTime - message.localTime;
             _rtt.Add(newRtt);
 
             // feed unadjusted prediction error into our exponential moving average
@@ -212,7 +216,7 @@ namespace Mirror
         internal static void OnClientPing(NetworkPingMessage message)
         {
             // Debug.Log($"OnClientPing conn:{conn}");
-            NetworkPongMessage pongMessage = new NetworkPongMessage
+            var pongMessage = new NetworkPongMessage
             (
                 message.localTime,
                 0, 0 // server doesn't predict
@@ -229,7 +233,7 @@ namespace Mirror
             if (message.localTime > localTime) return;
 
             // how long did this message take to come back
-            double newRtt = localTime - message.localTime;
+            var newRtt = localTime - message.localTime;
             conn._rtt.Add(newRtt);
         }
 

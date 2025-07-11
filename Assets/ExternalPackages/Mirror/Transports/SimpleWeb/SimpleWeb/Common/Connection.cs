@@ -10,32 +10,32 @@ namespace Mirror.SimpleWeb
 {
     internal sealed class Connection : IDisposable
     {
-        readonly object disposedLock = new object();
-
         public const int IdNotSet = -1;
+        private readonly object disposedLock = new();
         public TcpClient client;
         public int connId = IdNotSet;
+        private volatile bool hasDisposed;
+
+        public Action<Connection> onDispose;
+        public Thread receiveThread;
 
         /// <summary>
-        /// Connect request, sent from client to start handshake
-        /// <para>Only valid on server</para>
-        /// </summary>
-        public Request request;
-        /// <summary>
-        /// RemoteEndpoint address or address from request header
-        /// <para>Only valid on server</para>
+        ///     RemoteEndpoint address or address from request header
+        ///     <para>Only valid on server</para>
         /// </summary>
         public string remoteAddress;
 
-        public Stream stream;
-        public Thread receiveThread;
+        /// <summary>
+        ///     Connect request, sent from client to start handshake
+        ///     <para>Only valid on server</para>
+        /// </summary>
+        public Request request;
+
+        public ManualResetEventSlim sendPending = new(false);
+        public ConcurrentQueue<ArrayBuffer> sendQueue = new();
         public Thread sendThread;
 
-        public ManualResetEventSlim sendPending = new ManualResetEventSlim(false);
-        public ConcurrentQueue<ArrayBuffer> sendQueue = new ConcurrentQueue<ArrayBuffer>();
-
-        public Action<Connection> onDispose;
-        volatile bool hasDisposed;
+        public Stream stream;
 
         public Connection(TcpClient client, Action<Connection> onDispose)
         {
@@ -44,7 +44,7 @@ namespace Mirror.SimpleWeb
         }
 
         /// <summary>
-        /// disposes client and stops threads
+        ///     disposes client and stops threads
         /// </summary>
         public void Dispose()
         {
@@ -82,7 +82,7 @@ namespace Mirror.SimpleWeb
                 sendPending.Dispose();
 
                 // release all buffers in send queue
-                while (sendQueue.TryDequeue(out ArrayBuffer buffer))
+                while (sendQueue.TryDequeue(out var buffer))
                     buffer.Release();
 
                 onDispose.Invoke(this);
@@ -94,41 +94,38 @@ namespace Mirror.SimpleWeb
             // remoteAddress isn't set until after handshake
             if (hasDisposed)
                 return $"[Conn:{connId}, Disposed]";
-            else if (!string.IsNullOrWhiteSpace(remoteAddress))
+            if (!string.IsNullOrWhiteSpace(remoteAddress))
                 return $"[Conn:{connId}, endPoint:{remoteAddress}]";
-            else
-                try
-                {
-                    EndPoint endpoint = client?.Client?.RemoteEndPoint;
-                    return $"[Conn:{connId}, endPoint:{endpoint}]";
-                }
-                catch (SocketException)
-                {
-                    return $"[Conn:{connId}, endPoint:n/a]";
-                }
+            try
+            {
+                var endpoint = client?.Client?.RemoteEndPoint;
+                return $"[Conn:{connId}, endPoint:{endpoint}]";
+            }
+            catch (SocketException)
+            {
+                return $"[Conn:{connId}, endPoint:n/a]";
+            }
         }
 
         /// <summary>
-        /// Gets the address based on the <see cref="request"/> and RemoteEndPoint
-        /// <para>Called after ServerHandShake is accepted</para>
+        ///     Gets the address based on the <see cref="request" /> and RemoteEndPoint
+        ///     <para>Called after ServerHandShake is accepted</para>
         /// </summary>
         internal string CalculateAddress()
         {
-            if (request.Headers.TryGetValue("X-Forwarded-For", out string forwardFor))
+            if (request.Headers.TryGetValue("X-Forwarded-For", out var forwardFor))
             {
-                string actualClientIP = forwardFor.ToString().Split(',').First();
+                var actualClientIP = forwardFor.Split(',').First();
                 // Remove the port number from the address
                 return actualClientIP.Split(':').First();
             }
-            else
-            {
-                IPEndPoint ipEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
-                IPAddress ipAddress = ipEndPoint.Address;
-                if (ipAddress.IsIPv4MappedToIPv6)
-                    ipAddress = ipAddress.MapToIPv4();
 
-                return ipAddress.ToString();
-            }
+            var ipEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
+            var ipAddress = ipEndPoint.Address;
+            if (ipAddress.IsIPv4MappedToIPv6)
+                ipAddress = ipAddress.MapToIPv4();
+
+            return ipAddress.ToString();
         }
     }
 }

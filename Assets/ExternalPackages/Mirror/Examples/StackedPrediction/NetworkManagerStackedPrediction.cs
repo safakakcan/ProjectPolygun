@@ -5,14 +5,15 @@ namespace Mirror.Examples.PredictionBenchmark
     [AddComponentMenu("")]
     public class NetworkManagerStackedPrediction : NetworkManager
     {
-        [Header("Spawns")]
-        public int spawnAmount = 1000;
+        [Header("Spawns")] public int spawnAmount = 1000;
+
         public GameObject spawnPrefab;
         public float interleave = 1;
 
         // 500 objects need around 100 iterations to be stable
         [Tooltip("Stacked Cubes are only stable if solver iterations are high enough!\nDefault is 1, max is 255.")]
         public int solverIterations = 200;
+
         public int solverVelocityIterations = 1;
 
         public override void Awake()
@@ -23,7 +24,7 @@ namespace Mirror.Examples.PredictionBenchmark
             QualitySettings.vSyncCount = 0;
 
             // stacked cubes are only stable if solver iteration is high enough!
-            int before = Physics.defaultSolverIterations;
+            var before = Physics.defaultSolverIterations;
             Physics.defaultSolverIterations = solverIterations;
             Debug.Log($"Physics.defaultSolverIterations: {before} -> {Physics.defaultSolverIterations}");
 
@@ -32,41 +33,37 @@ namespace Mirror.Examples.PredictionBenchmark
             Debug.Log($"Physics.defaultSolverVelocityIterations: {before} -> {Physics.defaultSolverVelocityIterations}");
         }
 
-        void SpawnAll()
+        private void SpawnAll()
         {
             // calculate sqrt so we can spawn N * N = Amount
-            float sqrt = Mathf.Sqrt(spawnAmount);
+            var sqrt = Mathf.Sqrt(spawnAmount);
 
             // calculate spawn xz start positions
             // based on spawnAmount * distance
-            float offset = -sqrt / 2 * interleave;
+            var offset = -sqrt / 2 * interleave;
 
             // spawn exactly the amount, not one more.
-            int spawned = 0;
-            for (int spawnX = 0; spawnX < sqrt; ++spawnX)
-            {
-                for (int spawnY = 0; spawnY < sqrt; ++spawnY)
+            var spawned = 0;
+            for (var spawnX = 0; spawnX < sqrt; ++spawnX)
+            for (var spawnY = 0; spawnY < sqrt; ++spawnY)
+                // spawn exactly the amount, not any more
+                // (our sqrt method isn't 100% precise)
+                if (spawned < spawnAmount)
                 {
-                    // spawn exactly the amount, not any more
-                    // (our sqrt method isn't 100% precise)
-                    if (spawned < spawnAmount)
-                    {
-                        // it's important to have them at least 'Physics.defaultContactOffset' apart.
-                        // otherwise the physics engine will detect collisions and make them unstable.
-                        float spacing = interleave + Physics.defaultContactOffset;
-                        float x = offset + spawnX * spacing;
-                        float y = spawnY * spacing;
+                    // it's important to have them at least 'Physics.defaultContactOffset' apart.
+                    // otherwise the physics engine will detect collisions and make them unstable.
+                    var spacing = interleave + Physics.defaultContactOffset;
+                    var x = offset + spawnX * spacing;
+                    var y = spawnY * spacing;
 
-                        // instantiate & position
-                        GameObject go = Instantiate(spawnPrefab);
-                        go.transform.position = new Vector3(x, y, 0);
+                    // instantiate & position
+                    var go = Instantiate(spawnPrefab);
+                    go.transform.position = new Vector3(x, y, 0);
 
-                        // spawn
-                        NetworkServer.Spawn(go);
-                        ++spawned;
-                    }
+                    // spawn
+                    NetworkServer.Spawn(go);
+                    ++spawned;
                 }
-            }
         }
 
         public override void OnStartServer()

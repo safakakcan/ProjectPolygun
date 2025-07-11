@@ -8,15 +8,15 @@ namespace Mirror.Authenticators
     [HelpURL("https://mirror-networking.gitbook.io/docs/components/network-authenticators/basic-authenticator")]
     public class BasicAuthenticator : NetworkAuthenticator
     {
-        [Header("Server Credentials")]
-        public string serverUsername;
+        [Header("Server Credentials")] public string serverUsername;
+
         public string serverPassword;
 
-        [Header("Client Credentials")]
-        public string username;
+        [Header("Client Credentials")] public string username;
+
         public string password;
 
-        readonly HashSet<NetworkConnectionToClient> connectionsPendingDisconnect = new HashSet<NetworkConnectionToClient>();
+        private readonly HashSet<NetworkConnectionToClient> connectionsPendingDisconnect = new();
 
         #region Messages
 
@@ -39,8 +39,8 @@ namespace Mirror.Authenticators
         #region Server
 
         /// <summary>
-        /// Called on server from StartServer to initialize the Authenticator
-        /// <para>Server message handlers should be registered in this method.</para>
+        ///     Called on server from StartServer to initialize the Authenticator
+        ///     <para>Server message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStartServer()
         {
@@ -49,8 +49,8 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on server from StopServer to reset the Authenticator
-        /// <para>Server message handlers should be unregistered in this method.</para>
+        ///     Called on server from StopServer to reset the Authenticator
+        ///     <para>Server message handlers should be unregistered in this method.</para>
         /// </summary>
         public override void OnStopServer()
         {
@@ -59,7 +59,7 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on server from OnServerConnectInternal when a client needs to authenticate
+        ///     Called on server from OnServerConnectInternal when a client needs to authenticate
         /// </summary>
         /// <param name="conn">Connection to client.</param>
         public override void OnServerAuthenticate(NetworkConnectionToClient conn)
@@ -68,7 +68,7 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on server when the client's AuthRequestMessage arrives
+        ///     Called on server when the client's AuthRequestMessage arrives
         /// </summary>
         /// <param name="conn">Connection to client.</param>
         /// <param name="msg">The message payload</param>
@@ -82,7 +82,7 @@ namespace Mirror.Authenticators
             if (msg.authUsername == serverUsername && msg.authPassword == serverPassword)
             {
                 // create and send msg to client so it knows to proceed
-                AuthResponseMessage authResponseMessage = new AuthResponseMessage
+                var authResponseMessage = new AuthResponseMessage
                 {
                     code = 100,
                     message = "Success"
@@ -98,7 +98,7 @@ namespace Mirror.Authenticators
                 connectionsPendingDisconnect.Add(conn);
 
                 // create and send msg to client so it knows to disconnect
-                AuthResponseMessage authResponseMessage = new AuthResponseMessage
+                var authResponseMessage = new AuthResponseMessage
                 {
                     code = 200,
                     message = "Invalid Credentials"
@@ -114,7 +114,7 @@ namespace Mirror.Authenticators
             }
         }
 
-        IEnumerator DelayedDisconnect(NetworkConnectionToClient conn, float waitTime)
+        private IEnumerator DelayedDisconnect(NetworkConnectionToClient conn, float waitTime)
         {
             yield return new WaitForSeconds(waitTime);
 
@@ -132,8 +132,8 @@ namespace Mirror.Authenticators
         #region Client
 
         /// <summary>
-        /// Called on client from StartClient to initialize the Authenticator
-        /// <para>Client message handlers should be registered in this method.</para>
+        ///     Called on client from StartClient to initialize the Authenticator
+        ///     <para>Client message handlers should be registered in this method.</para>
         /// </summary>
         public override void OnStartClient()
         {
@@ -142,8 +142,8 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on client from StopClient to reset the Authenticator
-        /// <para>Client message handlers should be unregistered in this method.</para>
+        ///     Called on client from StopClient to reset the Authenticator
+        ///     <para>Client message handlers should be unregistered in this method.</para>
         /// </summary>
         public override void OnStopClient()
         {
@@ -152,11 +152,11 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on client from OnClientConnectInternal when a client needs to authenticate
+        ///     Called on client from OnClientConnectInternal when a client needs to authenticate
         /// </summary>
         public override void OnClientAuthenticate()
         {
-            AuthRequestMessage authRequestMessage = new AuthRequestMessage
+            var authRequestMessage = new AuthRequestMessage
             {
                 authUsername = username,
                 authPassword = password
@@ -166,7 +166,7 @@ namespace Mirror.Authenticators
         }
 
         /// <summary>
-        /// Called on client when the server's AuthResponseMessage arrives
+        ///     Called on client when the server's AuthResponseMessage arrives
         /// </summary>
         /// <param name="msg">The message payload</param>
         public void OnAuthResponseMessage(AuthResponseMessage msg)

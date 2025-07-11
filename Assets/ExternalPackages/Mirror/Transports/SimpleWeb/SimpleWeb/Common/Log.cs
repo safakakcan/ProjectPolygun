@@ -42,7 +42,7 @@ namespace Mirror.SimpleWeb
         public static Levels minLogLevel = Levels.None;
 
         /// <summary>
-        /// Logs all exceptions to console
+        ///     Logs all exceptions to console
         /// </summary>
         /// <param name="e">Exception to log</param>
         public static void Exception(Exception e)
@@ -57,7 +57,7 @@ namespace Mirror.SimpleWeb
         }
 
         /// <summary>
-        /// Logs flood to console if minLogLevel is set to Flood or lower
+        ///     Logs flood to console if minLogLevel is set to Flood or lower
         /// </summary>
         /// <param name="msg">Message text to log</param>
         [Conditional("DEBUG")]
@@ -75,8 +75,8 @@ namespace Mirror.SimpleWeb
         }
 
         /// <summary>
-        /// Logs buffer to console if minLogLevel is set to Flood or lower
-        /// <para>Debug mode requrired, e.g. Unity Editor of Develpment Build</para>
+        ///     Logs buffer to console if minLogLevel is set to Flood or lower
+        ///     <para>Debug mode requrired, e.g. Unity Editor of Develpment Build</para>
         /// </summary>
         /// <param name="label">Source of the log message</param>
         /// <param name="buffer">Byte array to be logged</param>
@@ -97,8 +97,8 @@ namespace Mirror.SimpleWeb
         }
 
         /// <summary>
-        /// Logs buffer to console if minLogLevel is set to Flood or lower
-        /// <para>Debug mode requrired, e.g. Unity Editor of Develpment Build</para>
+        ///     Logs buffer to console if minLogLevel is set to Flood or lower
+        ///     <para>Debug mode requrired, e.g. Unity Editor of Develpment Build</para>
         /// </summary>
         /// <param name="label">Source of the log message</param>
         /// <param name="arrayBuffer">ArrayBuffer to show details for</param>
@@ -117,7 +117,7 @@ namespace Mirror.SimpleWeb
         }
 
         /// <summary>
-        /// Logs verbose to console if minLogLevel is set to Verbose or lower
+        ///     Logs verbose to console if minLogLevel is set to Verbose or lower
         /// </summary>
         /// <param name="msg">Message text to log</param>
         public static void Verbose(string msg)
@@ -138,21 +138,21 @@ namespace Mirror.SimpleWeb
         public static void Verbose<T>(string msg, T arg1)
         {
             if (minLogLevel > Levels.Verbose) return;
-            Verbose(String.Format(msg, arg1));
+            Verbose(string.Format(msg, arg1));
         }
 
         public static void Verbose<T1, T2>(string msg, T1 arg1, T2 arg2)
         {
             if (minLogLevel > Levels.Verbose) return;
-            Verbose(String.Format(msg, arg1, arg2));
+            Verbose(string.Format(msg, arg1, arg2));
         }
 
         /// <summary>
-        /// Logs info to console if minLogLevel is set to Info or lower
+        ///     Logs info to console if minLogLevel is set to Info or lower
         /// </summary>
         /// <param name="msg">Message text to log</param>
         /// <param name="consoleColor">Default Cyan works in server and browser consoles</param>
-        static void Info(string msg, ConsoleColor consoleColor = ConsoleColor.Cyan)
+        private static void Info(string msg, ConsoleColor consoleColor = ConsoleColor.Cyan)
         {
 #if DEBUG
             // Debug builds and Unity Editor
@@ -168,17 +168,17 @@ namespace Mirror.SimpleWeb
         public static void Info<T>(string msg, T arg1, ConsoleColor consoleColor = ConsoleColor.Cyan)
         {
             if (minLogLevel > Levels.Info) return;
-            Info(String.Format(msg, arg1), consoleColor);
+            Info(string.Format(msg, arg1), consoleColor);
         }
 
         public static void Info<T1, T2>(string msg, T1 arg1, T2 arg2, ConsoleColor consoleColor = ConsoleColor.Cyan)
         {
             if (minLogLevel > Levels.Info) return;
-            Info(String.Format(msg, arg1, arg2), consoleColor);
+            Info(string.Format(msg, arg1, arg2), consoleColor);
         }
 
         /// <summary>
-        /// Logs info to console if minLogLevel is set to Info or lower
+        ///     Logs info to console if minLogLevel is set to Info or lower
         /// </summary>
         /// <param name="e">Exception to log</param>
         public static void InfoException(Exception e)
@@ -197,7 +197,7 @@ namespace Mirror.SimpleWeb
         }
 
         /// <summary>
-        /// Logs info to console if minLogLevel is set to Warn or lower
+        ///     Logs info to console if minLogLevel is set to Warn or lower
         /// </summary>
         /// <param name="msg">Message text to log</param>
         public static void Warn(string msg)
@@ -218,11 +218,11 @@ namespace Mirror.SimpleWeb
         public static void Warn<T>(string msg, T arg1)
         {
             if (minLogLevel > Levels.Warn) return;
-            Warn(String.Format(msg, arg1));
+            Warn(string.Format(msg, arg1));
         }
 
         /// <summary>
-        /// Logs info to console if minLogLevel is set to Error or lower
+        ///     Logs info to console if minLogLevel is set to Error or lower
         /// </summary>
         /// <param name="msg">Message text to log</param>
         public static void Error(string msg)
@@ -243,28 +243,31 @@ namespace Mirror.SimpleWeb
         public static void Error<T>(string msg, T arg1)
         {
             if (minLogLevel > Levels.Error) return;
-            Error(String.Format(msg, arg1));
+            Error(string.Format(msg, arg1));
         }
 
         public static void Error<T1, T2>(string msg, T1 arg1, T2 arg2)
         {
             if (minLogLevel > Levels.Error) return;
-            Error(String.Format(msg, arg1, arg2));
+            Error(string.Format(msg, arg1, arg2));
         }
 
         public static void Error<T1, T2, T3>(string msg, T1 arg1, T2 arg2, T3 arg3)
         {
             if (minLogLevel > Levels.Error) return;
-            Error(String.Format(msg, arg1, arg2, arg3));
+            Error(string.Format(msg, arg1, arg2, arg3));
         }
 
         /// <summary>
-        /// Returns a string representation of the byte array starting from offset for length bytes
+        ///     Returns a string representation of the byte array starting from offset for length bytes
         /// </summary>
         /// <param name="buffer">Byte array to read</param>
         /// <param name="offset">starting point in the byte array</param>
         /// <param name="length">number of bytes to read from offset</param>
         /// <returns></returns>
-        public static string BufferToString(byte[] buffer, int offset = 0, int? length = null) => BitConverter.ToString(buffer, offset, length ?? buffer.Length);
+        public static string BufferToString(byte[] buffer, int offset = 0, int? length = null)
+        {
+            return BitConverter.ToString(buffer, offset, length ?? buffer.Length);
+        }
     }
 }

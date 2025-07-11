@@ -1,4 +1,5 @@
 // API consistent with Microsoft's ObjectPool<T>.
+
 using System.Runtime.CompilerServices;
 
 namespace Mirror
@@ -11,7 +12,7 @@ namespace Mirror
         // position before reusing.
         // this is also more consistent with NetworkReaderPool where we need to
         // assign the internal buffer before reusing.
-        static readonly Pool<NetworkWriterPooled> Pool = new Pool<NetworkWriterPooled>(
+        private static readonly Pool<NetworkWriterPooled> Pool = new(
             () => new NetworkWriterPooled(),
             // initial capacity to avoid allocations in the first few frames
             // 1000 * 1200 bytes = around 1 MB.
@@ -25,7 +26,7 @@ namespace Mirror
         public static NetworkWriterPooled Get()
         {
             // grab from pool & reset position
-            NetworkWriterPooled writer = Pool.Get();
+            var writer = Pool.Get();
             writer.Reset();
             return writer;
         }

@@ -12,9 +12,6 @@ namespace Mirror
     //   function that throws an exception will be useful for SyncVar<T>
     public abstract class SyncObject
     {
-        /// <summary>Used internally to set owner NetworkBehaviour's dirty mask bit when changed.</summary>
-        public Action OnDirty;
-
         /// <summary>Used internally to check if we are currently tracking changes.</summary>
         // prevents ever growing .changes lists:
         // if a monster has no observers but we keep modifying a SyncObject,
@@ -30,6 +27,9 @@ namespace Mirror
         // need a lambda because InitSyncObject is called in ctor, when
         // 'isClient' etc. aren't initialized yet.
         public Func<bool> IsWritable = () => true;
+
+        /// <summary>Used internally to set owner NetworkBehaviour's dirty mask bit when changed.</summary>
+        public Action OnDirty;
 
         /// <summary>Discard all the queued changes</summary>
         // Consider the object fully synchronized with clients

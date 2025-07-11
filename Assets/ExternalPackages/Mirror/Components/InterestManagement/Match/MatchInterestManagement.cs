@@ -7,23 +7,21 @@ namespace Mirror
     [AddComponentMenu("Network/ Interest Management/ Match/Match Interest Management")]
     public class MatchInterestManagement : InterestManagement
     {
-        [Header("Diagnostics")]
-        [ReadOnly, SerializeField]
+        [Header("Diagnostics")] [ReadOnly] [SerializeField]
         internal ushort matchCount;
 
-        readonly Dictionary<Guid, HashSet<NetworkMatch>> matchObjects =
-            new Dictionary<Guid, HashSet<NetworkMatch>>();
+        private readonly HashSet<Guid> dirtyMatches = new();
 
-        readonly HashSet<Guid> dirtyMatches = new HashSet<Guid>();
+        private readonly Dictionary<Guid, HashSet<NetworkMatch>> matchObjects = new();
 
         // LateUpdate so that all spawns/despawns/changes are done
         [ServerCallback]
-        void LateUpdate()
+        private void LateUpdate()
         {
             // Rebuild all dirty matches
             // dirtyMatches will be empty if no matches changed members
             // by spawning or destroying or changing matchId in this frame.
-            foreach (Guid dirtyMatch in dirtyMatches)
+            foreach (var dirtyMatch in dirtyMatches)
             {
                 // rebuild always, even if matchObjects[dirtyMatch] is empty.
                 // Players might have left the match, but they may still be spawned.
@@ -40,9 +38,9 @@ namespace Mirror
         }
 
         [ServerCallback]
-        void RebuildMatchObservers(Guid matchId)
+        private void RebuildMatchObservers(Guid matchId)
         {
-            foreach (NetworkMatch networkMatch in matchObjects[matchId])
+            foreach (var networkMatch in matchObjects[matchId])
                 if (networkMatch.netIdentity != null)
                     NetworkServer.RebuildObservers(networkMatch.netIdentity, false);
         }
@@ -82,14 +80,14 @@ namespace Mirror
             if (!identity.TryGetComponent(out NetworkMatch networkMatch))
                 return;
 
-            Guid networkMatchId = networkMatch.matchId;
+            var networkMatchId = networkMatch.matchId;
 
             // Guid.Empty is never a valid matchId...do not add to matchObjects collection
             if (networkMatchId == Guid.Empty)
                 return;
 
             // Debug.Log($"MatchInterestManagement.OnSpawned({identity.name}) currentMatch: {currentMatch}");
-            if (!matchObjects.TryGetValue(networkMatchId, out HashSet<NetworkMatch> objects))
+            if (!matchObjects.TryGetValue(networkMatchId, out var objects))
             {
                 objects = new HashSet<NetworkMatch>();
                 matchObjects.Add(networkMatchId, objects);
@@ -111,12 +109,10 @@ namespace Mirror
             // want to rebuild for each one...let LateUpdate do it once.
             // We must add the current match to dirtyMatches for LateUpdate to rebuild it.
             if (identity.TryGetComponent(out NetworkMatch currentMatch))
-            {
                 if (currentMatch.matchId != Guid.Empty &&
-                    matchObjects.TryGetValue(currentMatch.matchId, out HashSet<NetworkMatch> objects) &&
+                    matchObjects.TryGetValue(currentMatch.matchId, out var objects) &&
                     objects.Remove(currentMatch))
                     dirtyMatches.Add(currentMatch.matchId);
-            }
         }
 
         [ServerCallback]
@@ -152,11 +148,11 @@ namespace Mirror
                 return;
 
             // Abort if this match hasn't been created yet by OnSpawned or OnMatchChanged
-            if (!matchObjects.TryGetValue(networkMatch.matchId, out HashSet<NetworkMatch> objects))
+            if (!matchObjects.TryGetValue(networkMatch.matchId, out var objects))
                 return;
 
             // Add everything in the hashset for this object's current match
-            foreach (NetworkMatch netMatch in objects)
+            foreach (var netMatch in objects)
                 if (netMatch.netIdentity != null && netMatch.netIdentity.connectionToClient != null)
                     newObservers.Add(netMatch.netIdentity.connectionToClient);
         }

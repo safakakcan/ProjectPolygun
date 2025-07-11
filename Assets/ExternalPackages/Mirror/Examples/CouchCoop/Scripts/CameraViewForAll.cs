@@ -1,4 +1,5 @@
 using UnityEngine;
+
 namespace Mirror.Examples.CouchCoop
 {
     public class CameraViewForAll : MonoBehaviour
@@ -13,9 +14,9 @@ namespace Mirror.Examples.CouchCoop
         public float cameraBufferY = 0.1f;
         public float minOrthographicSize = 0.1f;
         public float targetYPosition = 4.5f; // Optional Y position if cameras rotated
+        private Vector2Int boundsMax;
 
         private Vector2Int boundsMin;
-        private Vector2Int boundsMax;
         private Vector3 targetCameraPosition;
         private float targetOrthographicSize;
 
@@ -34,9 +35,9 @@ namespace Mirror.Examples.CouchCoop
             boundsMin = new Vector2Int(int.MaxValue, int.MaxValue);
             boundsMax = new Vector2Int(int.MinValue, int.MinValue);
 
-            foreach (GameObject player in CouchPlayer.playersList)
+            foreach (var player in CouchPlayer.playersList)
             {
-                Vector3 playerPosition = player.transform.position;
+                var playerPosition = player.transform.position;
                 boundsMin.x = Mathf.Min(boundsMin.x, Mathf.FloorToInt(playerPosition.x));
                 boundsMin.y = Mathf.Min(boundsMin.y, Mathf.FloorToInt(playerPosition.y));
                 boundsMax.x = Mathf.Max(boundsMax.x, Mathf.CeilToInt(playerPosition.x));
@@ -51,15 +52,15 @@ namespace Mirror.Examples.CouchCoop
 
         private void CalculateTargetCameraPosAndSize()
         {
-            float aspectRatio = (float)Screen.width / Screen.height;
+            var aspectRatio = (float)Screen.width / Screen.height;
 
-            float requiredOrthographicSizeX = Mathf.Max((boundsMax.x - boundsMin.x) / 2 / aspectRatio, minOrthographicSize / aspectRatio);
-            float requiredOrthographicSizeY = Mathf.Max(boundsMax.y - boundsMin.y / 2, minOrthographicSize);
+            var requiredOrthographicSizeX = Mathf.Max((boundsMax.x - boundsMin.x) / 2 / aspectRatio, minOrthographicSize / aspectRatio);
+            var requiredOrthographicSizeY = Mathf.Max(boundsMax.y - boundsMin.y / 2, minOrthographicSize);
 
             targetOrthographicSize = Mathf.Max(requiredOrthographicSizeX, requiredOrthographicSizeY);
 
             float cameraX = (boundsMax.x + boundsMin.x) / 2;
-            float cameraY = targetYPosition != 0.0f ? targetYPosition : (boundsMax.y + boundsMin.y) / 2;
+            var cameraY = targetYPosition != 0.0f ? targetYPosition : (boundsMax.y + boundsMin.y) / 2;
 
             targetCameraPosition = new Vector3(cameraX, cameraY, cameraZ);
         }

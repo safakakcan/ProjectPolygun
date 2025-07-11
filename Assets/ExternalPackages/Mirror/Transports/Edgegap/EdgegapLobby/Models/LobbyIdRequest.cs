@@ -1,4 +1,5 @@
 using System;
+
 namespace Edgegap
 {
     // https://docs.edgegap.com/docs/lobby/functions/#starting-a-lobby
@@ -6,6 +7,7 @@ namespace Edgegap
     public struct LobbyIdRequest
     {
         public string lobby_id;
+
         public LobbyIdRequest(string lobbyId)
         {
             lobby_id = lobbyId;

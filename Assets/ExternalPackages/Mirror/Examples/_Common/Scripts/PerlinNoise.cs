@@ -1,5 +1,5 @@
-﻿using UnityEngine;
-using UnityEditor;
+﻿using UnityEditor;
+using UnityEngine;
 
 namespace Mirror.Examples.Common.Controllers.Player
 {
@@ -13,9 +13,9 @@ namespace Mirror.Examples.Common.Controllers.Player
         public float offsetY = 5f;
 
         [ContextMenu("Generate Terrain")]
-        void GenerateTerrain()
+        private void GenerateTerrain()
         {
-            Terrain terrain = GetComponent<Terrain>();
+            var terrain = GetComponent<Terrain>();
             if (terrain == null)
             {
                 Debug.LogError("No Terrain component found on this GameObject.");
@@ -27,22 +27,20 @@ namespace Mirror.Examples.Common.Controllers.Player
             terrain.terrainData = GenerateTerrainData(terrain.terrainData);
         }
 
-        TerrainData GenerateTerrainData(TerrainData terrainData)
+        private TerrainData GenerateTerrainData(TerrainData terrainData)
         {
-            int width = terrainData.heightmapResolution;
-            int height = terrainData.heightmapResolution;
+            var width = terrainData.heightmapResolution;
+            var height = terrainData.heightmapResolution;
 
-            float[,] heights = new float[width, height];
+            var heights = new float[width, height];
 
-            for (int x = 0; x < width; x++)
+            for (var x = 0; x < width; x++)
+            for (var y = 0; y < height; y++)
             {
-                for (int y = 0; y < height; y++)
-                {
-                    float xCoord = (float)x / width * scale + offsetX;
-                    float yCoord = (float)y / height * scale + offsetY;
+                var xCoord = (float)x / width * scale + offsetX;
+                var yCoord = (float)y / height * scale + offsetY;
 
-                    heights[x, y] = Mathf.PerlinNoise(xCoord, yCoord) * heightMultiplier;
-                }
+                heights[x, y] = Mathf.PerlinNoise(xCoord, yCoord) * heightMultiplier;
             }
 
             terrainData.SetHeights(0, 0, heights);

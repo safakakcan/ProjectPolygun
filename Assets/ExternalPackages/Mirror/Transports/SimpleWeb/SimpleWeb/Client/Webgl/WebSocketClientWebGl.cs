@@ -5,7 +5,6 @@ using AOT;
 namespace Mirror.SimpleWeb
 {
 #if !UNITY_2021_3_OR_NEWER
-
     // Unity 2019 doesn't have ArraySegment.ToArray() yet.
     public static class Extensions
     {
@@ -21,41 +20,56 @@ namespace Mirror.SimpleWeb
 
     public class WebSocketClientWebGl : SimpleWebClient
     {
-        static readonly Dictionary<int, WebSocketClientWebGl> instances = new Dictionary<int, WebSocketClientWebGl>();
-
-        [MonoPInvokeCallback(typeof(Action<int>))]
-        static void OpenCallback(int index) => instances[index].onOpen();
-
-        [MonoPInvokeCallback(typeof(Action<int>))]
-        static void CloseCallBack(int index) => instances[index].onClose();
-
-        [MonoPInvokeCallback(typeof(Action<int, IntPtr, int>))]
-        static void MessageCallback(int index, IntPtr bufferPtr, int count) => instances[index].onMessage(bufferPtr, count);
-
-        [MonoPInvokeCallback(typeof(Action<int>))]
-        static void ErrorCallback(int index) => instances[index].onErr();
+        private static readonly Dictionary<int, WebSocketClientWebGl> instances = new();
 
         /// <summary>
-        /// key for instances sent between c# and js
+        ///     Queue for messages sent by high level while still connecting, they will be sent after onOpen is called.
+        ///     <para>
+        ///         This is a workaround for anything that calls Send immediately after Connect.
+        ///         Without this the JS websocket will give errors.
+        ///     </para>
         /// </summary>
-        int index;
+        private Queue<byte[]> ConnectingSendQueue;
 
         /// <summary>
-        /// Queue for messages sent by high level while still connecting, they will be sent after onOpen is called.
-        /// <para>
-        ///     This is a workaround for anything that calls Send immediately after Connect.
-        ///     Without this the JS websocket will give errors.
-        /// </para>
+        ///     key for instances sent between c# and js
         /// </summary>
-        Queue<byte[]> ConnectingSendQueue;
-
-        public bool CheckJsConnected() => SimpleWebJSLib.IsConnected(index);
+        private int index;
 
         internal WebSocketClientWebGl(int maxMessageSize, int maxMessagesPerTick) : base(maxMessageSize, maxMessagesPerTick)
         {
 #if !UNITY_WEBGL || UNITY_EDITOR
             throw new NotSupportedException();
 #endif
+        }
+
+        [MonoPInvokeCallback(typeof(Action<int>))]
+        private static void OpenCallback(int index)
+        {
+            instances[index].onOpen();
+        }
+
+        [MonoPInvokeCallback(typeof(Action<int>))]
+        private static void CloseCallBack(int index)
+        {
+            instances[index].onClose();
+        }
+
+        [MonoPInvokeCallback(typeof(Action<int, IntPtr, int>))]
+        private static void MessageCallback(int index, IntPtr bufferPtr, int count)
+        {
+            instances[index].onMessage(bufferPtr, count);
+        }
+
+        [MonoPInvokeCallback(typeof(Action<int>))]
+        private static void ErrorCallback(int index)
+        {
+            instances[index].onErr();
+        }
+
+        public bool CheckJsConnected()
+        {
+            return SimpleWebJSLib.IsConnected(index);
         }
 
         public override void Connect(Uri serverAddress)
@@ -91,7 +105,7 @@ namespace Mirror.SimpleWeb
             }
         }
 
-        void onOpen()
+        private void onOpen()
         {
             receiveQueue.Enqueue(new Message(EventType.Connected));
             state = ClientState.Connected;
@@ -100,7 +114,7 @@ namespace Mirror.SimpleWeb
             {
                 while (ConnectingSendQueue.Count > 0)
                 {
-                    byte[] next = ConnectingSendQueue.Dequeue();
+                    var next = ConnectingSendQueue.Dequeue();
                     SimpleWebJSLib.Send(index, next, 0, next.Length);
                 }
 
@@ -108,7 +122,7 @@ namespace Mirror.SimpleWeb
             }
         }
 
-        void onClose()
+        private void onClose()
         {
             // this code should be last in this class
 
@@ -117,11 +131,11 @@ namespace Mirror.SimpleWeb
             instances.Remove(index);
         }
 
-        void onMessage(IntPtr bufferPtr, int count)
+        private void onMessage(IntPtr bufferPtr, int count)
         {
             try
             {
-                ArrayBuffer buffer = bufferPool.Take(count);
+                var buffer = bufferPool.Take(count);
                 buffer.CopyFrom(bufferPtr, count);
 
                 receiveQueue.Enqueue(new Message(buffer));
@@ -133,7 +147,7 @@ namespace Mirror.SimpleWeb
             }
         }
 
-        void onErr()
+        private void onErr()
         {
             receiveQueue.Enqueue(new Message(new Exception("Javascript Websocket error")));
             Disconnect();

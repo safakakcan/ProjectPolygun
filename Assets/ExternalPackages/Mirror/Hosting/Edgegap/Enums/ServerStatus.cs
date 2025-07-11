@@ -1,6 +1,6 @@
-using IO.Swagger.Model;
 using System;
 using System.Linq;
+using IO.Swagger.Model;
 using UnityEngine;
 
 namespace Edgegap
@@ -16,12 +16,15 @@ namespace Edgegap
         Terminated,
         Scanning,
         Terminating,
-        Error,
+        Error
     }
 
     public static class ServerStatusExtensions
     {
-        private static string GetServerStatusLabel(this Status serverStatusResponse) => char.ToUpper(serverStatusResponse.CurrentStatus[7]) + serverStatusResponse.CurrentStatus.Substring(8).ToLower();
+        private static string GetServerStatusLabel(this Status serverStatusResponse)
+        {
+            return char.ToUpper(serverStatusResponse.CurrentStatus[7]) + serverStatusResponse.CurrentStatus.Substring(8).ToLower();
+        }
 
         public static ServerStatus GetServerStatus(this Status serverStatusResponse)
         {
@@ -65,13 +68,9 @@ namespace Edgegap
             string statusLabel;
 
             if (serverStatus == ServerStatus.NA)
-            {
                 statusLabel = "N/A";
-            }
             else
-            {
                 statusLabel = Enum.GetName(typeof(ServerStatus), serverStatus);
-            }
 
             return statusLabel;
         }

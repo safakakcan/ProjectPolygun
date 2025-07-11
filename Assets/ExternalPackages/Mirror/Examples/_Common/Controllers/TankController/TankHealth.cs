@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mirror.Examples.Common.Controllers.Tank
@@ -8,19 +6,18 @@ namespace Mirror.Examples.Common.Controllers.Tank
     [DisallowMultipleComponent]
     public class TankHealth : NetworkBehaviour
     {
-        [Header("Components")]
-        public TextMesh healthBar;
+        [Header("Components")] public TextMesh healthBar;
 
-        [Header("Stats")]
-        public byte maxHealth = 5;
+        [Header("Stats")] public byte maxHealth = 5;
+
         [SyncVar(hook = nameof(OnHealthChanged))]
         public byte health = 5;
 
-        [Header("Respawn")]
-        public bool respawn = true;
+        [Header("Respawn")] public bool respawn = true;
+
         public byte respawnTime = 3;
 
-        void OnHealthChanged(byte oldHealth, byte newHealth)
+        private void OnHealthChanged(byte oldHealth, byte newHealth)
         {
             healthBar.text = new string('-', newHealth);
 
@@ -33,25 +30,6 @@ namespace Mirror.Examples.Common.Controllers.Tank
             if (newHealth < 1)
                 healthBar.color = Color.black;
         }
-
-        #region Unity Callbacks
-
-        protected override void OnValidate()
-        {
-            // Skip if Editor is in Play mode
-            if (Application.isPlaying) return;
-
-            base.OnValidate();
-            Reset();
-        }
-
-        public void Reset()
-        {
-            if (healthBar == null)
-                healthBar = transform.Find("HealthBar").GetComponent<TextMesh>();
-        }
-
-        #endregion
 
         public override void OnStartServer()
         {
@@ -79,5 +57,24 @@ namespace Mirror.Examples.Common.Controllers.Tank
                     Destroy(gameObject);
             }
         }
+
+        #region Unity Callbacks
+
+        protected override void OnValidate()
+        {
+            // Skip if Editor is in Play mode
+            if (Application.isPlaying) return;
+
+            base.OnValidate();
+            Reset();
+        }
+
+        public void Reset()
+        {
+            if (healthBar == null)
+                healthBar = transform.Find("HealthBar").GetComponent<TextMesh>();
+        }
+
+        #endregion
     }
 }

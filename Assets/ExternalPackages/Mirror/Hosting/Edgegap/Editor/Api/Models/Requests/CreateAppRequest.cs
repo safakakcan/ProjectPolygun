@@ -3,37 +3,15 @@ using Newtonsoft.Json;
 namespace Edgegap.Editor.Api.Models.Requests
 {
     /// <summary>
-    /// Request model for https://docs.edgegap.com/api/#tag/Applications/operation/application-post
+    ///     Request model for https://docs.edgegap.com/api/#tag/Applications/operation/application-post
     /// </summary>
     public class CreateAppRequest
     {
-        #region Required
-        /// <summary>*The application name.</summary>
-        [JsonProperty("name")]
-        public string AppName { get; set; }
-        #endregion // Required
-        
-        
-        #region Optional
-        /// <summary>*If the application can be deployed.</summary>
-        [JsonProperty("is_active")]
-        public bool IsActive { get; set; }
-        
-        /// <summary>*Image base64 string.</summary>
-        [JsonProperty("image")]
-        public string Image { get; set; }
-        
-        /// <summary>If the telemetry agent is installed on the versions of this app.</summary>
-        [JsonProperty("is_telemetry_agent_active")]
-        public bool IsTelemetryAgentActive { get; set; }
-        #endregion // Optional
-
-
         /// <summary>Used by Newtonsoft</summary>
         public CreateAppRequest()
         {
         }
-        
+
         /// <summary>Init with required info</summary>
         /// <param name="appName">The application name</param>
         /// <param name="isActive">If the application can be deployed</param>
@@ -43,13 +21,40 @@ namespace Edgegap.Editor.Api.Models.Requests
             bool isActive,
             string image)
         {
-            this.AppName = appName;
-            this.IsActive = isActive;
-            this.Image = image;
+            AppName = appName;
+            IsActive = isActive;
+            Image = image;
         }
 
+        #region Required
+
+        /// <summary>*The application name.</summary>
+        [JsonProperty("name")]
+        public string AppName { get; set; }
+
+        #endregion // Required
+
         /// <summary>Parse to json str</summary>
-        public override string ToString() =>
-            JsonConvert.SerializeObject(this);
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
+
+
+        #region Optional
+
+        /// <summary>*If the application can be deployed.</summary>
+        [JsonProperty("is_active")]
+        public bool IsActive { get; set; }
+
+        /// <summary>*Image base64 string.</summary>
+        [JsonProperty("image")]
+        public string Image { get; set; }
+
+        /// <summary>If the telemetry agent is installed on the versions of this app.</summary>
+        [JsonProperty("is_telemetry_agent_active")]
+        public bool IsTelemetryAgentActive { get; set; }
+
+        #endregion // Optional
     }
 }

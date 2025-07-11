@@ -9,22 +9,29 @@ namespace Mirror.SimpleWeb
         NotConnected = 0,
         Connecting = 1,
         Connected = 2,
-        Disconnecting = 3,
+        Disconnecting = 3
     }
 
     /// <summary>
-    /// Client used to control websockets
-    /// <para>Base class used by WebSocketClientWebGl and WebSocketClientStandAlone</para>
+    ///     Client used to control websockets
+    ///     <para>Base class used by WebSocketClientWebGl and WebSocketClientStandAlone</para>
     /// </summary>
     public abstract class SimpleWebClient
     {
-        readonly int maxMessagesPerTick;
+        protected readonly BufferPool bufferPool;
+        protected readonly int maxMessageSize;
+        private readonly int maxMessagesPerTick;
+
+        public readonly ConcurrentQueue<Message> receiveQueue = new();
 
         protected ClientState state;
-        protected readonly int maxMessageSize;
-        protected readonly BufferPool bufferPool;
 
-        public readonly ConcurrentQueue<Message> receiveQueue = new ConcurrentQueue<Message>();
+        protected SimpleWebClient(int maxMessageSize, int maxMessagesPerTick)
+        {
+            this.maxMessageSize = maxMessageSize;
+            this.maxMessagesPerTick = maxMessagesPerTick;
+            bufferPool = new BufferPool(5, 20, maxMessageSize);
+        }
 
         public ClientState ConnectionState => state;
 
@@ -46,15 +53,8 @@ namespace Mirror.SimpleWeb
 #endif
         }
 
-        protected SimpleWebClient(int maxMessageSize, int maxMessagesPerTick)
-        {
-            this.maxMessageSize = maxMessageSize;
-            this.maxMessagesPerTick = maxMessagesPerTick;
-            bufferPool = new BufferPool(5, 20, maxMessageSize);
-        }
-
         /// <summary>
-        /// Processes all new messages
+        ///     Processes all new messages
         /// </summary>
         public void ProcessMessageQueue()
         {
@@ -62,20 +62,20 @@ namespace Mirror.SimpleWeb
         }
 
         /// <summary>
-        /// Processes all messages while <paramref name="behaviour"/> is enabled
+        ///     Processes all messages while <paramref name="behaviour" /> is enabled
         /// </summary>
         /// <param name="behaviour"></param>
         public void ProcessMessageQueue(MonoBehaviour behaviour)
         {
-            int processedCount = 0;
-            bool skipEnabled = behaviour == null;
+            var processedCount = 0;
+            var skipEnabled = behaviour == null;
             // check enabled every time in case behaviour was disabled after data
             while (
                 (skipEnabled || behaviour.enabled) &&
                 processedCount < maxMessagesPerTick &&
                 // Dequeue last
-                receiveQueue.TryDequeue(out Message next)
-                )
+                receiveQueue.TryDequeue(out var next)
+            )
             {
                 processedCount++;
 
@@ -96,6 +96,7 @@ namespace Mirror.SimpleWeb
                         break;
                 }
             }
+
             if (receiveQueue.Count > 0)
                 Log.Warn("[SWT-SimpleWebClient]: ProcessMessageQueue has {0} remaining.", receiveQueue.Count);
         }

@@ -6,6 +6,7 @@
 //    (fixes all the flaky tests)
 //
 // ... besides, it also allows us to share code!
+
 using System.Net.Sockets;
 using System.Threading;
 
@@ -13,16 +14,15 @@ namespace Telepathy
 {
     public class ConnectionState
     {
-        public TcpClient client;
-
         // thread safe pipe to send messages from main thread to send thread
         public readonly MagnificentSendPipe sendPipe;
+        public TcpClient client;
 
         // ManualResetEvent to wake up the send thread. better than Thread.Sleep
         // -> call Set() if everything was sent
         // -> call Reset() if there is something to send again
         // -> call WaitOne() to block until Reset was called
-        public ManualResetEvent sendPending = new ManualResetEvent(false);
+        public ManualResetEvent sendPending = new(false);
 
         public ConnectionState(TcpClient client, int MaxMessageSize)
         {

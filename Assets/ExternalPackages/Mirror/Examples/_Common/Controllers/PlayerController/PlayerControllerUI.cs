@@ -8,6 +8,26 @@ namespace Mirror.Examples.Common.Controllers.Player
     [DisallowMultipleComponent]
     public class PlayerControllerUI : ControllerUIBase
     {
+        [SerializeField] private MoveTexts moveTexts;
+        [SerializeField] private OptionsTexts optionsTexts;
+
+        public void Refresh(PlayerControllerBase.MoveKeys moveKeys, PlayerControllerBase.OptionsKeys optionsKeys)
+        {
+            // Movement Keys
+            moveTexts.keyTextTurnLeft.text = GetKeyText(moveKeys.TurnLeft);
+            moveTexts.keyTextForward.text = GetKeyText(moveKeys.Forward);
+            moveTexts.keyTextTurnRight.text = GetKeyText(moveKeys.TurnRight);
+            moveTexts.keyTextStrafeLeft.text = GetKeyText(moveKeys.StrafeLeft);
+            moveTexts.keyTextBack.text = GetKeyText(moveKeys.Back);
+            moveTexts.keyTextStrafeRight.text = GetKeyText(moveKeys.StrafeRight);
+            moveTexts.keyTextJump.text = GetKeyText(moveKeys.Jump);
+
+            // Options Keys
+            optionsTexts.keyTextMouseSteer.text = GetKeyText(optionsKeys.MouseSteer);
+            optionsTexts.keyTextAutoRun.text = GetKeyText(optionsKeys.AutoRun);
+            optionsTexts.keyTextToggleUI.text = GetKeyText(optionsKeys.ToggleUI);
+        }
+
         [Serializable]
         public struct MoveTexts
         {
@@ -26,26 +46,6 @@ namespace Mirror.Examples.Common.Controllers.Player
             public Text keyTextMouseSteer;
             public Text keyTextAutoRun;
             public Text keyTextToggleUI;
-        }
-
-        [SerializeField] MoveTexts moveTexts;
-        [SerializeField] OptionsTexts optionsTexts;
-
-        public void Refresh(PlayerControllerBase.MoveKeys moveKeys, PlayerControllerBase.OptionsKeys optionsKeys)
-        {
-            // Movement Keys
-            moveTexts.keyTextTurnLeft.text = GetKeyText(moveKeys.TurnLeft);
-            moveTexts.keyTextForward.text = GetKeyText(moveKeys.Forward);
-            moveTexts.keyTextTurnRight.text = GetKeyText(moveKeys.TurnRight);
-            moveTexts.keyTextStrafeLeft.text = GetKeyText(moveKeys.StrafeLeft);
-            moveTexts.keyTextBack.text = GetKeyText(moveKeys.Back);
-            moveTexts.keyTextStrafeRight.text = GetKeyText(moveKeys.StrafeRight);
-            moveTexts.keyTextJump.text = GetKeyText(moveKeys.Jump);
-
-            // Options Keys
-            optionsTexts.keyTextMouseSteer.text = GetKeyText(optionsKeys.MouseSteer);
-            optionsTexts.keyTextAutoRun.text = GetKeyText(optionsKeys.AutoRun);
-            optionsTexts.keyTextToggleUI.text = GetKeyText(optionsKeys.ToggleUI);
         }
     }
 }

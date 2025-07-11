@@ -1,6 +1,7 @@
 // standalone lag compensation algorithm
 // based on the Valve Networking Model:
 // https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking
+
 using System.Collections.Generic;
 
 namespace Mirror
@@ -38,38 +39,36 @@ namespace Mirror
         public static bool Sample<T>(
             Queue<KeyValuePair<double, T>> history,
             double timestamp, // current server time
-            double interval,  // capture interval
+            double interval, // capture interval
             out T before,
             out T after,
-            out double t)     // interpolation factor
+            out double t) // interpolation factor
             where T : Capture
         {
             before = default;
-            after  = default;
+            after = default;
             t = 0;
 
             // can't sample an empty history
             // interpolation needs at least one entry.
             // extrapolation needs at least two entries.
             //   can't Lerp(A, A, 1.5). dist(A, A) * 1.5 is always 0.
-            if(history.Count < 2) {
-                return false;
-            }
+            if (history.Count < 2) return false;
 
             // older than oldest
-            if (timestamp < history.Peek().Key) {
-                return false;
-            }
+            if (timestamp < history.Peek().Key) return false;
 
             // iterate through the history
             // TODO faster version: guess start index by how many 'intervals' we are behind.
             //      search around that area.
             //      should be O(1) most of the time, unless sampling was off.
-            KeyValuePair<double, T> prev = new KeyValuePair<double, T>();
-            KeyValuePair<double, T> prevPrev = new KeyValuePair<double, T>();
-            foreach(KeyValuePair<double, T> entry in history) {
+            var prev = new KeyValuePair<double, T>();
+            var prevPrev = new KeyValuePair<double, T>();
+            foreach (var entry in history)
+            {
                 // exact match?
-                if (timestamp == entry.Key) {
+                if (timestamp == entry.Key)
+                {
                     before = entry.Value;
                     after = entry.Value;
                     t = Mathd.InverseLerp(before.timestamp, after.timestamp, timestamp);
@@ -77,7 +76,8 @@ namespace Mirror
                 }
 
                 // did we check beyond timestamp? then return the previous two.
-                if (entry.Key > timestamp) {
+                if (entry.Key > timestamp)
+                {
                     before = prev.Value;
                     after = entry.Value;
                     t = Mathd.InverseLerp(before.timestamp, after.timestamp, timestamp);
@@ -101,7 +101,8 @@ namespace Mirror
             //    punished by missing their targets since no entry at 'time' was found.
             // => extrapolation is the best solution. make sure this works as
             //    expected and within limits.
-            if (prev.Key < timestamp && timestamp <= prev.Key + interval) {
+            if (prev.Key < timestamp && timestamp <= prev.Key + interval)
+            {
                 // return the last two valid snapshots.
                 // can't just return (after, after) because we can't extrapolate
                 // if their distance is 0.
@@ -128,7 +129,7 @@ namespace Mirror
         {
             // packet latency is one trip from client to server, so rtt / 2
             // client view interpolation is the snapshot interpolation buffer time
-            double latency = rtt / 2;
+            var latency = rtt / 2;
             return serverTime - latency - bufferTime;
         }
 
@@ -137,7 +138,7 @@ namespace Mirror
         public static void DrawGizmos<T>(Queue<KeyValuePair<double, T>> history)
             where T : Capture
         {
-            foreach (KeyValuePair<double, T> entry in history)
+            foreach (var entry in history)
                 entry.Value.DrawGizmo();
         }
     }

@@ -9,20 +9,19 @@ namespace Mirror
     [HelpURL("https://mirror-networking.gitbook.io/docs/components/network-manager-hud")]
     public class NetworkManagerHUD : MonoBehaviour
     {
-        NetworkManager manager;
-
         public int offsetX;
         public int offsetY;
+        private NetworkManager manager;
 
-        void Awake()
+        private void Awake()
         {
             manager = GetComponent<NetworkManager>();
         }
 
-        void OnGUI()
+        private void OnGUI()
         {
             // If this width is changed, also change offsetX in GUIConsole::OnGUI
-            int width = 300;
+            var width = 300;
 
             GUILayout.BeginArea(new Rect(10 + offsetX, 40 + offsetY, width, 9999));
 
@@ -32,7 +31,6 @@ namespace Mirror
                 StatusLabels();
 
             if (NetworkClient.isConnected && !NetworkClient.ready)
-            {
                 if (GUILayout.Button("Client Ready"))
                 {
                     // client ready
@@ -40,14 +38,13 @@ namespace Mirror
                     if (NetworkClient.localPlayer == null)
                         NetworkClient.AddPlayer();
                 }
-            }
 
             StopButtons();
 
             GUILayout.EndArea();
         }
 
-        void StartButtons()
+        private void StartButtons()
         {
             if (!NetworkClient.active)
             {
@@ -77,11 +74,9 @@ namespace Mirror
                 // for IPV6:PORT it would be misleading since IPV6 contains ":":
                 // 2001:0db8:0000:0000:0000:ff00:0042:8329
                 if (Transport.active is PortTransport portTransport)
-                {
                     // use TryParse in case someone tries to enter non-numeric characters
-                    if (ushort.TryParse(GUILayout.TextField(portTransport.Port.ToString()), out ushort port))
+                    if (ushort.TryParse(GUILayout.TextField(portTransport.Port.ToString()), out var port))
                         portTransport.Port = port;
-                }
 
                 GUILayout.EndHorizontal();
 
@@ -103,30 +98,24 @@ namespace Mirror
             }
         }
 
-        void StatusLabels()
+        private void StatusLabels()
         {
             // host mode
             // display separately because this always confused people:
             //   Server: ...
             //   Client: ...
             if (NetworkServer.active && NetworkClient.active)
-            {
                 // host mode
                 GUILayout.Label($"<b>Host</b>: running via {Transport.active}");
-            }
             else if (NetworkServer.active)
-            {
                 // server only
                 GUILayout.Label($"<b>Server</b>: running via {Transport.active}");
-            }
             else if (NetworkClient.isConnected)
-            {
                 // client only
                 GUILayout.Label($"<b>Client</b>: connected to {manager.networkAddress} via {Transport.active}");
-            }
         }
 
-        void StopButtons()
+        private void StopButtons()
         {
             if (NetworkServer.active && NetworkClient.isConnected)
             {

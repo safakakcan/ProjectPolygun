@@ -2,6 +2,7 @@
 // Elevates a few milliseconds of transport computations into a worker thread.
 //
 //#if MIRROR <- commented out because MIRROR isn't defined on first import yet
+
 using System;
 using System.Net;
 using Mirror;
@@ -17,67 +18,77 @@ namespace kcp2k
         // scheme used by this transport
         public const string Scheme = "kcp";
 
+        // use default MTU for this transport.
+        private const int MTU = Kcp.MTU_DEF;
+
         // common
-        [Header("Transport Configuration")]
-        [FormerlySerializedAs("Port")]
+        [Header("Transport Configuration")] [FormerlySerializedAs("Port")]
         public ushort port = 7777;
-        public ushort Port { get => port; set => port=value; }
+
         [Tooltip("DualMode listens to IPv6 and IPv4 simultaneously. Disable if the platform only supports IPv4.")]
         public bool DualMode = true;
+
         [Tooltip("NoDelay is recommended to reduce latency. This also scales better without buffers getting full.")]
         public bool NoDelay = true;
+
         [Tooltip("KCP internal update interval. 100ms is KCP default, but a lower interval is recommended to minimize latency and to scale to more networked entities.")]
         public uint Interval = 10;
+
         [Tooltip("KCP timeout in milliseconds. Note that KCP sends a ping automatically.")]
         public int Timeout = 10000;
+
         [Tooltip("Socket receive buffer size. Large buffer helps support more connections. Increase operating system socket buffer size limits if needed.")]
         public int RecvBufferSize = 1024 * 1027 * 7;
+
         [Tooltip("Socket send buffer size. Large buffer helps support more connections. Increase operating system socket buffer size limits if needed.")]
         public int SendBufferSize = 1024 * 1027 * 7;
 
-        [Header("Advanced")]
-        [Tooltip("KCP fastresend parameter. Faster resend for the cost of higher bandwidth. 0 in normal mode, 2 in turbo mode.")]
+        [Header("Advanced")] [Tooltip("KCP fastresend parameter. Faster resend for the cost of higher bandwidth. 0 in normal mode, 2 in turbo mode.")]
         public int FastResend = 2;
-        [Tooltip("KCP congestion window. Restricts window size to reduce congestion. Results in only 2-3 MTU messages per Flush even on loopback. Best to keept his disabled.")]
-        /*public*/ bool CongestionWindow = false; // KCP 'NoCongestionWindow' is false by default. here we negate it for ease of use.
+
         [Tooltip("KCP window size can be modified to support higher loads. This also increases max message size.")]
         public uint ReceiveWindowSize = 4096; //Kcp.WND_RCV; 128 by default. Mirror sends a lot, so we need a lot more.
+
         [Tooltip("KCP window size can be modified to support higher loads.")]
         public uint SendWindowSize = 4096; //Kcp.WND_SND; 32 by default. Mirror sends a lot, so we need a lot more.
+
         [Tooltip("KCP will try to retransmit lost messages up to MaxRetransmit (aka dead_link) before disconnecting.")]
         public uint MaxRetransmit = Kcp.DEADLINK * 2; // default prematurely disconnects a lot of people (#3022). use 2x.
-        [Tooltip("Enable to automatically set client & server send/recv buffers to OS limit. Avoids issues with too small buffers under heavy load, potentially dropping connections. Increase the OS limit if this is still too small.")]
-        [FormerlySerializedAs("MaximizeSendReceiveBuffersToOSLimit")]
+
+        [Tooltip("Enable to automatically set client & server send/recv buffers to OS limit. Avoids issues with too small buffers under heavy load, potentially dropping connections. Increase the OS limit if this is still too small.")] [FormerlySerializedAs("MaximizeSendReceiveBuffersToOSLimit")]
         public bool MaximizeSocketBuffers = true;
 
-        [Header("Allowed Max Message Sizes\nBased on Receive Window Size")]
-        [Tooltip("KCP reliable max message size shown for convenience. Can be changed via ReceiveWindowSize.")]
-        [ReadOnly] public int ReliableMaxMessageSize = 0; // readonly, displayed from OnValidate
-        [Tooltip("KCP unreliable channel max message size for convenience. Not changeable.")]
-        [ReadOnly] public int UnreliableMaxMessageSize = 0; // readonly, displayed from OnValidate
+        [Header("Allowed Max Message Sizes\nBased on Receive Window Size")] [Tooltip("KCP reliable max message size shown for convenience. Can be changed via ReceiveWindowSize.")] [ReadOnly]
+        public int ReliableMaxMessageSize; // readonly, displayed from OnValidate
+
+        [Tooltip("KCP unreliable channel max message size for convenience. Not changeable.")] [ReadOnly]
+        public int UnreliableMaxMessageSize; // readonly, displayed from OnValidate
+
+        // debugging
+        [Header("Debug")] public bool debugLog;
+
+        // show statistics in OnGUI
+        public bool statisticsGUI;
+
+        // log statistics for headless servers that can't show them in GUI
+        public bool statisticsLog;
+
+        [Tooltip("KCP congestion window. Restricts window size to reduce congestion. Results in only 2-3 MTU messages per Flush even on loopback. Best to keept his disabled.")]
+        /*public*/
+        private readonly bool CongestionWindow = false; // KCP 'NoCongestionWindow' is false by default. here we negate it for ease of use.
+
+        protected KcpClient client; // USED IN WORKER THREAD. DON'T TOUCH FROM MAIN THREAD!
 
         // config is created from the serialized properties above.
         // we can expose the config directly in the future.
         // for now, let's not break people's old settings.
         protected KcpConfig config;
 
-        // use default MTU for this transport.
-        const int MTU = Kcp.MTU_DEF;
+        // copy MonoBehaviour.enabled for thread safe access
+        private volatile bool enabledCopy = true;
 
         // server & client
         protected KcpServer server; // USED IN WORKER THREAD. DON'T TOUCH FROM MAIN THREAD!
-        protected KcpClient client; // USED IN WORKER THREAD. DON'T TOUCH FROM MAIN THREAD!
-
-        // copy MonoBehaviour.enabled for thread safe access
-        volatile bool enabledCopy = true;
-
-        // debugging
-        [Header("Debug")]
-        public bool debugLog;
-        // show statistics in OnGUI
-        public bool statisticsGUI;
-        // log statistics for headless servers that can't show them in GUI
-        public bool statisticsLog;
 
         protected override void Awake()
         {
@@ -88,7 +99,7 @@ namespace kcp2k
             if (debugLog)
                 Log.Info = Debug.Log;
             else
-                Log.Info = _ => {};
+                Log.Info = _ => { };
             Log.Warning = Debug.LogWarning;
             Log.Error = Debug.LogError;
 
@@ -123,6 +134,25 @@ namespace kcp2k
             Log.Info("ThreadedKcpTransport initialized!");
         }
 
+        // copy MonoBehaviour.enabled for thread safe use
+        private void OnEnable()
+        {
+            enabledCopy = true;
+        }
+
+        private void OnDisable()
+        {
+            enabledCopy = true;
+        }
+
+// OnGUI allocates even if it does nothing. avoid in release.
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        protected virtual void OnGUI()
+        {
+            if (statisticsGUI) OnGUIStatistics();
+        }
+#endif
+
         protected virtual void OnValidate()
         {
             // show max message sizes in inspector for convenience.
@@ -131,9 +161,11 @@ namespace kcp2k
             UnreliableMaxMessageSize = KcpPeer.UnreliableMaxMessageSize(MTU);
         }
 
-        // copy MonoBehaviour.enabled for thread safe use
-        void OnEnable()  => enabledCopy = true;
-        void OnDisable() => enabledCopy = true;
+        public ushort Port
+        {
+            get => port;
+            set => port = value;
+        }
 
         // all except WebGL
         // Do not change this back to using Application.platform
@@ -145,15 +177,20 @@ namespace kcp2k
             true;
 #endif
 
-        protected override void ThreadedClientConnect(string address) => client.Connect(address, Port);
+        protected override void ThreadedClientConnect(string address)
+        {
+            client.Connect(address, Port);
+        }
+
         protected override void ThreadedClientConnect(Uri uri)
         {
             if (uri.Scheme != Scheme)
                 throw new ArgumentException($"Invalid url {uri}, use {Scheme}://host:port instead", nameof(uri));
 
-            int serverPort = uri.IsDefaultPort ? Port : uri.Port;
+            var serverPort = uri.IsDefaultPort ? Port : uri.Port;
             client.Connect(uri.Host, (ushort)serverPort);
         }
+
         protected override void ThreadedClientSend(ArraySegment<byte> segment, int channelId)
         {
             client.Send(segment, KcpTransport.ToKcpChannel(channelId));
@@ -161,7 +198,12 @@ namespace kcp2k
             // thread safe version for statistics
             OnThreadedClientSend(segment, channelId);
         }
-        protected override void ThreadedClientDisconnect() => client.Disconnect();
+
+        protected override void ThreadedClientDisconnect()
+        {
+            client.Disconnect();
+        }
+
         // process incoming in early update
         protected override void ThreadedClientEarlyUpdate()
         {
@@ -171,19 +213,28 @@ namespace kcp2k
             // => enabledCopy for thread safe use
             if (enabledCopy) client.TickIncoming();
         }
+
         // process outgoing in late update
-        protected override void ThreadedClientLateUpdate() => client.TickOutgoing();
+        protected override void ThreadedClientLateUpdate()
+        {
+            client.TickOutgoing();
+        }
 
         // server thread overrides
         public override Uri ServerUri()
         {
-            UriBuilder builder = new UriBuilder();
+            var builder = new UriBuilder();
             builder.Scheme = Scheme;
             builder.Host = Dns.GetHostName();
             builder.Port = Port;
             return builder.Uri;
         }
-        protected override void ThreadedServerStart() => server.Start(Port);
+
+        protected override void ThreadedServerStart()
+        {
+            server.Start(Port);
+        }
+
         protected override void ThreadedServerSend(int connectionId, ArraySegment<byte> segment, int channelId)
         {
             server.Send(connectionId, segment, KcpTransport.ToKcpChannel(channelId));
@@ -191,7 +242,12 @@ namespace kcp2k
             // thread safe version for statistics
             OnThreadedServerSend(connectionId, segment, channelId);
         }
-        protected override void ThreadedServerDisconnect(int connectionId) =>  server.Disconnect(connectionId);
+
+        protected override void ThreadedServerDisconnect(int connectionId)
+        {
+            server.Disconnect(connectionId);
+        }
+
         /* NOT THREAD SAFE. ThreadedTransport version throws NotImplementedException for this.
         public override string ServerGetClientAddress(int connectionId)
         {
@@ -205,7 +261,11 @@ namespace kcp2k
                 : "";
         }
         */
-        protected override void ThreadedServerStop() => server.Stop();
+        protected override void ThreadedServerStop()
+        {
+            server.Stop();
+        }
+
         protected override void ThreadedServerEarlyUpdate()
         {
             // only process messages while transport is enabled.
@@ -214,10 +274,16 @@ namespace kcp2k
             // => enabledCopy for thread safe use
             if (enabledCopy) server.TickIncoming();
         }
-        // process outgoing in late update
-        protected override void ThreadedServerLateUpdate() => server.TickOutgoing();
 
-        protected override void ThreadedShutdown() {}
+        // process outgoing in late update
+        protected override void ThreadedServerLateUpdate()
+        {
+            server.TickOutgoing();
+        }
+
+        protected override void ThreadedShutdown()
+        {
+        }
 
         // max message size
         public override int GetMaxPacketSize(int channelId = Channels.Reliable)
@@ -242,8 +308,10 @@ namespace kcp2k
         // network.
         // => instead we always use MTU sized batches.
         // => people can still send maxed size if needed.
-        public override int GetBatchThreshold(int channelId) =>
-            KcpPeer.UnreliableMaxMessageSize(config.Mtu);
+        public override int GetBatchThreshold(int channelId)
+        {
+            return KcpPeer.UnreliableMaxMessageSize(config.Mtu);
+        }
 
         protected virtual void OnGUIStatistics()
         {
@@ -282,14 +350,6 @@ namespace kcp2k
             */
         }
 
-// OnGUI allocates even if it does nothing. avoid in release.
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        protected virtual void OnGUI()
-        {
-            if (statisticsGUI) OnGUIStatistics();
-        }
-#endif
-
         protected virtual void OnLogStatistics()
         {
             // TODO not thread safe
@@ -321,7 +381,10 @@ namespace kcp2k
             */
         }
 
-        public override string ToString() => $"ThreadedKCP {port}";
+        public override string ToString()
+        {
+            return $"ThreadedKCP {port}";
+        }
     }
 }
 //#endif MIRROR <- commented out because MIRROR isn't defined on first import yet

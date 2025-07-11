@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+
 namespace Mirror.Examples.CouchCoop
 {
     public class CanvasScript : MonoBehaviour
@@ -16,7 +17,10 @@ namespace Mirror.Examples.CouchCoop
         private void ButtonAddPlayer()
         {
             if (couchPlayerManager == null)
-            { Debug.Log("Start game first."); return; }
+            {
+                Debug.Log("Start game first.");
+                return;
+            }
 
             couchPlayerManager.CmdAddPlayer();
         }
@@ -24,7 +28,10 @@ namespace Mirror.Examples.CouchCoop
         private void ButtonRemovePlayer()
         {
             if (couchPlayerManager == null)
-            { Debug.Log("Start game first."); return; }
+            {
+                Debug.Log("Start game first.");
+                return;
+            }
 
             couchPlayerManager.CmdRemovePlayer();
         }

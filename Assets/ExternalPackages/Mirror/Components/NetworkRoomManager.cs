@@ -1,62 +1,51 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 
 namespace Mirror
 {
     /// <summary>
-    /// This is a specialized NetworkManager that includes a networked room.
+    ///     This is a specialized NetworkManager that includes a networked room.
     /// </summary>
     /// <remarks>
-    /// <para>The room has slots that track the joined players, and a maximum player count that is enforced. It requires that the NetworkRoomPlayer component be on the room player objects.</para>
-    /// <para>NetworkRoomManager is derived from NetworkManager, and so it implements many of the virtual functions provided by the NetworkManager class. To avoid accidentally replacing functionality of the NetworkRoomManager, there are new virtual functions on the NetworkRoomManager that begin with "OnRoom". These should be used on classes derived from NetworkRoomManager instead of the virtual functions on NetworkManager.</para>
-    /// <para>The OnRoom*() functions have empty implementations on the NetworkRoomManager base class, so the base class functions do not have to be called.</para>
+    ///     <para>
+    ///         The room has slots that track the joined players, and a maximum player count that is enforced. It requires
+    ///         that the NetworkRoomPlayer component be on the room player objects.
+    ///     </para>
+    ///     <para>
+    ///         NetworkRoomManager is derived from NetworkManager, and so it implements many of the virtual functions
+    ///         provided by the NetworkManager class. To avoid accidentally replacing functionality of the NetworkRoomManager,
+    ///         there are new virtual functions on the NetworkRoomManager that begin with "OnRoom". These should be used on
+    ///         classes derived from NetworkRoomManager instead of the virtual functions on NetworkManager.
+    ///     </para>
+    ///     <para>
+    ///         The OnRoom*() functions have empty implementations on the NetworkRoomManager base class, so the base class
+    ///         functions do not have to be called.
+    ///     </para>
     /// </remarks>
     [AddComponentMenu("Network/Network Room Manager")]
     [HelpURL("https://mirror-networking.gitbook.io/docs/components/network-room-manager")]
     public class NetworkRoomManager : NetworkManager
     {
-        public struct PendingPlayer
-        {
-            public NetworkConnectionToClient conn;
-            public GameObject roomPlayer;
-        }
-
-        [Header("Room Settings")]
-        [FormerlySerializedAs("m_ShowRoomGUI")]
-        [SerializeField]
-        [Tooltip("This flag controls whether the default UI is shown for the room")]
+        [Header("Room Settings")] [FormerlySerializedAs("m_ShowRoomGUI")] [SerializeField] [Tooltip("This flag controls whether the default UI is shown for the room")]
         public bool showRoomGUI = true;
 
-        [FormerlySerializedAs("m_MinPlayers")]
-        [SerializeField]
-        [Tooltip("Minimum number of players to auto-start the game")]
+        [FormerlySerializedAs("m_MinPlayers")] [SerializeField] [Tooltip("Minimum number of players to auto-start the game")]
         public int minPlayers = 1;
 
-        [FormerlySerializedAs("m_RoomPlayerPrefab")]
-        [SerializeField]
-        [Tooltip("Prefab to use for the Room Player")]
+        [FormerlySerializedAs("m_RoomPlayerPrefab")] [SerializeField] [Tooltip("Prefab to use for the Room Player")]
         public NetworkRoomPlayer roomPlayerPrefab;
 
         /// <summary>
-        /// The scene to use for the room. This is similar to the offlineScene of the NetworkManager.
+        ///     The scene to use for the room. This is similar to the offlineScene of the NetworkManager.
         /// </summary>
-        [Scene]
-        public string RoomScene;
+        [Scene] public string RoomScene;
 
         /// <summary>
-        /// The scene to use for the playing the game from the room. This is similar to the onlineScene of the NetworkManager.
+        ///     The scene to use for the playing the game from the room. This is similar to the onlineScene of the NetworkManager.
         /// </summary>
-        [Scene]
-        public string GameplayScene;
-
-        /// <summary>
-        /// List of players that are in the Room
-        /// </summary>
-        [FormerlySerializedAs("m_PendingPlayers")]
-        public HashSet<PendingPlayer> pendingPlayers = new HashSet<PendingPlayer>();
+        [Scene] public string GameplayScene;
 
         [Header("Diagnostics")]
         /// <summary>
@@ -64,38 +53,65 @@ namespace Mirror
         /// </summary>
         [Tooltip("Diagnostic flag indicating all players are ready to play")]
         [FormerlySerializedAs("allPlayersReady")]
-        [ReadOnly, SerializeField] bool _allPlayersReady;
+        [ReadOnly]
+        [SerializeField]
+        private bool _allPlayersReady;
 
         /// <summary>
-        /// These slots track players that enter the room.
-        /// <para>The slotId on players is global to the game - across all players.</para>
+        ///     List of players that are in the Room
         /// </summary>
-        [ReadOnly, Tooltip("List of Room Player objects")]
-        public HashSet<NetworkRoomPlayer> roomSlots = new HashSet<NetworkRoomPlayer>();
+        public HashSet<PendingPlayer> pendingPlayers = new();
+
+        /// <summary>
+        ///     These slots track players that enter the room.
+        ///     <para>The slotId on players is global to the game - across all players.</para>
+        /// </summary>
+        [ReadOnly] [Tooltip("List of Room Player objects")]
+        public HashSet<NetworkRoomPlayer> roomSlots = new();
 
         public bool allPlayersReady
         {
             get => _allPlayersReady;
             set
             {
-                bool wasReady = _allPlayersReady;
-                bool nowReady = value;
+                var wasReady = _allPlayersReady;
+                var nowReady = value;
 
                 if (wasReady != nowReady)
                 {
                     _allPlayersReady = value;
 
                     if (nowReady)
-                    {
                         OnRoomServerPlayersReady();
-                    }
                     else
-                    {
                         OnRoomServerPlayersNotReady();
-                    }
                 }
             }
         }
+
+        #region optional UI
+
+        /// <summary>
+        ///     virtual so inheriting classes can roll their own
+        /// </summary>
+        public virtual void OnGUI()
+        {
+            if (!showRoomGUI)
+                return;
+
+            if (NetworkServer.active && Utils.IsSceneActive(GameplayScene))
+            {
+                GUILayout.BeginArea(new Rect(Screen.width - 150f, 10f, 140f, 30f));
+                if (GUILayout.Button("Return to Room"))
+                    ServerChangeScene(RoomScene);
+                GUILayout.EndArea();
+            }
+
+            if (Utils.IsSceneActive(RoomScene))
+                GUI.Box(new Rect(10f, 180f, 520f, 150f), "PLAYERS");
+        }
+
+        #endregion
 
         public override void OnValidate()
         {
@@ -109,7 +125,7 @@ namespace Mirror
 
             if (roomPlayerPrefab != null)
             {
-                NetworkIdentity identity = roomPlayerPrefab.GetComponent<NetworkIdentity>();
+                var identity = roomPlayerPrefab.GetComponent<NetworkIdentity>();
                 if (identity == null)
                 {
                     roomPlayerPrefab = null;
@@ -118,7 +134,7 @@ namespace Mirror
             }
         }
 
-        void SceneLoadedForPlayer(NetworkConnectionToClient conn, GameObject roomPlayer)
+        private void SceneLoadedForPlayer(NetworkConnectionToClient conn, GameObject roomPlayer)
         {
             //Debug.Log($"NetworkRoom SceneLoadedForPlayer scene: {SceneManager.GetActiveScene().path} {conn}");
 
@@ -132,11 +148,11 @@ namespace Mirror
                 return;
             }
 
-            GameObject gamePlayer = OnRoomServerCreateGamePlayer(conn, roomPlayer);
+            var gamePlayer = OnRoomServerCreateGamePlayer(conn, roomPlayer);
             if (gamePlayer == null)
             {
                 // get start position from base class
-                Transform startPos = GetStartPosition();
+                var startPos = GetStartPosition();
                 gamePlayer = startPos != null
                     ? Instantiate(playerPrefab, startPos.position, startPos.rotation)
                     : Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
@@ -152,53 +168,63 @@ namespace Mirror
         internal void CallOnClientEnterRoom()
         {
             OnRoomClientEnter();
-            foreach (NetworkRoomPlayer player in roomSlots)
+            foreach (var player in roomSlots)
                 if (player != null)
-                {
                     player.OnClientEnterRoom();
-                }
         }
 
         internal void CallOnClientExitRoom()
         {
             OnRoomClientExit();
-            foreach (NetworkRoomPlayer player in roomSlots)
+            foreach (var player in roomSlots)
                 if (player != null)
-                {
                     player.OnClientExitRoom();
-                }
         }
 
         /// <summary>
-        /// CheckReadyToBegin checks all of the players in the room to see if their readyToBegin flag is set.
-        /// <para>If all of the players are ready, then the server switches from the RoomScene to the PlayScene, essentially starting the game. This is called automatically in response to NetworkRoomPlayer.CmdChangeReadyState.</para>
+        ///     CheckReadyToBegin checks all of the players in the room to see if their readyToBegin flag is set.
+        ///     <para>
+        ///         If all of the players are ready, then the server switches from the RoomScene to the PlayScene, essentially
+        ///         starting the game. This is called automatically in response to NetworkRoomPlayer.CmdChangeReadyState.
+        ///     </para>
         /// </summary>
         public void CheckReadyToBegin()
         {
             if (!Utils.IsSceneActive(RoomScene))
                 return;
 
-            int numberOfReadyPlayers = NetworkServer.connections.Count(conn =>
+            var numberOfReadyPlayers = NetworkServer.connections.Count(conn =>
                 conn.Value != null &&
                 conn.Value.identity != null &&
                 conn.Value.identity.TryGetComponent(out NetworkRoomPlayer nrp) &&
                 nrp.readyToBegin);
 
-            bool enoughReadyPlayers = minPlayers <= 0 || numberOfReadyPlayers >= minPlayers;
+            var enoughReadyPlayers = minPlayers <= 0 || numberOfReadyPlayers >= minPlayers;
             if (enoughReadyPlayers)
             {
                 pendingPlayers.Clear();
                 allPlayersReady = true;
             }
             else
+            {
                 allPlayersReady = false;
+            }
+        }
+
+        public struct PendingPlayer
+        {
+            public NetworkConnectionToClient conn;
+            public GameObject roomPlayer;
         }
 
         #region server handlers
 
         /// <summary>
-        /// Called on the server when a new client connects.
-        /// <para>Unity calls this on the Server when a Client connects to the Server. Use an override to tell the NetworkManager what to do when a client connects to the server.</para>
+        ///     Called on the server when a new client connects.
+        ///     <para>
+        ///         Unity calls this on the Server when a Client connects to the Server. Use an override to tell the
+        ///         NetworkManager what to do when a client connects to the server.
+        ///     </para>
         /// </summary>
         /// <param name="conn">Connection from client.</param>
         public override void OnServerConnect(NetworkConnectionToClient conn)
@@ -216,20 +242,23 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Called on the server when a client disconnects.
-        /// <para>This is called on the Server when a Client disconnects from the Server. Use an override to decide what should happen when a disconnection is detected.</para>
+        ///     Called on the server when a client disconnects.
+        ///     <para>
+        ///         This is called on the Server when a Client disconnects from the Server. Use an override to decide what should
+        ///         happen when a disconnection is detected.
+        ///     </para>
         /// </summary>
         /// <param name="conn">Connection from client.</param>
         public override void OnServerDisconnect(NetworkConnectionToClient conn)
         {
             if (conn.identity != null)
             {
-                NetworkRoomPlayer roomPlayer = conn.identity.GetComponent<NetworkRoomPlayer>();
+                var roomPlayer = conn.identity.GetComponent<NetworkRoomPlayer>();
 
                 if (roomPlayer != null)
                     roomSlots.Remove(roomPlayer);
 
-                foreach (NetworkIdentity clientOwnedObject in conn.owned)
+                foreach (var clientOwnedObject in conn.owned)
                 {
                     roomPlayer = clientOwnedObject.GetComponent<NetworkRoomPlayer>();
                     if (roomPlayer != null)
@@ -239,11 +268,9 @@ namespace Mirror
 
             allPlayersReady = false;
 
-            foreach (NetworkRoomPlayer player in roomSlots)
-            {
+            foreach (var player in roomSlots)
                 if (player != null)
                     player.GetComponent<NetworkRoomPlayer>().readyToBegin = false;
-            }
 
             if (Utils.IsSceneActive(RoomScene))
                 RecalculateRoomPlayerIndices();
@@ -261,8 +288,11 @@ namespace Mirror
         public int clientIndex;
 
         /// <summary>
-        /// Called on the server when a client is ready.
-        /// <para>The default implementation of this function calls NetworkServer.SetClientReady() to continue the network setup process.</para>
+        ///     Called on the server when a client is ready.
+        ///     <para>
+        ///         The default implementation of this function calls NetworkServer.SetClientReady() to continue the network
+        ///         setup process.
+        ///     </para>
         /// </summary>
         /// <param name="conn">Connection from client.</param>
         public override void OnServerReady(NetworkConnectionToClient conn)
@@ -272,7 +302,7 @@ namespace Mirror
 
             if (conn != null && conn.identity != null)
             {
-                GameObject roomPlayer = conn.identity.gameObject;
+                var roomPlayer = conn.identity.gameObject;
 
                 // if null or not a room player, don't replace it
                 if (roomPlayer != null && roomPlayer.GetComponent<NetworkRoomPlayer>() != null)
@@ -281,8 +311,8 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Called on the server when a client adds a new player with NetworkClient.AddPlayer.
-        /// <para>The default implementation for this function creates a new player object from the playerPrefab.</para>
+        ///     Called on the server when a client adds a new player with NetworkClient.AddPlayer.
+        ///     <para>The default implementation for this function creates a new player object from the playerPrefab.</para>
         /// </summary>
         /// <param name="conn">Connection from client.</param>
         public override void OnServerAddPlayer(NetworkConnectionToClient conn)
@@ -296,7 +326,7 @@ namespace Mirror
 
                 //Debug.Log("NetworkRoomManager.OnServerAddPlayer playerPrefab: {roomPlayerPrefab.name}");
 
-                GameObject newRoomGameObject = OnRoomServerCreateRoomPlayer(conn);
+                var newRoomGameObject = OnRoomServerCreateRoomPlayer(conn);
                 if (newRoomGameObject == null)
                     newRoomGameObject = Instantiate(roomPlayerPrefab.gameObject, Vector3.zero, Quaternion.identity);
 
@@ -315,28 +345,33 @@ namespace Mirror
         {
             if (roomSlots.Count > 0)
             {
-                int i = 0;
-                foreach (NetworkRoomPlayer player in roomSlots)
+                var i = 0;
+                foreach (var player in roomSlots)
                     player.index = i++;
             }
         }
 
         /// <summary>
-        /// This causes the server to switch scenes and sets the networkSceneName.
-        /// <para>Clients that connect to this server will automatically switch to this scene. This is called automatically if onlineScene or offlineScene are set, but it can be called from user code to switch scenes again while the game is in progress. This automatically sets clients to be not-ready. The clients must call NetworkClient.Ready() again to participate in the new scene.</para>
+        ///     This causes the server to switch scenes and sets the networkSceneName.
+        ///     <para>
+        ///         Clients that connect to this server will automatically switch to this scene. This is called automatically if
+        ///         onlineScene or offlineScene are set, but it can be called from user code to switch scenes again while the game
+        ///         is in progress. This automatically sets clients to be not-ready. The clients must call NetworkClient.Ready()
+        ///         again to participate in the new scene.
+        ///     </para>
         /// </summary>
         /// <param name="newSceneName"></param>
         public override void ServerChangeScene(string newSceneName)
         {
             if (newSceneName == RoomScene)
             {
-                foreach (NetworkRoomPlayer roomPlayer in roomSlots)
+                foreach (var roomPlayer in roomSlots)
                 {
                     if (roomPlayer == null)
                         continue;
 
                     // find the game-player object for this connection, and destroy it
-                    NetworkIdentity identity = roomPlayer.GetComponent<NetworkIdentity>();
+                    var identity = roomPlayer.GetComponent<NetworkIdentity>();
 
                     if (NetworkServer.active)
                     {
@@ -353,7 +388,8 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Called on the server when a scene is completed loaded, when the scene load was initiated by the server with ServerChangeScene().
+        ///     Called on the server when a scene is completed loaded, when the scene load was initiated by the server with
+        ///     ServerChangeScene().
         /// </summary>
         /// <param name="sceneName">The name of the new scene.</param>
         public override void OnServerSceneChanged(string sceneName)
@@ -361,7 +397,7 @@ namespace Mirror
             if (sceneName != RoomScene)
             {
                 // call SceneLoadedForPlayer on any players that become ready while we were loading the scene.
-                foreach (PendingPlayer pending in pendingPlayers)
+                foreach (var pending in pendingPlayers)
                     SceneLoadedForPlayer(pending.conn, pending.roomPlayer);
 
                 pendingPlayers.Clear();
@@ -371,8 +407,8 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is invoked when a server is started - including when a host is started.
-        /// <para>StartServer has multiple signatures, but they all cause this hook to be called.</para>
+        ///     This is invoked when a server is started - including when a host is started.
+        ///     <para>StartServer has multiple signatures, but they all cause this hook to be called.</para>
         /// </summary>
         public override void OnStartServer()
         {
@@ -392,8 +428,8 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is invoked when a host is started.
-        /// <para>StartHost has multiple signatures, but they all cause this hook to be called.</para>
+        ///     This is invoked when a host is started.
+        ///     <para>StartHost has multiple signatures, but they all cause this hook to be called.</para>
         /// </summary>
         public override void OnStartHost()
         {
@@ -401,7 +437,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is called when a server is stopped - including when a host is stopped.
+        ///     This is called when a server is stopped - including when a host is stopped.
         /// </summary>
         public override void OnStopServer()
         {
@@ -410,7 +446,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is called when a host is stopped.
+        ///     This is called when a host is stopped.
         /// </summary>
         public override void OnStopHost()
         {
@@ -422,7 +458,7 @@ namespace Mirror
         #region client handlers
 
         /// <summary>
-        /// This is invoked when the client is started.
+        ///     This is invoked when the client is started.
         /// </summary>
         public override void OnStartClient()
         {
@@ -438,8 +474,11 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Called on the client when connected to a server.
-        /// <para>The default implementation of this function sets the client as ready and adds a player. Override the function to dictate what happens when the client connects.</para>
+        ///     Called on the client when connected to a server.
+        ///     <para>
+        ///         The default implementation of this function sets the client as ready and adds a player. Override the function
+        ///         to dictate what happens when the client connects.
+        ///     </para>
         /// </summary>
         public override void OnClientConnect()
         {
@@ -448,8 +487,11 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Called on clients when disconnected from a server.
-        /// <para>This is called on the client when it disconnects from the server. Override this function to decide what happens when the client disconnects.</para>
+        ///     Called on clients when disconnected from a server.
+        ///     <para>
+        ///         This is called on the client when it disconnects from the server. Override this function to decide what
+        ///         happens when the client disconnects.
+        ///     </para>
         /// </summary>
         public override void OnClientDisconnect()
         {
@@ -458,7 +500,7 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is called when a client is stopped.
+        ///     This is called when a client is stopped.
         /// </summary>
         public override void OnStopClient()
         {
@@ -468,8 +510,11 @@ namespace Mirror
         }
 
         /// <summary>
-        /// Called on clients when a scene has completed loaded, when the scene load was initiated by the server.
-        /// <para>Scene changes can cause player objects to be destroyed. The default implementation of OnClientSceneChanged in the NetworkManager is to add a player object for the connection if no player object exists.</para>
+        ///     Called on clients when a scene has completed loaded, when the scene load was initiated by the server.
+        ///     <para>
+        ///         Scene changes can cause player objects to be destroyed. The default implementation of OnClientSceneChanged in
+        ///         the NetworkManager is to add a player object for the connection if no player object exists.
+        ///     </para>
         /// </summary>
         public override void OnClientSceneChanged()
         {
@@ -479,7 +524,9 @@ namespace Mirror
                     CallOnClientEnterRoom();
             }
             else
+            {
                 CallOnClientExitRoom();
+            }
 
             base.OnClientSceneChanged();
             OnRoomClientSceneChanged();
@@ -490,46 +537,63 @@ namespace Mirror
         #region room server virtuals
 
         /// <summary>
-        /// This is called on the host when a host is started.
+        ///     This is called on the host when a host is started.
         /// </summary>
-        public virtual void OnRoomStartHost() {}
+        public virtual void OnRoomStartHost()
+        {
+        }
 
         /// <summary>
-        /// This is called on the host when the host is stopped.
+        ///     This is called on the host when the host is stopped.
         /// </summary>
-        public virtual void OnRoomStopHost() {}
+        public virtual void OnRoomStopHost()
+        {
+        }
 
         /// <summary>
-        /// This is called on the server when the server is started - including when a host is started.
+        ///     This is called on the server when the server is started - including when a host is started.
         /// </summary>
-        public virtual void OnRoomStartServer() {}
+        public virtual void OnRoomStartServer()
+        {
+        }
 
         /// <summary>
-        /// This is called on the server when the server is started - including when a host is stopped.
+        ///     This is called on the server when the server is started - including when a host is stopped.
         /// </summary>
-        public virtual void OnRoomStopServer() {}
+        public virtual void OnRoomStopServer()
+        {
+        }
 
         /// <summary>
-        /// This is called on the server when a new client connects to the server.
+        ///     This is called on the server when a new client connects to the server.
         /// </summary>
         /// <param name="conn">The new connection.</param>
-        public virtual void OnRoomServerConnect(NetworkConnectionToClient conn) {}
+        public virtual void OnRoomServerConnect(NetworkConnectionToClient conn)
+        {
+        }
 
         /// <summary>
-        /// This is called on the server when a client disconnects.
+        ///     This is called on the server when a client disconnects.
         /// </summary>
         /// <param name="conn">The connection that disconnected.</param>
-        public virtual void OnRoomServerDisconnect(NetworkConnectionToClient conn) {}
+        public virtual void OnRoomServerDisconnect(NetworkConnectionToClient conn)
+        {
+        }
 
         /// <summary>
-        /// This is called on the server when a networked scene finishes loading.
+        ///     This is called on the server when a networked scene finishes loading.
         /// </summary>
         /// <param name="sceneName">Name of the new scene.</param>
-        public virtual void OnRoomServerSceneChanged(string sceneName) {}
+        public virtual void OnRoomServerSceneChanged(string sceneName)
+        {
+        }
 
         /// <summary>
-        /// This allows customization of the creation of the room-player object on the server.
-        /// <para>By default the roomPlayerPrefab is used to create the room-player, but this function allows that behaviour to be customized.</para>
+        ///     This allows customization of the creation of the room-player object on the server.
+        ///     <para>
+        ///         By default the roomPlayerPrefab is used to create the room-player, but this function allows that behaviour to
+        ///         be customized.
+        ///     </para>
         /// </summary>
         /// <param name="conn">The connection the player object is for.</param>
         /// <returns>The new room-player object.</returns>
@@ -539,8 +603,11 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This allows customization of the creation of the GamePlayer object on the server.
-        /// <para>By default the gamePlayerPrefab is used to create the game-player, but this function allows that behaviour to be customized. The object returned from the function will be used to replace the room-player on the connection.</para>
+        ///     This allows customization of the creation of the GamePlayer object on the server.
+        ///     <para>
+        ///         By default the gamePlayerPrefab is used to create the game-player, but this function allows that behaviour to
+        ///         be customized. The object returned from the function will be used to replace the room-player on the connection.
+        ///     </para>
         /// </summary>
         /// <param name="conn">The connection the player object is for.</param>
         /// <param name="roomPlayer">The room player object for this connection.</param>
@@ -551,9 +618,16 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This allows customization of the creation of the GamePlayer object on the server.
-        /// <para>This is only called for subsequent GamePlay scenes after the first one.</para>
-        /// <para>See <see cref="OnRoomServerCreateGamePlayer(NetworkConnectionToClient, GameObject)">OnRoomServerCreateGamePlayer(NetworkConnection, GameObject)</see> to customize the player object for the initial GamePlay scene.</para>
+        ///     This allows customization of the creation of the GamePlayer object on the server.
+        ///     <para>This is only called for subsequent GamePlay scenes after the first one.</para>
+        ///     <para>
+        ///         See
+        ///         <see cref="OnRoomServerCreateGamePlayer(NetworkConnectionToClient, GameObject)">
+        ///             OnRoomServerCreateGamePlayer(NetworkConnection,
+        ///             GameObject)
+        ///         </see>
+        ///         to customize the player object for the initial GamePlay scene.
+        ///     </para>
         /// </summary>
         /// <param name="conn">The connection the player object is for.</param>
         public virtual void OnRoomServerAddPlayer(NetworkConnectionToClient conn)
@@ -563,8 +637,12 @@ namespace Mirror
 
         // for users to apply settings from their room player object to their in-game player object
         /// <summary>
-        /// This is called on the server when it is told that a client has finished switching from the room scene to a game player scene.
-        /// <para>When switching from the room, the room-player is replaced with a game-player object. This callback function gives an opportunity to apply state from the room-player to the game-player object.</para>
+        ///     This is called on the server when it is told that a client has finished switching from the room scene to a game
+        ///     player scene.
+        ///     <para>
+        ///         When switching from the room, the room-player is replaced with a game-player object. This callback function
+        ///         gives an opportunity to apply state from the room-player to the game-player object.
+        ///     </para>
         /// </summary>
         /// <param name="conn">The connection of the player</param>
         /// <param name="roomPlayer">The room player object.</param>
@@ -576,22 +654,20 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is called on server from NetworkRoomPlayer.CmdChangeReadyState when client indicates change in Ready status.
+        ///     This is called on server from NetworkRoomPlayer.CmdChangeReadyState when client indicates change in Ready status.
         /// </summary>
         public virtual void ReadyStatusChanged()
         {
-            int CurrentPlayers = 0;
-            int ReadyPlayers = 0;
+            var CurrentPlayers = 0;
+            var ReadyPlayers = 0;
 
-            foreach (NetworkRoomPlayer item in roomSlots)
-            {
+            foreach (var item in roomSlots)
                 if (item != null)
                 {
                     CurrentPlayers++;
                     if (item.readyToBegin)
                         ReadyPlayers++;
                 }
-            }
 
             if (CurrentPlayers == ReadyPlayers)
                 CheckReadyToBegin();
@@ -600,8 +676,12 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is called on the server when all the players in the room are ready.
-        /// <para>The default implementation of this function uses ServerChangeScene() to switch to the game player scene. By implementing this callback you can customize what happens when all the players in the room are ready, such as adding a countdown or a confirmation for a group leader.</para>
+        ///     This is called on the server when all the players in the room are ready.
+        ///     <para>
+        ///         The default implementation of this function uses ServerChangeScene() to switch to the game player scene. By
+        ///         implementing this callback you can customize what happens when all the players in the room are ready, such as
+        ///         adding a countdown or a confirmation for a group leader.
+        ///     </para>
         /// </summary>
         public virtual void OnRoomServerPlayersReady()
         {
@@ -610,72 +690,64 @@ namespace Mirror
         }
 
         /// <summary>
-        /// This is called on the server when CheckReadyToBegin finds that players are not ready
-        /// <para>May be called multiple times while not ready players are joining</para>
+        ///     This is called on the server when CheckReadyToBegin finds that players are not ready
+        ///     <para>May be called multiple times while not ready players are joining</para>
         /// </summary>
-        public virtual void OnRoomServerPlayersNotReady() {}
+        public virtual void OnRoomServerPlayersNotReady()
+        {
+        }
 
         #endregion
 
         #region room client virtuals
 
         /// <summary>
-        /// This is a hook to allow custom behaviour when the game client enters the room.
+        ///     This is a hook to allow custom behaviour when the game client enters the room.
         /// </summary>
-        public virtual void OnRoomClientEnter() {}
-
-        /// <summary>
-        /// This is a hook to allow custom behaviour when the game client exits the room.
-        /// </summary>
-        public virtual void OnRoomClientExit() {}
-
-        /// <summary>
-        /// This is called on the client when it connects to server.
-        /// </summary>
-        public virtual void OnRoomClientConnect() {}
-
-        /// <summary>
-        /// This is called on the client when disconnected from a server.
-        /// </summary>
-        public virtual void OnRoomClientDisconnect() {}
-
-        /// <summary>
-        /// This is called on the client when a client is started.
-        /// </summary>
-        public virtual void OnRoomStartClient() {}
-
-        /// <summary>
-        /// This is called on the client when the client stops.
-        /// </summary>
-        public virtual void OnRoomStopClient() {}
-
-        /// <summary>
-        /// This is called on the client when the client is finished loading a new networked scene.
-        /// </summary>
-        public virtual void OnRoomClientSceneChanged() {}
-
-        #endregion
-
-        #region optional UI
-
-        /// <summary>
-        /// virtual so inheriting classes can roll their own
-        /// </summary>
-        public virtual void OnGUI()
+        public virtual void OnRoomClientEnter()
         {
-            if (!showRoomGUI)
-                return;
+        }
 
-            if (NetworkServer.active && Utils.IsSceneActive(GameplayScene))
-            {
-                GUILayout.BeginArea(new Rect(Screen.width - 150f, 10f, 140f, 30f));
-                if (GUILayout.Button("Return to Room"))
-                    ServerChangeScene(RoomScene);
-                GUILayout.EndArea();
-            }
+        /// <summary>
+        ///     This is a hook to allow custom behaviour when the game client exits the room.
+        /// </summary>
+        public virtual void OnRoomClientExit()
+        {
+        }
 
-            if (Utils.IsSceneActive(RoomScene))
-                GUI.Box(new Rect(10f, 180f, 520f, 150f), "PLAYERS");
+        /// <summary>
+        ///     This is called on the client when it connects to server.
+        /// </summary>
+        public virtual void OnRoomClientConnect()
+        {
+        }
+
+        /// <summary>
+        ///     This is called on the client when disconnected from a server.
+        /// </summary>
+        public virtual void OnRoomClientDisconnect()
+        {
+        }
+
+        /// <summary>
+        ///     This is called on the client when a client is started.
+        /// </summary>
+        public virtual void OnRoomStartClient()
+        {
+        }
+
+        /// <summary>
+        ///     This is called on the client when the client stops.
+        /// </summary>
+        public virtual void OnRoomStopClient()
+        {
+        }
+
+        /// <summary>
+        ///     This is called on the client when the client is finished loading a new networked scene.
+        /// </summary>
+        public virtual void OnRoomClientSceneChanged()
+        {
         }
 
         #endregion

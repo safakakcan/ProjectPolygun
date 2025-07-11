@@ -12,12 +12,13 @@
 //
 // Note: normal Debug.Log messages can be shown by building in Debug/Development
 //       mode.
-using UnityEngine;
+
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Mirror
 {
-    struct LogEntry
+    internal struct LogEntry
     {
         public string message;
         public LogType type;
@@ -40,10 +41,7 @@ namespace Mirror
 
         // Unity Editor has the Console window, we don't need to show it there.
         // unless for testing, so keep it as option.
-        public bool showInEditor = false;
-
-        // log as queue so we can remove the first entry easily
-        readonly Queue<LogEntry> log = new Queue<LogEntry>();
+        public bool showInEditor;
 
         // hotkey to show/hide at runtime for easier debugging
         // (sometimes we need to temporarily hide/show it)
@@ -51,30 +49,65 @@ namespace Mirror
         [Tooltip("Hotkey to show/hide the console at runtime\nBack Quote is usually on the left above Tab\nChange with caution - F keys are generally already taken in Browsers")]
         public KeyCode hotKey = KeyCode.BackQuote;
 
+        // log as queue so we can remove the first entry easily
+        private readonly Queue<LogEntry> log = new();
+        private Vector2 scroll = Vector2.zero;
+
         // GUI
-        bool visible;
-        Vector2 scroll = Vector2.zero;
+        private bool visible;
 
         // only show at runtime, or if showInEditor is enabled
-        bool show => !Application.isEditor || showInEditor;
+        private bool show => !Application.isEditor || showInEditor;
 
-        void Awake()
+        private void Awake()
         {
             // only show at runtime, or if showInEditor is enabled
             if (show)
                 Application.logMessageReceived += OnLog;
         }
 
+        private void Update()
+        {
+            if (show && Input.GetKeyDown(hotKey))
+                visible = !visible;
+        }
+
+        private void OnGUI()
+        {
+            if (!visible) return;
+
+            // If this offset is changed, also change width in NetworkManagerHUD::OnGUI
+            var offsetX = 300 + 20;
+
+            GUILayout.BeginArea(new Rect(offsetX, offsetY, Screen.width - offsetX - 10, height));
+
+            scroll = GUILayout.BeginScrollView(scroll, "Box", GUILayout.Width(Screen.width - offsetX - 10), GUILayout.Height(height));
+            foreach (var entry in log)
+            {
+                if (entry.type == LogType.Error || entry.type == LogType.Exception)
+                    GUI.color = Color.red;
+                else if (entry.type == LogType.Warning)
+                    GUI.color = Color.yellow;
+
+                GUILayout.Label(entry.message);
+                GUI.color = Color.white;
+            }
+
+            GUILayout.EndScrollView();
+
+            GUILayout.EndArea();
+        }
+
         // OnLog logs everything, even Debug.Log messages in release builds
         // => this makes a lot of things easier. e.g. addon initialization logs.
         // => it's really better to have than not to have those
-        void OnLog(string message, string stackTrace, LogType type)
+        private void OnLog(string message, string stackTrace, LogType type)
         {
             // is this important?
             // => always show exceptions & errors
             // => usually a good idea to show warnings too, otherwise it's too
             //    easy to miss OnDeserialize warnings etc. in builds
-            bool isImportant = type == LogType.Error || type == LogType.Exception || type == LogType.Warning;
+            var isImportant = type == LogType.Error || type == LogType.Exception || type == LogType.Warning;
 
             // use stack trace only if important
             // (otherwise users would have to find and search the log file.
@@ -97,37 +130,6 @@ namespace Mirror
 
             // auto scroll
             scroll.y = float.MaxValue;
-        }
-
-        void Update()
-        {
-            if (show && Input.GetKeyDown(hotKey))
-                visible = !visible;
-        }
-
-        void OnGUI()
-        {
-            if (!visible) return;
-
-            // If this offset is changed, also change width in NetworkManagerHUD::OnGUI
-            int offsetX = 300 + 20;
-
-            GUILayout.BeginArea(new Rect(offsetX, offsetY, Screen.width - offsetX - 10, height));
-
-            scroll = GUILayout.BeginScrollView(scroll, "Box", GUILayout.Width(Screen.width - offsetX - 10), GUILayout.Height(height));
-            foreach (LogEntry entry in log)
-            {
-                if (entry.type == LogType.Error || entry.type == LogType.Exception)
-                    GUI.color = Color.red;
-                else if (entry.type == LogType.Warning)
-                    GUI.color = Color.yellow;
-
-                GUILayout.Label(entry.message);
-                GUI.color = Color.white;
-            }
-            GUILayout.EndScrollView();
-
-            GUILayout.EndArea();
         }
     }
 }

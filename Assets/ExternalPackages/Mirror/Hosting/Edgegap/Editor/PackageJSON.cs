@@ -7,14 +7,6 @@ namespace Edgegap.Editor
     [Serializable]
     public class PackageJSON
     {
-        [Serializable]
-        public struct Author
-        {
-            public string name;
-            public string email;
-            public string url;
-        }
-
         public string name;
         public string version;
         public string displayName;
@@ -32,6 +24,14 @@ namespace Edgegap.Editor
         public static PackageJSON PackageJSONFromJSON(string path)
         {
             return JsonUtility.FromJson<PackageJSON>(File.ReadAllText(path));
+        }
+
+        [Serializable]
+        public struct Author
+        {
+            public string name;
+            public string email;
+            public string url;
         }
     }
 }

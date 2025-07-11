@@ -5,22 +5,22 @@ using System.Linq;
 namespace Mirror.SimpleWeb
 {
     /// <summary>
-    /// Represents a client's request to the Websockets server, which is the first message from the client.
+    ///     Represents a client's request to the Websockets server, which is the first message from the client.
     /// </summary>
     public class Request
     {
-        static readonly char[] lineSplitChars = new char[] { '\r', '\n' };
-        static readonly char[] headerSplitChars = new char[] { ':' };
+        private static readonly char[] lineSplitChars = { '\r', '\n' };
+        private static readonly char[] headerSplitChars = { ':' };
+        public Dictionary<string, string> Headers = new();
         public string RequestLine;
-        public Dictionary<string, string> Headers = new Dictionary<string, string>();
 
         public Request(string message)
         {
-            string[] all = message.Split(lineSplitChars, StringSplitOptions.RemoveEmptyEntries);
+            var all = message.Split(lineSplitChars, StringSplitOptions.RemoveEmptyEntries);
             RequestLine = all.First();
             Headers = all.Skip(1)
-                         .Select(header => header.Split(headerSplitChars, 2, StringSplitOptions.RemoveEmptyEntries))
-                         .ToDictionary(split => split[0].Trim(), split => split[1].Trim());
+                .Select(header => header.Split(headerSplitChars, 2, StringSplitOptions.RemoveEmptyEntries))
+                .ToDictionary(split => split[0].Trim(), split => split[1].Trim());
         }
     }
 }

@@ -8,14 +8,9 @@ namespace Mirror.Examples.SyncDir // ".SyncDirection" would overshadow the enum
         public Color localColor = Color.white;
 
         [SyncVar] public int health;
-        readonly SyncList<int> list = new SyncList<int>();
+        private readonly SyncList<int> list = new();
 
-        public override void OnStartLocalPlayer()
-        {
-            textMesh.color = localColor;
-        }
-
-        void Update()
+        private void Update()
         {
             // show health and list for everyone
             textMesh.text = $"{health} / {list.Count}";
@@ -43,16 +38,21 @@ namespace Mirror.Examples.SyncDir // ".SyncDirection" would overshadow the enum
         }
 
         // show instructions
-        void OnGUI()
+        private void OnGUI()
         {
             if (!isLocalPlayer) return;
 
-            int width = 250;
-            int height = 50;
+            var width = 250;
+            var height = 50;
             GUI.color = localColor;
             GUI.Label(
                 new Rect(Screen.width / 2 - width / 2, Screen.height / 2 - height / 2, width, height),
                 "Press Space to increase your own health!\nPress L to add to your SyncList!");
+        }
+
+        public override void OnStartLocalPlayer()
+        {
+            textMesh.color = localColor;
         }
     }
 }

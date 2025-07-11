@@ -14,10 +14,6 @@ namespace Mirror.Transports.Encryption
     [HelpURL("https://mirror-networking.gitbook.io/docs/manual/transports/encryption-transport")]
     public class ThreadedEncryptionKcpTransport : ThreadedKcpTransport
     {
-        public override bool IsEncrypted => true;
-        public override string EncryptionCipher => "AES256-GCM";
-        public override string ToString() => $"Encrypted {base.ToString()}";
-
         public enum ValidationMode
         {
             Off,
@@ -25,141 +21,39 @@ namespace Mirror.Transports.Encryption
             Callback
         }
 
-        [HideInInspector]
-        public ValidationMode ClientValidateServerPubKey;
+        [HideInInspector] public ValidationMode ClientValidateServerPubKey;
 
-        [Tooltip("List of public key fingerprints the client will accept")]
-        [HideInInspector]
+        [Tooltip("List of public key fingerprints the client will accept")] [HideInInspector]
         public string[] ClientTrustedPubKeySignatures;
-        /// <summary>
-        /// Called when a client connects to a server
-        /// ATTENTION: NOT THREAD SAFE.
-        /// This will be called on the worker thread.
-        /// </summary>
-        public Func<PubKeyInfo, bool> OnClientValidateServerPubKey;
-        [HideInInspector]
-        [FormerlySerializedAs("serverLoadKeyPairFromFile")]
+
+        [HideInInspector] [FormerlySerializedAs("serverLoadKeyPairFromFile")]
         public bool ServerLoadKeyPairFromFile;
-        [HideInInspector]
-        [FormerlySerializedAs("serverKeypairPath")]
+
+        [HideInInspector] [FormerlySerializedAs("serverKeypairPath")]
         public string ServerKeypairPath = "./server-keys.json";
 
-        EncryptedConnection encryptedClient;
+        private readonly Dictionary<int, EncryptedConnection> serverConnections = new();
 
-        readonly Dictionary<int, EncryptedConnection> serverConnections = new Dictionary<int, EncryptedConnection>();
-
-        readonly List<EncryptedConnection> serverPendingConnections =
-            new List<EncryptedConnection>();
-
-        EncryptionCredentials credentials;
-        public string EncryptionPublicKeyFingerprint => credentials?.PublicKeyFingerprint;
-        public byte[] EncryptionPublicKey => credentials?.PublicKeySerialized;
+        private readonly List<EncryptedConnection> serverPendingConnections = new();
 
         // Used for threaded time keeping as unitys Time.time is not thread safe
-        Stopwatch stopwatch = Stopwatch.StartNew();
+        private readonly Stopwatch stopwatch = Stopwatch.StartNew();
 
-        void ServerRemoveFromPending(EncryptedConnection con)
-        {
-            for (int i = 0; i < serverPendingConnections.Count; i++)
-                if (serverPendingConnections[i] == con)
-                {
-                    // remove by swapping with last
-                    int lastIndex = serverPendingConnections.Count - 1;
-                    serverPendingConnections[i] = serverPendingConnections[lastIndex];
-                    serverPendingConnections.RemoveAt(lastIndex);
-                    break;
-                }
-        }
+        private EncryptionCredentials credentials;
 
-        void HandleInnerServerDisconnected(int connId)
-        {
-            if (serverConnections.TryGetValue(connId, out EncryptedConnection con))
-            {
-                ServerRemoveFromPending(con);
-                serverConnections.Remove(connId);
-            }
-            OnThreadedServerDisconnected(connId);
-        }
+        private EncryptedConnection encryptedClient;
 
-        void HandleInnerServerDataReceived(int connId, ArraySegment<byte> data, int channel)
-        {
-            if (serverConnections.TryGetValue(connId, out EncryptedConnection c))
-                c.OnReceiveRaw(data, channel);
-        }
+        /// <summary>
+        ///     Called when a client connects to a server
+        ///     ATTENTION: NOT THREAD SAFE.
+        ///     This will be called on the worker thread.
+        /// </summary>
+        public Func<PubKeyInfo, bool> OnClientValidateServerPubKey;
 
-
-        void HandleInnerServerConnected(int connId, IPEndPoint clientRemoteAddress)
-        {
-            Debug.Log($"[ThreadedEncryptionKcpTransport] New connection #{connId} from {clientRemoteAddress}");
-            EncryptedConnection ec = null;
-            ec = new EncryptedConnection(
-                credentials,
-                false,
-                (segment, channel) =>
-                {
-                    server.Send(connId, segment, KcpTransport.ToKcpChannel(channel));
-                    OnThreadedServerSend(connId, segment,channel);
-                },
-                (segment, channel) => OnThreadedServerReceive(connId, segment, channel),
-                () =>
-                {
-                    Debug.Log($"[ThreadedEncryptionKcpTransport] Connection #{connId} is ready");
-                    // ReSharper disable once AccessToModifiedClosure
-                    ServerRemoveFromPending(ec);
-                    OnThreadedServerConnected(connId, clientRemoteAddress);
-                },
-                (type, msg) =>
-                {
-                    OnThreadedServerError(connId, type, msg);
-                    ServerDisconnect(connId);
-                });
-            serverConnections.Add(connId, ec);
-            serverPendingConnections.Add(ec);
-        }
-
-        void HandleInnerClientDisconnected()
-        {
-            encryptedClient = null;
-            OnThreadedClientDisconnected();
-        }
-
-        void HandleInnerClientDataReceived(ArraySegment<byte> data, int channel) => encryptedClient?.OnReceiveRaw(data, channel);
-
-        void HandleInnerClientConnected() =>
-            encryptedClient = new EncryptedConnection(
-                credentials,
-                true,
-                (segment, channel) =>
-                {
-                    client.Send(segment, KcpTransport.ToKcpChannel(channel));
-                    OnThreadedClientSend(segment, channel);
-                },
-                (segment, channel) => OnThreadedClientReceive(segment, channel),
-                () =>
-                {
-                    OnThreadedClientConnected();
-                },
-                (type, msg) =>
-                {
-                    OnThreadedClientError(type, msg);
-                    ClientDisconnect();
-                },
-                HandleClientValidateServerPubKey);
-
-        bool HandleClientValidateServerPubKey(PubKeyInfo pubKeyInfo)
-        {
-            switch (ClientValidateServerPubKey)
-            {
-                case ValidationMode.Off:
-                    return true;
-                case ValidationMode.List:
-                    return Array.IndexOf(ClientTrustedPubKeySignatures, pubKeyInfo.Fingerprint) >= 0;
-                case ValidationMode.Callback:
-                    return OnClientValidateServerPubKey(pubKeyInfo);
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
+        public override bool IsEncrypted => true;
+        public override string EncryptionCipher => "AES256-GCM";
+        public string EncryptionPublicKeyFingerprint => credentials?.PublicKeyFingerprint;
+        public byte[] EncryptionPublicKey => credentials?.PublicKeySerialized;
 
         protected override void Awake()
         {
@@ -192,6 +86,117 @@ namespace Mirror.Transports.Encryption
             Debug.Log($"ThreadedEncryptionKcpTransport: IsHardwareAccelerated={AesUtilities.IsHardwareAccelerated}");
         }
 
+        public override string ToString()
+        {
+            return $"Encrypted {base.ToString()}";
+        }
+
+        private void ServerRemoveFromPending(EncryptedConnection con)
+        {
+            for (var i = 0; i < serverPendingConnections.Count; i++)
+                if (serverPendingConnections[i] == con)
+                {
+                    // remove by swapping with last
+                    var lastIndex = serverPendingConnections.Count - 1;
+                    serverPendingConnections[i] = serverPendingConnections[lastIndex];
+                    serverPendingConnections.RemoveAt(lastIndex);
+                    break;
+                }
+        }
+
+        private void HandleInnerServerDisconnected(int connId)
+        {
+            if (serverConnections.TryGetValue(connId, out var con))
+            {
+                ServerRemoveFromPending(con);
+                serverConnections.Remove(connId);
+            }
+
+            OnThreadedServerDisconnected(connId);
+        }
+
+        private void HandleInnerServerDataReceived(int connId, ArraySegment<byte> data, int channel)
+        {
+            if (serverConnections.TryGetValue(connId, out var c))
+                c.OnReceiveRaw(data, channel);
+        }
+
+
+        private void HandleInnerServerConnected(int connId, IPEndPoint clientRemoteAddress)
+        {
+            Debug.Log($"[ThreadedEncryptionKcpTransport] New connection #{connId} from {clientRemoteAddress}");
+            EncryptedConnection ec = null;
+            ec = new EncryptedConnection(
+                credentials,
+                false,
+                (segment, channel) =>
+                {
+                    server.Send(connId, segment, KcpTransport.ToKcpChannel(channel));
+                    OnThreadedServerSend(connId, segment, channel);
+                },
+                (segment, channel) => OnThreadedServerReceive(connId, segment, channel),
+                () =>
+                {
+                    Debug.Log($"[ThreadedEncryptionKcpTransport] Connection #{connId} is ready");
+                    // ReSharper disable once AccessToModifiedClosure
+                    ServerRemoveFromPending(ec);
+                    OnThreadedServerConnected(connId, clientRemoteAddress);
+                },
+                (type, msg) =>
+                {
+                    OnThreadedServerError(connId, type, msg);
+                    ServerDisconnect(connId);
+                });
+            serverConnections.Add(connId, ec);
+            serverPendingConnections.Add(ec);
+        }
+
+        private void HandleInnerClientDisconnected()
+        {
+            encryptedClient = null;
+            OnThreadedClientDisconnected();
+        }
+
+        private void HandleInnerClientDataReceived(ArraySegment<byte> data, int channel)
+        {
+            encryptedClient?.OnReceiveRaw(data, channel);
+        }
+
+        private void HandleInnerClientConnected()
+        {
+            encryptedClient = new EncryptedConnection(
+                credentials,
+                true,
+                (segment, channel) =>
+                {
+                    client.Send(segment, KcpTransport.ToKcpChannel(channel));
+                    OnThreadedClientSend(segment, channel);
+                },
+                (segment, channel) => OnThreadedClientReceive(segment, channel),
+                () => { OnThreadedClientConnected(); },
+                (type, msg) =>
+                {
+                    OnThreadedClientError(type, msg);
+                    ClientDisconnect();
+                },
+                HandleClientValidateServerPubKey);
+        }
+
+        private bool HandleClientValidateServerPubKey(PubKeyInfo pubKeyInfo)
+        {
+            switch (ClientValidateServerPubKey)
+            {
+                case ValidationMode.Off:
+                    return true;
+                case ValidationMode.List:
+                    return Array.IndexOf(ClientTrustedPubKeySignatures, pubKeyInfo.Fingerprint) >= 0;
+                case ValidationMode.Callback:
+                    return OnClientValidateServerPubKey(pubKeyInfo);
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
         protected override void ThreadedClientConnect(string address)
         {
             if (!SetupEncryptionForClient())
@@ -199,9 +204,8 @@ namespace Mirror.Transports.Encryption
             base.ThreadedClientConnect(address);
         }
 
-        bool SetupEncryptionForClient()
+        private bool SetupEncryptionForClient()
         {
-
             switch (ClientValidateServerPubKey)
             {
                 case ValidationMode.Off:
@@ -212,6 +216,7 @@ namespace Mirror.Transports.Encryption
                         OnThreadedClientError(TransportError.Unexpected, "Validate Server Public Key is set to List, but the clientTrustedPubKeySignatures list is empty.");
                         return false;
                     }
+
                     break;
                 case ValidationMode.Callback:
                     if (OnClientValidateServerPubKey == null)
@@ -219,10 +224,12 @@ namespace Mirror.Transports.Encryption
                         OnThreadedClientError(TransportError.Unexpected, "Validate Server Public Key is set to Callback, but the onClientValidateServerPubKey handler is not set");
                         return false;
                     }
+
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+
             credentials = EncryptionCredentials.Generate();
             return true;
         }
@@ -250,13 +257,20 @@ namespace Mirror.Transports.Encryption
 
         protected override void ThreadedServerSend(int connectionId, ArraySegment<byte> segment, int channelId)
         {
-            if (serverConnections.TryGetValue(connectionId, out EncryptedConnection connection) && connection.IsReady)
+            if (serverConnections.TryGetValue(connectionId, out var connection) && connection.IsReady)
                 connection.Send(segment, channelId);
         }
 
 
-        public override int GetMaxPacketSize(int channelId = Channels.Reliable) => base.GetMaxPacketSize(channelId) - EncryptedConnection.Overhead;
-        public override int GetBatchThreshold(int channelId) => base.GetBatchThreshold(channelId) - EncryptedConnection.Overhead;
+        public override int GetMaxPacketSize(int channelId = Channels.Reliable)
+        {
+            return base.GetMaxPacketSize(channelId) - EncryptedConnection.Overhead;
+        }
+
+        public override int GetBatchThreshold(int channelId)
+        {
+            return base.GetBatchThreshold(channelId) - EncryptedConnection.Overhead;
+        }
 
         protected override void ThreadedClientLateUpdate()
         {
@@ -267,13 +281,12 @@ namespace Mirror.Transports.Encryption
         }
 
 
-
         protected override void ThreadedServerLateUpdate()
         {
             base.ThreadedServerLateUpdate();
             Profiler.BeginSample("ThreadedEncryptionKcpTransport.ServerLateUpdate");
             // Reverse iteration as entries can be removed while updating
-            for (int i = serverPendingConnections.Count - 1; i >= 0; i--)
+            for (var i = serverPendingConnections.Count - 1; i >= 0; i--)
                 serverPendingConnections[i].TickNonReady(stopwatch.Elapsed.TotalSeconds);
             Profiler.EndSample();
         }

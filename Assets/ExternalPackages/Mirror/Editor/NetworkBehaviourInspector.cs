@@ -1,7 +1,5 @@
 using System;
-using System.Reflection;
 using UnityEditor;
-using UnityEngine;
 
 namespace Mirror
 {
@@ -9,29 +7,38 @@ namespace Mirror
     [CanEditMultipleObjects]
     public class NetworkBehaviourInspector : Editor
     {
-        bool syncsAnything;
-        SyncObjectCollectionsDrawer syncObjectCollectionsDrawer;
+        private SyncObjectCollectionsDrawer syncObjectCollectionsDrawer;
+        private bool syncsAnything;
+
+        private void OnEnable()
+        {
+            // sometimes target is null. just return early.
+            if (target == null) return;
+
+            // If target's base class is changed from NetworkBehaviour to MonoBehaviour
+            // then Unity temporarily keep using this Inspector causing things to break
+            if (!(target is NetworkBehaviour)) return;
+
+            var scriptClass = target.GetType();
+
+            syncObjectCollectionsDrawer = new SyncObjectCollectionsDrawer(serializedObject.targetObject);
+
+            syncsAnything = SyncsAnything(scriptClass);
+        }
 
         // does this type sync anything? otherwise we don't need to show syncInterval
-        bool SyncsAnything(Type scriptClass)
+        private bool SyncsAnything(Type scriptClass)
         {
             // check for all SyncVar fields, they don't have to be visible
-            foreach (FieldInfo field in InspectorHelper.GetAllFields(scriptClass, typeof(NetworkBehaviour)))
-            {
+            foreach (var field in InspectorHelper.GetAllFields(scriptClass, typeof(NetworkBehaviour)))
                 if (field.IsSyncVar())
-                {
                     return true;
-                }
-            }
 
             // has OnSerialize that is not in NetworkBehaviour?
             // then it either has a syncvar or custom OnSerialize. either way
             // this means we have something to sync.
-            MethodInfo method = scriptClass.GetMethod("OnSerialize");
-            if (method != null && method.DeclaringType != typeof(NetworkBehaviour))
-            {
-                return true;
-            }
+            var method = scriptClass.GetMethod("OnSerialize");
+            if (method != null && method.DeclaringType != typeof(NetworkBehaviour)) return true;
 
             // SyncObjects are serialized in NetworkBehaviour.OnSerialize, which
             // is always there even if we don't use SyncObjects. so we need to
@@ -39,22 +46,6 @@ namespace Mirror
             // Any SyncObject should be added to syncObjects when unity creates an
             // object so we can check length of list so see if sync objects exists
             return ((NetworkBehaviour)serializedObject.targetObject).HasSyncObjects();
-        }
-
-        void OnEnable()
-        {
-            // sometimes target is null. just return early.
-            if (target == null) return;
-
-            // If target's base class is changed from NetworkBehaviour to MonoBehaviour
-            // then Unity temporarily keep using this Inspector causing things to break
-            if (!(target is NetworkBehaviour)) { return; }
-
-            Type scriptClass = target.GetType();
-
-            syncObjectCollectionsDrawer = new SyncObjectCollectionsDrawer(serializedObject.targetObject);
-
-            syncsAnything = SyncsAnything(scriptClass);
         }
 
         public override void OnInspectorGUI()
@@ -78,16 +69,13 @@ namespace Mirror
         {
             // does it sync anything? then show extra properties
             // (no need to show it if the class only has Cmds/Rpcs and no sync)
-            if (!syncsAnything)
-            {
-                return;
-            }
+            if (!syncsAnything) return;
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Sync Settings", EditorStyles.boldLabel);
 
             // sync direction
-            SerializedProperty syncDirection = serializedObject.FindProperty("syncDirection");
+            var syncDirection = serializedObject.FindProperty("syncDirection");
             EditorGUILayout.PropertyField(syncDirection);
 
             // sync mdoe: only show for ServerToClient components

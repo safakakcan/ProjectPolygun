@@ -7,10 +7,12 @@ namespace Mirror.SimpleWeb.Editor
     [CustomPropertyDrawer(typeof(ClientWebsocketSettings))]
     public class ClientWebsocketSettingsDrawer : PropertyDrawer
     {
-        readonly string websocketPortOptionName = nameof(ClientWebsocketSettings.ClientPortOption);
-        readonly string customPortName = nameof(ClientWebsocketSettings.CustomClientPort);
-        readonly GUIContent portOptionLabel =  new GUIContent("Client Port Option",
+        private readonly string customPortName = nameof(ClientWebsocketSettings.CustomClientPort);
+
+        private readonly GUIContent portOptionLabel = new("Client Port Option",
             "Specify what port the client websocket connection uses (default same as server port)");
+
+        private readonly string websocketPortOptionName = nameof(ClientWebsocketSettings.ClientPortOption);
 
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
@@ -23,14 +25,14 @@ namespace Mirror.SimpleWeb.Editor
             DrawPortSettings(position, property);
         }
 
-        void DrawPortSettings(Rect position, SerializedProperty property)
+        private void DrawPortSettings(Rect position, SerializedProperty property)
         {
-            SerializedProperty portOptionProp = property.FindPropertyRelative(websocketPortOptionName);
-            SerializedProperty portProp = property.FindPropertyRelative(customPortName);
-            float portOptionHeight = EditorGUI.GetPropertyHeight(portOptionProp);
-            float portHeight = EditorGUI.GetPropertyHeight(portProp);
-            float spacing = EditorGUIUtility.standardVerticalSpacing;
-            bool wasEnabled = GUI.enabled;
+            var portOptionProp = property.FindPropertyRelative(websocketPortOptionName);
+            var portProp = property.FindPropertyRelative(customPortName);
+            var portOptionHeight = EditorGUI.GetPropertyHeight(portOptionProp);
+            var portHeight = EditorGUI.GetPropertyHeight(portProp);
+            var spacing = EditorGUIUtility.standardVerticalSpacing;
+            var wasEnabled = GUI.enabled;
 
             position.height = portOptionHeight;
 
@@ -38,10 +40,10 @@ namespace Mirror.SimpleWeb.Editor
             position.y += spacing + portOptionHeight;
             position.height = portHeight;
 
-            WebsocketPortOption portOption = (WebsocketPortOption)portOptionProp.enumValueIndex;
+            var portOption = (WebsocketPortOption)portOptionProp.enumValueIndex;
             if (portOption == WebsocketPortOption.MatchWebpageProtocol || portOption == WebsocketPortOption.DefaultSameAsServer)
             {
-                int port = 0;
+                var port = 0;
                 if (property.serializedObject.targetObject is SimpleWebTransport swt)
                     if (portOption == WebsocketPortOption.MatchWebpageProtocol)
                         port = swt.clientUseWss ? 443 : 80;
@@ -53,12 +55,14 @@ namespace Mirror.SimpleWeb.Editor
                 GUI.enabled = wasEnabled;
             }
             else
+            {
                 EditorGUI.PropertyField(position, portProp);
+            }
 
             position.y += spacing + portHeight;
         }
 
-        float SumPropertyHeights(SerializedProperty property, params string[] propertyNames)
+        private float SumPropertyHeights(SerializedProperty property, params string[] propertyNames)
         {
             float totalHeight = 0;
             foreach (var name in propertyNames)

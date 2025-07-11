@@ -2,6 +2,7 @@ using System;
 using Edgegap;
 using UnityEngine;
 using UnityEngine.UI;
+
 namespace Mirror.Examples.EdgegapLobby
 {
     public class UILobbyStatus : MonoBehaviour
@@ -16,33 +17,20 @@ namespace Mirror.Examples.EdgegapLobby
         public Text StatusText;
         private Status _status;
         private EdgegapLobbyKcpTransport _transport;
-        enum Status
-        {
-            Offline,
-            Server,
-            Host,
-            Client
-        }
-        void Awake()
+
+        private void Awake()
         {
             Refresh();
-            StopServer.onClick.AddListener(() =>
-            {
-                NetworkManager.singleton.StopServer();
-            });
-            StopHost.onClick.AddListener(() =>
-            {
-                NetworkManager.singleton.StopHost();
-            });
-            StopClient.onClick.AddListener(() =>
-            {
-                NetworkManager.singleton.StopClient();
-            });
+            StopServer.onClick.AddListener(() => { NetworkManager.singleton.StopServer(); });
+            StopHost.onClick.AddListener(() => { NetworkManager.singleton.StopHost(); });
+            StopClient.onClick.AddListener(() => { NetworkManager.singleton.StopClient(); });
         }
+
         private void Start()
         {
             _transport = (EdgegapLobbyKcpTransport)NetworkManager.singleton.transport;
         }
+
         private void Update()
         {
             var status = GetStatus();
@@ -51,20 +39,17 @@ namespace Mirror.Examples.EdgegapLobby
                 _status = status;
                 Refresh();
             }
+
             if (_transport)
-            {
                 StatusText.text = _transport.Status.ToString();
-            }
             else
-            {
                 StatusText.text = "";
-            }
         }
+
         private void Refresh()
         {
             switch (_status)
             {
-
                 case Status.Offline:
                     SetUI(ShowServer, false);
                     SetUI(ShowHost, false);
@@ -96,26 +81,23 @@ namespace Mirror.Examples.EdgegapLobby
 
         private void SetUI(GameObject[] gos, bool active)
         {
-            foreach (GameObject go in gos)
-            {
-                go.SetActive(active);
-            }
+            foreach (var go in gos) go.SetActive(active);
         }
+
         private Status GetStatus()
         {
-            if (NetworkServer.active && NetworkClient.active)
-            {
-                return Status.Host;
-            }
-            if (NetworkServer.active)
-            {
-                return Status.Server;
-            }
-            if (NetworkClient.active)
-            {
-                return Status.Client;
-            }
+            if (NetworkServer.active && NetworkClient.active) return Status.Host;
+            if (NetworkServer.active) return Status.Server;
+            if (NetworkClient.active) return Status.Client;
             return Status.Offline;
+        }
+
+        private enum Status
+        {
+            Offline,
+            Server,
+            Host,
+            Client
         }
     }
 }

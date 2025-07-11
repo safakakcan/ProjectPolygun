@@ -6,7 +6,6 @@ namespace Mirror.Examples.Common.Controllers
     [DisallowMultipleComponent]
     public class ControllerUIBase : MonoBehaviour
     {
-
         // Returns a string representation of a KeyCode that is more suitable
         // for display in the UI than KeyCode.ToString() for "named" keys.
         internal string GetKeyText(KeyCode key)

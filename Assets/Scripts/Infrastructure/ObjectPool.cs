@@ -1,25 +1,23 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using ProjectPolygun.Core.Interfaces;
+using UnityEngine;
 
 namespace ProjectPolygun.Infrastructure
 {
     /// <summary>
-    /// Generic object pool implementation for performance optimization
+    ///     Generic object pool implementation for performance optimization
     /// </summary>
     /// <typeparam name="T">Type of objects to pool</typeparam>
     public class ObjectPool<T> : IObjectPool<T> where T : class
     {
-        private readonly Queue<T> _pool = new Queue<T>();
         private readonly Func<T> _createFunc;
         private readonly Action<T> _onGet;
         private readonly Action<T> _onReturn;
-
-        public int Count => _pool.Count;
+        private readonly Queue<T> _pool = new();
 
         /// <summary>
-        /// Create a new object pool
+        ///     Create a new object pool
         /// </summary>
         /// <param name="createFunc">Function to create new objects</param>
         /// <param name="onGet">Action to execute when getting object from pool</param>
@@ -31,18 +29,16 @@ namespace ProjectPolygun.Infrastructure
             _onReturn = onReturn;
         }
 
+        public int Count => _pool.Count;
+
         public T Get()
         {
             T obj;
-            
+
             if (_pool.Count > 0)
-            {
                 obj = _pool.Dequeue();
-            }
             else
-            {
                 obj = _createFunc();
-            }
 
             _onGet?.Invoke(obj);
             return obj;
@@ -67,7 +63,7 @@ namespace ProjectPolygun.Infrastructure
 
         public void Prewarm(int count)
         {
-            for (int i = 0; i < count; i++)
+            for (var i = 0; i < count; i++)
             {
                 var obj = _createFunc();
                 _onReturn?.Invoke(obj);
@@ -75,4 +71,4 @@ namespace ProjectPolygun.Infrastructure
             }
         }
     }
-} 
+}

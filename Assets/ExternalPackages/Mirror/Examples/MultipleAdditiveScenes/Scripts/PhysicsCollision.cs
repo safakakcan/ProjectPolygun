@@ -10,26 +10,18 @@ namespace Mirror.Examples.MultipleAdditiveScenes
 
         public Rigidbody rigidbody3D;
 
-        protected override void OnValidate()
-        {
-            base.OnValidate();
-
-            if (rigidbody3D == null)
-                rigidbody3D = GetComponent<Rigidbody>();
-        }
-
-        void Start()
+        private void Start()
         {
             rigidbody3D.isKinematic = !isServer;
         }
 
         [ServerCallback]
-        void OnCollisionStay(Collision other)
+        private void OnCollisionStay(Collision other)
         {
             if (other.gameObject.CompareTag("Player"))
             {
                 // get direction from which player is contacting object
-                Vector3 direction = other.contacts[0].normal;
+                var direction = other.contacts[0].normal;
 
                 // zero the y and normalize so we don't shove this through the floor or launch this over the wall
                 direction.y = 0;
@@ -41,6 +33,14 @@ namespace Mirror.Examples.MultipleAdditiveScenes
                 else
                     rigidbody3D.AddForce(direction * force);
             }
+        }
+
+        protected override void OnValidate()
+        {
+            base.OnValidate();
+
+            if (rigidbody3D == null)
+                rigidbody3D = GetComponent<Rigidbody>();
         }
     }
 }

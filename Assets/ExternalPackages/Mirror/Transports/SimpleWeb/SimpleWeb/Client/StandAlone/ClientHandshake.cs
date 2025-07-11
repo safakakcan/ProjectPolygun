@@ -1,13 +1,12 @@
 using System;
-using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace Mirror.SimpleWeb
 {
     /// <summary>
-    /// Handles Handshake to the server when it first connects
-    /// <para>The client handshake does not need buffers to reduce allocations since it only happens once</para>
+    ///     Handles Handshake to the server when it first connects
+    ///     <para>The client handshake does not need buffers to reduce allocations since it only happens once</para>
     /// </summary>
     internal class ClientHandshake
     {
@@ -15,38 +14,40 @@ namespace Mirror.SimpleWeb
         {
             try
             {
-                Stream stream = conn.stream;
+                var stream = conn.stream;
 
-                byte[] keyBuffer = new byte[16];
-                using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
+                var keyBuffer = new byte[16];
+                using (var rng = new RNGCryptoServiceProvider())
+                {
                     rng.GetBytes(keyBuffer);
+                }
 
-                string key = Convert.ToBase64String(keyBuffer);
-                string keySum = key + Constants.HandshakeGUID;
-                byte[] keySumBytes = Encoding.ASCII.GetBytes(keySum);
+                var key = Convert.ToBase64String(keyBuffer);
+                var keySum = key + Constants.HandshakeGUID;
+                var keySumBytes = Encoding.ASCII.GetBytes(keySum);
                 Log.Verbose("[SWT-ClientHandshake]: Handshake Hashing {0}", Encoding.ASCII.GetString(keySumBytes));
 
                 // SHA-1 is the websocket standard:
                 // https://www.rfc-editor.org/rfc/rfc6455
                 // we should follow the standard, even though SHA1 is considered weak:
                 // https://stackoverflow.com/questions/38038841/why-is-sha-1-considered-insecure
-                byte[] keySumHash = SHA1.Create().ComputeHash(keySumBytes);
+                var keySumHash = SHA1.Create().ComputeHash(keySumBytes);
 
-                string expectedResponse = Convert.ToBase64String(keySumHash);
-                string handshake =
+                var expectedResponse = Convert.ToBase64String(keySumHash);
+                var handshake =
                     $"GET {uri.PathAndQuery} HTTP/1.1\r\n" +
                     $"Host: {uri.Host}:{uri.Port}\r\n" +
-                    $"Upgrade: websocket\r\n" +
-                    $"Connection: Upgrade\r\n" +
+                    "Upgrade: websocket\r\n" +
+                    "Connection: Upgrade\r\n" +
                     $"Sec-WebSocket-Key: {key}\r\n" +
-                    $"Sec-WebSocket-Version: 13\r\n" +
+                    "Sec-WebSocket-Version: 13\r\n" +
                     "\r\n";
-                byte[] encoded = Encoding.ASCII.GetBytes(handshake);
+                var encoded = Encoding.ASCII.GetBytes(handshake);
                 stream.Write(encoded, 0, encoded.Length);
 
-                byte[] responseBuffer = new byte[1000];
+                var responseBuffer = new byte[1000];
 
-                int? lengthOrNull = ReadHelper.SafeReadTillMatch(stream, responseBuffer, 0, responseBuffer.Length, Constants.endOfHandshake);
+                var lengthOrNull = ReadHelper.SafeReadTillMatch(stream, responseBuffer, 0, responseBuffer.Length, Constants.endOfHandshake);
 
                 if (!lengthOrNull.HasValue)
                 {
@@ -54,11 +55,11 @@ namespace Mirror.SimpleWeb
                     return false;
                 }
 
-                string responseString = Encoding.ASCII.GetString(responseBuffer, 0, lengthOrNull.Value);
+                var responseString = Encoding.ASCII.GetString(responseBuffer, 0, lengthOrNull.Value);
                 Log.Verbose("[SWT-ClientHandshake]: Handshake Response {0}", responseString);
 
-                string acceptHeader = "Sec-WebSocket-Accept: ";
-                int startIndex = responseString.IndexOf(acceptHeader, StringComparison.InvariantCultureIgnoreCase);
+                var acceptHeader = "Sec-WebSocket-Accept: ";
+                var startIndex = responseString.IndexOf(acceptHeader, StringComparison.InvariantCultureIgnoreCase);
 
                 if (startIndex < 0)
                 {
@@ -67,8 +68,8 @@ namespace Mirror.SimpleWeb
                 }
 
                 startIndex += acceptHeader.Length;
-                int endIndex = responseString.IndexOf("\r\n", startIndex);
-                string responseKey = responseString.Substring(startIndex, endIndex - startIndex);
+                var endIndex = responseString.IndexOf("\r\n", startIndex);
+                var responseKey = responseString.Substring(startIndex, endIndex - startIndex);
 
                 if (responseKey != expectedResponse)
                 {

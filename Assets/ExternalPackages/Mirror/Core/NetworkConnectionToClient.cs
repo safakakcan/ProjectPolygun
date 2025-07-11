@@ -7,15 +7,6 @@ namespace Mirror
 {
     public class NetworkConnectionToClient : NetworkConnection
     {
-        // rpcs are collected in a buffer, and then flushed out together.
-        // this way we don't need one NetworkMessage per rpc.
-        // => prepares for LocalWorldState as well.
-        // ensure max size when adding!
-        readonly NetworkWriter reliableRpcs = new NetworkWriter();
-        readonly NetworkWriter unreliableRpcs = new NetworkWriter();
-
-        public virtual string address { get; private set; }
-
         /// <summary>Unique identifier for this connection that is assigned by the transport layer.</summary>
         // assigned by transport, this id is unique for every connection on server.
         // clients don't know their own id and they don't know other client's ids.
@@ -23,10 +14,20 @@ namespace Mirror
 
         /// <summary>NetworkIdentities that this connection can see</summary>
         // TODO move to server's NetworkConnectionToClient?
-        public readonly HashSet<NetworkIdentity> observing = new HashSet<NetworkIdentity>();
+        public readonly HashSet<NetworkIdentity> observing = new();
 
-        // unbatcher
-        public Unbatcher unbatcher = new Unbatcher();
+        // rpcs are collected in a buffer, and then flushed out together.
+        // this way we don't need one NetworkMessage per rpc.
+        // => prepares for LocalWorldState as well.
+        // ensure max size when adding!
+        private readonly NetworkWriter reliableRpcs = new();
+
+        // <clienttime, snaps>
+        private readonly SortedList<double, TimeSnapshot> snapshots = new();
+        private readonly NetworkWriter unreliableRpcs = new();
+        internal ExponentialMovingAverage _rtt = new(NetworkTime.PingWindowSize);
+        private double bufferTimeMultiplier = 2;
+        private ExponentialMovingAverage deliveryTimeEma; // average delivery time (standard deviation gives average jitter)
 
         // server runs a time snapshot interpolation for each client's local time.
         // this is necessary for client auth movement to still be smooth on the
@@ -34,30 +35,25 @@ namespace Mirror
         // TODO move them along server's timeline in the future.
         //      perhaps with an offset.
         //      for now, keep compatibility by manually constructing a timeline.
-        ExponentialMovingAverage driftEma;
-        ExponentialMovingAverage deliveryTimeEma; // average delivery time (standard deviation gives average jitter)
+        private ExponentialMovingAverage driftEma;
+
+        // ping for rtt (round trip time)
+        // useful for statistics, lag compensation, etc.
+        private double lastPingTime;
         public double remoteTimeline;
         public double remoteTimescale;
-        double bufferTimeMultiplier = 2;
-        double bufferTime => NetworkServer.sendInterval * bufferTimeMultiplier;
-
-        // <clienttime, snaps>
-        readonly SortedList<double, TimeSnapshot> snapshots = new SortedList<double, TimeSnapshot>();
 
         // Snapshot Buffer size limit to avoid ever growing list memory consumption attacks from clients.
         public int snapshotBufferSizeLimit = 64;
 
-        // ping for rtt (round trip time)
-        // useful for statistics, lag compensation, etc.
-        double lastPingTime = 0;
-        internal ExponentialMovingAverage _rtt = new ExponentialMovingAverage(NetworkTime.PingWindowSize);
+        // unbatcher
+        public Unbatcher unbatcher = new();
 
-        /// <summary>Round trip time (in seconds) that it takes a message to go server->client->server.</summary>
-        public double rtt => _rtt.Value;
+        internal NetworkConnectionToClient()
+        {
+        }
 
-        internal NetworkConnectionToClient() : base() { }
-
-        public NetworkConnectionToClient(int networkConnectionId, string clientAddress = "localhost") : base()
+        public NetworkConnectionToClient(int networkConnectionId, string clientAddress = "localhost")
         {
             connectionId = networkConnectionId;
             address = clientAddress;
@@ -72,7 +68,16 @@ namespace Mirror
             snapshotBufferSizeLimit = Mathf.Max((int)NetworkClient.snapshotSettings.bufferTimeMultiplier, snapshotBufferSizeLimit);
         }
 
-        public override string ToString() => $"connection({connectionId})";
+        public virtual string address { get; private set; }
+        private double bufferTime => NetworkServer.sendInterval * bufferTimeMultiplier;
+
+        /// <summary>Round trip time (in seconds) that it takes a message to go server->client->server.</summary>
+        public double rtt => _rtt.Value;
+
+        public override string ToString()
+        {
+            return $"connection({connectionId})";
+        }
 
         public void OnTimeSnapshot(TimeSnapshot snapshot)
         {
@@ -81,7 +86,6 @@ namespace Mirror
 
             // (optional) dynamic adjustment
             if (NetworkClient.snapshotSettings.dynamicAdjustment)
-            {
                 // set bufferTime on the fly.
                 // shows in inspector for easier debugging :)
                 bufferTimeMultiplier = SnapshotInterpolation.DynamicAdjustment(
@@ -89,9 +93,7 @@ namespace Mirror
                     deliveryTimeEma.StandardDeviation,
                     NetworkClient.snapshotSettings.dynamicAdjustmentTolerance
                 );
-                // Debug.Log($"[Server]: {name} delivery std={serverDeliveryTimeEma.StandardDeviation} bufferTimeMult := {bufferTimeMultiplier} ");
-            }
-
+            // Debug.Log($"[Server]: {name} delivery std={serverDeliveryTimeEma.StandardDeviation} bufferTimeMult := {bufferTimeMultiplier} ");
             // insert into the server buffer & initialize / adjust / catchup
             SnapshotInterpolation.InsertAndAdjust(
                 snapshots,
@@ -128,8 +130,10 @@ namespace Mirror
 
         // Send stage three: hand off to transport
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void SendToTransport(ArraySegment<byte> segment, int channelId = Channels.Reliable) =>
+        protected override void SendToTransport(ArraySegment<byte> segment, int channelId = Channels.Reliable)
+        {
             Transport.active.ServerSend(connectionId, segment, channelId);
+        }
 
         protected virtual void UpdatePing()
         {
@@ -140,7 +144,7 @@ namespace Mirror
                 // messages' timestamp and only send a message number.
                 // This way client's can't just modify the timestamp.
                 // predictedTime parameter is 0 because the server doesn't predict.
-                NetworkPingMessage pingMessage = new NetworkPingMessage(NetworkTime.localTime, 0);
+                var pingMessage = new NetworkPingMessage(NetworkTime.localTime, 0);
                 Send(pingMessage, Channels.Unreliable);
                 lastPingTime = NetworkTime.localTime;
             }
@@ -182,18 +186,13 @@ namespace Mirror
             observing.Remove(netIdentity);
 
             if (!isDestroyed)
-            {
                 // hide identity for this conn
                 NetworkServer.HideForConnection(netIdentity, this);
-            }
         }
 
         internal void RemoveFromObservingsObservers()
         {
-            foreach (NetworkIdentity netIdentity in observing)
-            {
-                netIdentity.RemoveObserver(this);
-            }
+            foreach (var netIdentity in observing) netIdentity.RemoveObserver(this);
             observing.Clear();
         }
 
@@ -210,18 +209,16 @@ namespace Mirror
         internal void DestroyOwnedObjects()
         {
             // create a copy because the list might be modified when destroying
-            HashSet<NetworkIdentity> tmp = new HashSet<NetworkIdentity>(owned);
-            foreach (NetworkIdentity netIdentity in tmp)
-            {
+            var tmp = new HashSet<NetworkIdentity>(owned);
+            foreach (var netIdentity in tmp)
                 if (netIdentity != null)
                 {
                     // disown scene objects, destroy instantiated objects.
                     if (netIdentity.sceneId != 0)
-                        NetworkServer.RemovePlayerForConnection(this, RemovePlayerOptions.KeepActive);
+                        NetworkServer.RemovePlayerForConnection(this);
                     else
                         NetworkServer.Destroy(netIdentity.gameObject);
                 }
-            }
 
             // clear the hashset because we destroyed them all
             owned.Clear();

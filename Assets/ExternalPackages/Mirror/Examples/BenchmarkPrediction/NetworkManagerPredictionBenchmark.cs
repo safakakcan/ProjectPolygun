@@ -5,10 +5,10 @@ namespace Mirror.Examples.PredictionBenchmark
     [AddComponentMenu("")]
     public class NetworkManagerPredictionBenchmark : NetworkManager
     {
-        [Header("Spawns")]
-        public int spawnAmount = 1000;
+        [Header("Spawns")] public int spawnAmount = 1000;
+
         public GameObject spawnPrefab;
-        public Bounds spawnArea = new Bounds(new Vector3(0, 2.5f, 0), new Vector3(10f, 5f, 10f));
+        public Bounds spawnArea = new(new Vector3(0, 2.5f, 0), new Vector3(10f, 5f, 10f));
 
         public override void Awake()
         {
@@ -18,19 +18,19 @@ namespace Mirror.Examples.PredictionBenchmark
             QualitySettings.vSyncCount = 0;
         }
 
-        void SpawnAll()
+        private void SpawnAll()
         {
             // spawn randomly inside the cage
-            for (int i = 0; i < spawnAmount; ++i)
+            for (var i = 0; i < spawnAmount; ++i)
             {
                 // choose a random point within the cage
-                float x = Random.Range(spawnArea.min.x, spawnArea.max.x);
-                float y = Random.Range(spawnArea.min.y, spawnArea.max.y);
-                float z = Random.Range(spawnArea.min.z, spawnArea.max.z);
-                Vector3 position = new Vector3(x, y, z);
+                var x = Random.Range(spawnArea.min.x, spawnArea.max.x);
+                var y = Random.Range(spawnArea.min.y, spawnArea.max.y);
+                var z = Random.Range(spawnArea.min.z, spawnArea.max.z);
+                var position = new Vector3(x, y, z);
 
                 // spawn & position
-                GameObject go = Instantiate(spawnPrefab);
+                var go = Instantiate(spawnPrefab);
                 go.transform.position = position;
                 NetworkServer.Spawn(go);
             }

@@ -1,4 +1,5 @@
 // a simple snapshot with timestamp & interpolation
+
 using UnityEngine;
 
 namespace Mirror.Examples.LagCompensationDemo
@@ -16,11 +17,13 @@ namespace Mirror.Examples.LagCompensationDemo
             this.position = position;
         }
 
-        public static Snapshot3D Interpolate(Snapshot3D from, Snapshot3D to, double t) =>
-            new Snapshot3D(
+        public static Snapshot3D Interpolate(Snapshot3D from, Snapshot3D to, double t)
+        {
+            return new Snapshot3D(
                 // interpolated snapshot is applied directly. don't need timestamps.
                 0, 0,
                 // lerp unclamped in case we ever need to extrapolate.
                 Vector3.LerpUnclamped(from.position, to.position, (float)t));
+        }
     }
 }

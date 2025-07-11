@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Mirror.Examples.Common.Controllers.Tank;
+using UnityEngine;
 
 namespace Mirror.Examples.Common
 {
@@ -8,23 +9,15 @@ namespace Mirror.Examples.Common
     [DisallowMultipleComponent]
     public class TankProjectile : MonoBehaviour
     {
-        [Header("Components")]
-        public Rigidbody rigidBody;
+        [Header("Components")] public Rigidbody rigidBody;
+
         public CapsuleCollider capsuleCollider;
 
-        [Header("Settings")]
-        public float destroyAfter = 3f;
+        [Header("Settings")] public float destroyAfter = 3f;
+
         public float force = 1000f;
 
-        enum CapsuleColliderDirection { XAxis, YAxis, ZAxis }
-
-        void OnValidate()
-        {
-            if (Application.isPlaying) return;
-            Reset();
-        }
-
-        void Reset()
+        private void Reset()
         {
             rigidBody = GetComponent<Rigidbody>();
             rigidBody.useGravity = false;
@@ -39,20 +32,33 @@ namespace Mirror.Examples.Common
 
         // set velocity for server and client. this way we don't have to sync the
         // position, because both the server and the client simulate it.
-        void Start()
+        private void Start()
         {
             rigidBody.AddForce(transform.forward * force);
             Destroy(gameObject, destroyAfter);
         }
 
-        void OnCollisionEnter(Collision collision)
+        private void OnCollisionEnter(Collision collision)
         {
             //Debug.Log($"Hit: {collision.gameObject}");
 
-            if (NetworkServer.active && collision.gameObject.TryGetComponent(out Controllers.Tank.TankHealth tankHealth))
+            if (NetworkServer.active && collision.gameObject.TryGetComponent(out TankHealth tankHealth))
                 tankHealth.TakeDamage(1);
 
             Destroy(gameObject);
+        }
+
+        private void OnValidate()
+        {
+            if (Application.isPlaying) return;
+            Reset();
+        }
+
+        private enum CapsuleColliderDirection
+        {
+            XAxis,
+            YAxis,
+            ZAxis
         }
     }
 }

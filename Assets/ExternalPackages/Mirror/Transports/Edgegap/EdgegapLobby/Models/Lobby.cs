@@ -1,5 +1,5 @@
 using System;
-using UnityEngine;
+
 namespace Edgegap
 {
     // https://docs.edgegap.com/docs/lobby/functions#getting-a-specific-lobbys-information
